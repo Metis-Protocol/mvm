@@ -31,19 +31,24 @@ if [[ ! -z "$URL" ]]; then
     fi
 fi
 
-# wait for the dtl to be up, else geth will crash if it cannot connect
-echo "ROLLUP_CLIENT_HTTP => $ROLLUP_CLIENT_HTTP">> /app/log/t_geth.log
-CMD="$ROLLUP_CLIENT_HTTP/eth/syncing/$CHAIN_ID"
-echo "CMD => $CMD">> /app/log/t_geth.log
-curl \
-    --fail \
-    --show-error \
-    --silent \
-    --output /dev/null \
-    --retry-connrefused \
-    --retry $RETRIES \
-    --retry-delay 1 \
-    $CMD
+JSON='{"jsonrpc":"2.0","id":0,"method":"admin_nodeInfo","params":[]}'
+NODE_INFO=$(curl --silent --fail --show-error -H "Content-Type: application/json" --retry-connrefused --retry $RETRIES --retry-delay 3  -d $JSON $L2_URL)
+echo "NODE_INFO => $NODE_INFO">> /app/log/t_geth.log
+
+NODE_ENODE=$(echo $NODE_INFO | jq -r '.result.enode')
+NODE_IP=$(echo $NODE_INFO | jq -r '.result.ip')
+
+# if [ "$NODE_IP" = "127.0.0.1" ];then
+#     HOST_IP=$(/sbin/ip route | awk '/default/ { print $3 }')
+#     NODE_ENODE=${NODE_ENODE//127.0.0.1/$HOST_IP}
+# fi
+IP=$(echo "$L2_URL"|awk -F'[/:]' '{print $4}')
+NODE_ENODE=$(echo "$NODE_ENODE"|sed "s/$NODE_IP/$IP/g")
+
+mkdir $(echo $DATADIR)
+touch $(echo $DATADIR)/static-nodes.json
+
+echo "[\"$NODE_ENODE\"]" > $(echo $DATADIR)/static-nodes.json
 
 #exec geth --verbosity="$VERBOSITY" "$@"
 nohup geth --verbosity="$VERBOSITY" "$@" >> /app/log/t_geth.log &

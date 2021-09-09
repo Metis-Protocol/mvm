@@ -30,7 +30,7 @@ $dtl
 dtl_push="docker push 950087689901.dkr.ecr.$region.amazonaws.com/metis-dtl:latest"
 $dtl_push
 
-echo 'Pushing data-transport-layer'
+echo 'Pushing batch-submitter'
 bs="docker tag ethereumoptimism/batch-submitter:latest 950087689901.dkr.ecr.$region.amazonaws.com/metis-l2-bs:latest"
 $bs
 bs_push="docker push 950087689901.dkr.ecr.$region.amazonaws.com/metis-l2-bs:latest"
