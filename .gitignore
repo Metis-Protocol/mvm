@@ -3,6 +3,7 @@ node_modules
 results
 temp
 .nyc_output
+coverage.json
 *.tsbuildinfo
 
 dist
@@ -24,3 +25,4 @@ packages/data-transport-layer/db
 *.swp
 
 .env
+*.log
