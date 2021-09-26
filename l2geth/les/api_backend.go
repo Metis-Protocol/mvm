@@ -21,23 +21,22 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/math"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/bloombits"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/diffdb"
-	"github.com/MetisProtocol/l2geth/eth/downloader"
-	"github.com/MetisProtocol/l2geth/eth/gasprice"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/light"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/light"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type LesApiBackend struct {
@@ -76,10 +75,6 @@ func (b *LesApiBackend) ChainConfig() *params.ChainConfig {
 
 func (b *LesApiBackend) CurrentBlock() *types.Block {
 	return types.NewBlockWithHeader(b.eth.BlockChain().CurrentHeader())
-}
-
-func (b *LesApiBackend) GetDiff(*big.Int) (diffdb.Diff, error) {
-	return nil, errors.New("Diffs not supported in light client mode")
 }
 
 func (b *LesApiBackend) SetHead(number uint64) {
@@ -208,10 +203,6 @@ func (b *LesApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 
 func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.Add(ctx, signedTx)
-}
-
-func (b *LesApiBackend) SetTimestamp(timestamp int64) {
-	// Intentionally empty because this is not needed for LightChain
 }
 
 func (b *LesApiBackend) RemoveTx(txHash common.Hash) {

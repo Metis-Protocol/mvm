@@ -22,8 +22,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/core/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.
@@ -120,15 +120,9 @@ type CallMsg struct {
 	Value    *big.Int        // amount of wei sent along with the call
 	Data     []byte          // input data, usually an ABI-encoded contract method invocation
 
-	L1MessageSender   *common.Address
-	L1BlockNumber     *big.Int
-	QueueOrigin       *big.Int
-	SignatureHashType types.SignatureHashType
-
-	// NOTE 20210724
-	// L1Timestamp uint64
-	// Index       *uint64
-	// QueueIndex  *uint64
+	L1MessageSender *common.Address
+	L1BlockNumber   *big.Int
+	QueueOrigin     types.QueueOrigin
 }
 
 // A ContractCaller provides contract calls, essentially transactions that are executed by

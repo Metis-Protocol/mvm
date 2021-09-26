@@ -23,10 +23,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/accounts/keystore"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/crypto"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (

@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/metrics"
+	"github.com/ethereum/go-ethereum/metrics"
 )
 
 func init() {

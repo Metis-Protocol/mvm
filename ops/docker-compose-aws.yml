@@ -59,7 +59,7 @@ services:
     image: ethereumoptimism/l2geth
     build:
       context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth
+      dockerfile: ./ops/docker/Dockerfile.geth.aws
     # override with the geth script and the env vars required for it
     entrypoint: sh ./geth.sh
     env_file:
@@ -84,7 +84,7 @@ services:
     image: ethereumoptimism/l2geth-peer
     build:
       context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth.peer
+      dockerfile: ./ops/docker/Dockerfile.geth.peer.aws
     # override with the geth script and the env vars required for it
     entrypoint: sh ./geth-peer.sh
     env_file:

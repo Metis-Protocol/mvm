@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/params"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 const (

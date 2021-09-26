@@ -11,8 +11,8 @@ import { iOVM_L2ToL1MessagePasser } from "../../iOVM/predeploys/iOVM_L2ToL1Messa
  * _verifyStorageProof function, which verifies the existence of the transaction hash in this
  * contract's `sentMessages` mapping.
  *
- * Compiler used: solc
- * Runtime target: EVM
+ * Compiler used: optimistic-solc
+ * Runtime target: OVM
  */
 contract OVM_L2ToL1MessagePasser is iOVM_L2ToL1MessagePasser {
 
@@ -21,7 +21,6 @@ contract OVM_L2ToL1MessagePasser is iOVM_L2ToL1MessagePasser {
      **********************/
 
     mapping (bytes32 => bool) public sentMessages;
-
 
     /********************
      * Public Functions *
@@ -37,9 +36,9 @@ contract OVM_L2ToL1MessagePasser is iOVM_L2ToL1MessagePasser {
         override
         public
     {
-        // Note: although this function is public, only messages sent from the OVM_L2CrossDomainMessenger
-        // will be relayed by the OVM_L1CrossDomainMessenger. This is enforced by a check in
-        // OVM_L1CrossDomainMessenger._verifyStorageProof().
+        // Note: although this function is public, only messages sent from the
+        // OVM_L2CrossDomainMessenger will be relayed by the OVM_L1CrossDomainMessenger.
+        // This is enforced by a check in OVM_L1CrossDomainMessenger._verifyStorageProof().
         sentMessages[keccak256(
             abi.encodePacked(
                 _message,

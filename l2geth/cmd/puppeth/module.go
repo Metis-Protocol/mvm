@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/log"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (

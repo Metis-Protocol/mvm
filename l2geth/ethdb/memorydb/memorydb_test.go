@@ -19,8 +19,8 @@ package memorydb
 import (
 	"testing"
 
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/ethdb/dbtest"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/dbtest"
 )
 
 func TestMemoryDB(t *testing.T) {

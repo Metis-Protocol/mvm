@@ -21,19 +21,18 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/bloombits"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/diffdb"
-	"github.com/MetisProtocol/l2geth/eth/downloader"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // Backend interface provides the common API services (that are provided by
@@ -87,13 +86,11 @@ type Backend interface {
 	CurrentBlock() *types.Block
 
 	// Optimism-specific API
-	SetTimestamp(timestamp int64)
 	IsVerifier() bool
 	IsSyncing() bool
 	GetEthContext() (uint64, uint64)
 	GetRollupContext() (uint64, uint64, uint64)
 	GasLimit() uint64
-	GetDiff(*big.Int) (diffdb.Diff, error)
 	SuggestL1GasPrice(ctx context.Context) (*big.Int, error)
 	SetL1GasPrice(context.Context, *big.Int) error
 	SuggestL2GasPrice(context.Context) (*big.Int, error)

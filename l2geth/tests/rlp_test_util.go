@@ -24,7 +24,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // RLPTest is the JSON structure of a single RLP test.

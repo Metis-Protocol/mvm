@@ -1,5 +1,17 @@
 # @eth-optimism/common-ts
 
+## 0.1.5
+
+### Patch Changes
+
+- c73c3939: Update the typescript version to `4.3.5`
+
+## 0.1.4
+
+### Patch Changes
+
+- 5c89c45f: Move the metric prefix string to a label #1047
+
 ## 0.1.3
 
 ### Patch Changes

@@ -21,8 +21,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/event"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/event"
 )
 
 // Config contains the settings of the global account manager.

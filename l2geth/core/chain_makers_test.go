@@ -20,18 +20,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/consensus/ethash"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/params"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 func ExampleGenerateChain() {
-	fmt.Println("OVM breaks this... SKIPPING: Example Generate Chain fails because of the genesis.")
-	return
-
 	var (
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		key2, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
@@ -95,9 +92,9 @@ func ExampleGenerateChain() {
 	fmt.Println("balance of addr1:", state.GetBalance(addr1))
 	fmt.Println("balance of addr2:", state.GetBalance(addr2))
 	fmt.Println("balance of addr3:", state.GetBalance(addr3))
-	// 	// Output:
-	// 	// last block: #5
-	// 	// balance of addr1: 989000
-	// 	// balance of addr2: 10000
-	// 	// balance of addr3: 19687500000000001000
+	// Output:
+	// last block: #5
+	// balance of addr1: 989000
+	// balance of addr2: 10000
+	// balance of addr3: 19687500000000001000
 }

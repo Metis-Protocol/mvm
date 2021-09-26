@@ -21,13 +21,13 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -324,10 +324,6 @@ func ReadBody(db ethdb.Reader, hash common.Hash, number uint64) *types.Body {
 
 // WriteBody stores a block body into the database.
 func WriteBody(db ethdb.KeyValueWriter, hash common.Hash, number uint64, body *types.Body) {
-	for i := 0; i < len(body.Transactions); i++ {
-		log.Debug("Test: WriteBody", "chainId", body.Transactions[i].ChainId())
-		log.Debug("Test: WriteBody", "meta L1Timestamp", body.Transactions[i].GetMeta().L1Timestamp, "L1MessageSender", body.Transactions[i].GetMeta().L1MessageSender, "Index", body.Transactions[i].GetMeta().Index)
-	}
 	data, err := rlp.EncodeToBytes(body)
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
@@ -342,6 +338,7 @@ func DeleteBody(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
 	}
 }
 
+// UsingOVM
 // ReadTransactionMeta returns the transaction metadata associated with a
 // transaction hash.
 func ReadTransactionMeta(db ethdb.Reader, number uint64) *types.TransactionMeta {
@@ -361,6 +358,7 @@ func ReadTransactionMeta(db ethdb.Reader, number uint64) *types.TransactionMeta 
 	return meta
 }
 
+// UsingOVM
 // ReadTransactionMetaRaw returns the raw transaction metadata associated with a
 // transaction hash.
 func ReadTransactionMetaRaw(db ethdb.Reader, number uint64) []byte {
@@ -371,12 +369,14 @@ func ReadTransactionMetaRaw(db ethdb.Reader, number uint64) []byte {
 	return nil
 }
 
+// UsingOVM
 // WriteTransactionMeta writes the TransactionMeta to disk by hash.
 func WriteTransactionMeta(db ethdb.KeyValueWriter, number uint64, meta *types.TransactionMeta) {
 	data := types.TxMetaEncode(meta)
 	WriteTransactionMetaRaw(db, number, data)
 }
 
+// UsingOVM
 // WriteTransactionMetaRaw writes the raw transaction metadata bytes to disk.
 func WriteTransactionMetaRaw(db ethdb.KeyValueWriter, number uint64, data []byte) {
 	if err := db.Put(txMetaKey(number), data); err != nil {
@@ -384,6 +384,7 @@ func WriteTransactionMetaRaw(db ethdb.KeyValueWriter, number uint64, data []byte
 	}
 }
 
+// UsingOVM
 // DeleteTransactionMeta removes the transaction metadata associated with a hash
 func DeleteTransactionMeta(db ethdb.KeyValueWriter, number uint64) {
 	if err := db.Delete(txMetaKey(number)); err != nil {
@@ -583,6 +584,11 @@ func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
 	if body == nil {
 		return nil
 	}
+	// UsingOVM
+	// Read all of the transaction meta from the db when reading a block
+	// and set the txmeta on each transaction. This is because the tx meta
+	// is not included as part of the RLP encoding of a transaction to be
+	// backwards compatible with layer one
 	for i := 0; i < len(body.Transactions); i++ {
 		meta := ReadTransactionMeta(db, header.Number.Uint64())
 		body.Transactions[i].SetTransactionMeta(meta)

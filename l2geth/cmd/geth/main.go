@@ -29,19 +29,19 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/accounts/keystore"
-	"github.com/MetisProtocol/l2geth/cmd/utils"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/console"
-	"github.com/MetisProtocol/l2geth/eth"
-	"github.com/MetisProtocol/l2geth/eth/downloader"
-	"github.com/MetisProtocol/l2geth/ethclient"
-	"github.com/MetisProtocol/l2geth/internal/debug"
-	"github.com/MetisProtocol/l2geth/les"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/metrics"
-	"github.com/MetisProtocol/l2geth/node"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/cmd/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/console"
+	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/internal/debug"
+	"github.com/ethereum/go-ethereum/les"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/node"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -149,11 +149,15 @@ var (
 		configFileFlag,
 	}
 
+	// UsingOVM
+	// Optimism specific flags must be added to the application
+	// flag parsing logic
 	optimismFlags = []cli.Flag{
 		utils.Eth1SyncServiceEnable,
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
 		utils.Eth1L1CrossDomainMessengerAddressFlag,
-		utils.Eth1ETHGatewayAddressFlag,
+		utils.Eth1L1FeeWalletAddressFlag,
+		utils.Eth1StandardBridgeAddressFlag,
 		utils.Eth1ChainIdFlag,
 		utils.RollupClientHttpFlag,
 		utils.RollupEnableVerifierFlag,
@@ -161,14 +165,13 @@ var (
 		utils.RollupTimstampRefreshFlag,
 		utils.RollupPollIntervalFlag,
 		utils.RollupStateDumpPathFlag,
-		utils.RollupDiffDbFlag,
 		utils.RollupMaxCalldataSizeFlag,
-		utils.RollupDataPriceFlag,
-		utils.RollupExecutionPriceFlag,
 		utils.RollupBackendFlag,
-		utils.RollupEnableL2GasPollingFlag,
-		utils.RollupGasPriceOracleAddressFlag,
 		utils.RollupEnforceFeesFlag,
+		utils.RollupMinL2GasLimitFlag,
+		utils.RollupFeeThresholdDownFlag,
+		utils.RollupFeeThresholdUpFlag,
+		utils.GasPriceOracleOwnerAddress,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -249,6 +252,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	app.Flags = append(app.Flags, nodeFlags...)
+	// UsingOVM
 	app.Flags = append(app.Flags, optimismFlags...)
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
@@ -455,6 +459,11 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		if err := ethereum.StartMining(threads); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
 		}
+		// UsingOVM
+		// Can optionally configure the sync service. Turning it off allows
+		// for statically serving historical data and is also useful for
+		// local development. When it is turned on, it will attempt to sync
+		// using the `RollupClient`
 		if ctx.GlobalBool(utils.Eth1SyncServiceEnable.Name) {
 			if err := ethereum.SyncService().Start(); err != nil {
 				utils.Fatalf("Failed to start syncservice: %v", err)

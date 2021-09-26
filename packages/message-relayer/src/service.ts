@@ -7,7 +7,11 @@ import { MerkleTree } from 'merkletreejs'
 import { fromHexString, sleep } from '@eth-optimism/core-utils'
 import { Logger, BaseService, Metrics } from '@eth-optimism/common-ts'
 
-import { loadContract, loadContractFromManager } from '@metis.io/contracts'
+import {
+  loadContract,
+  loadContractFromManager,
+  predeploys,
+} from '@metis.io/contracts'
 import { StateRootBatchHeader, SentMessage, SentMessageProof } from './types'
 import mongoose from "mongoose"
 import ChainStore from "./store/chain-store"
@@ -143,7 +147,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     this.logger.info('Connecting to OVM_L2ToL1MessagePasser...')
     this.state.OVM_L2ToL1MessagePasser = loadContract(
       'OVM_L2ToL1MessagePasser',
-      '0x4200000000000000000000000000000000000000',
+      predeploys.OVM_L2ToL1MessagePasser,
       this.options.l2RpcProvider
     )
     this.logger.info('Connected to OVM_L2ToL1MessagePasser', {
@@ -195,15 +199,15 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           }
         }
 
-        // this.logger.info('Checking for newly finalized transactions...')
+        this.logger.info('Checking for newly finalized transactions...')
         if (
           !(await this._isTransactionFinalized(
             this.state.nextUnfinalizedTxHeight
           ))
         ) {
-          // this.logger.info('Did not find any newly finalized transactions', {
-          //  retryAgainInS: Math.floor(this.options.pollingInterval / 1000),
-          // })
+          this.logger.info('Did not find any newly finalized transactions', {
+            retryAgainInS: Math.floor(this.options.pollingInterval / 1000),
+          })
 
           continue
         }
@@ -236,14 +240,14 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           )
           this.state.nextUnfinalizedTxHeight += size
 
-          // Only deal with ~100 transactions at a time so we can limit the amount of stuff we
+          // Only deal with ~1000 transactions at a time so we can limit the amount of stuff we
           // need to keep in memory. We operate on full batches at a time so the actual amount
           // depends on the size of the batches we're processing.
           const numTransactionsToProcess =
             this.state.nextUnfinalizedTxHeight -
             this.state.lastFinalizedTxHeight
 
-          if (numTransactionsToProcess > 100) {
+          if (numTransactionsToProcess > 1000) {
             break
           }
         }
@@ -316,9 +320,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     }
   }
 
-  private async _getStateBatchHeader(
-    height: number
-  ): Promise<
+  private async _getStateBatchHeader(height: number): Promise<
     | {
         batch: StateRootBatchHeader
         stateRoots: string[]
@@ -345,16 +347,17 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
       startingBlock < (await this.options.l1RpcProvider.getBlockNumber())
     ) {
       this.state.lastQueriedL1Block = startingBlock
-      //this.logger.info('Querying events', {
-      //  startingBlock,
-      //  endBlock: startingBlock + this.options.getLogsInterval,
-      //})
-
-      const events: ethers.Event[] = await this.state.OVM_StateCommitmentChain.queryFilter(
-        this.state.OVM_StateCommitmentChain.filters.StateBatchAppended(),
+      this.logger.info('Querying events', {
         startingBlock,
-        startingBlock + this.options.getLogsInterval
-      )
+        endBlock: startingBlock + this.options.getLogsInterval,
+      })
+
+      const events: ethers.Event[] =
+        await this.state.OVM_StateCommitmentChain.queryFilter(
+          this.state.OVM_StateCommitmentChain.filters.StateBatchAppended(),
+          startingBlock,
+          startingBlock + this.options.getLogsInterval
+        )
 
       this.state.eventCache = this.state.eventCache.concat(events)
       startingBlock += this.options.getLogsInterval
@@ -374,11 +377,12 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     const transaction = await this.options.l1RpcProvider.getTransaction(
       event.transactionHash
     )
-    const stateRoots =
+
+    const [stateRoots] =
       this.state.OVM_StateCommitmentChain.interface.decodeFunctionData(
-         'appendStateBatchByChainId',
-         transaction.data
-      )['_batch']
+        'appendStateBatchByChainId',
+        transaction.data
+      )
 
     return {
       batch: {
@@ -393,11 +397,11 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
   }
 
   private async _isTransactionFinalized(height: number): Promise<boolean> {
-    //this.logger.info('Checking if tx is finalized', { height })
+    this.logger.info('Checking if tx is finalized', { height })
     const header = await this._getStateBatchHeader(height)
 
     if (header === undefined) {
-      //this.logger.info('No state batch header found.')
+      this.logger.info('No state batch header found.')
       return false
     } else {
       this.logger.info('Got state batch header', { header })
@@ -411,6 +415,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
   /**
    * Returns all sent message events between some start height (inclusive) and an end height
    * (exclusive).
+   *
    * @param startHeight Start height to start finding messages from.
    * @param endHeight End height to finish finding messages at.
    * @returns All sent messages between start and end height, sorted by transaction index in
@@ -429,10 +434,11 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
 
     const messages = events.map((event) => {
       const message = event.args.message
-      const decoded = this.state.OVM_L2CrossDomainMessenger.interface.decodeFunctionData(
-        'relayMessage',
-        message
-      )
+      const decoded =
+        this.state.OVM_L2CrossDomainMessenger.interface.decodeFunctionData(
+          'relayMessage',
+          message
+        )
 
       return {
         target: decoded._target,

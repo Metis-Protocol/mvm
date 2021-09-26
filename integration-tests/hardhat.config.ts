@@ -8,19 +8,24 @@ import 'hardhat-gas-reporter'
 
 const enableGasReport = !!process.env.ENABLE_GAS_REPORT
 
-const config = {
-  mocha: {
-    timeout: 20000,
-  },
+const config: HardhatUserConfig = {
   networks: {
     optimism: {
       url: process.env.L2_URL || 'http://localhost:8545',
       ovm: true,
     },
+    'optimism-live': {
+      url: process.env.L2_URL || 'http://localhost:8545',
+      ovm: true,
+      timeout: 150000,
+    },
+  },
+  mocha: {
+    timeout: 50000,
   },
   solidity: '0.7.6',
   ovm: {
-    solcVersion: '0.7.6',
+    solcVersion: '0.7.6+commit.3b061308',
   },
   gasReporter: {
     enabled: enableGasReport,

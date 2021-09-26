@@ -19,7 +19,7 @@
 package fetcher
 
 import (
-	"github.com/MetisProtocol/l2geth/metrics"
+	"github.com/ethereum/go-ethereum/metrics"
 )
 
 var (

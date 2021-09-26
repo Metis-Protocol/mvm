@@ -16,7 +16,7 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'MVM_AddressManager'
   )
-
+  console.log(MVM_AddressManager.address,Lib_AddressManager.address)
   await deployAndRegister({
     hre,
     name: 'OVM_CanonicalTransactionChain',

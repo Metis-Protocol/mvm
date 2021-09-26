@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/log"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // handler handles JSON-RPC messages. There is one handler per connection. Note that
@@ -292,15 +292,14 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage) *jsonrpcMess
 	switch {
 	case msg.isNotification():
 		h.handleCall(ctx, msg)
-		h.log.Debug("Served "+msg.Method, "t", time.Since(start))
+		//h.log.Debug("Served "+msg.Method, "t", time.Since(start))
 		return nil
 	case msg.isCall():
 		resp := h.handleCall(ctx, msg)
 		if resp.Error != nil {
 			h.log.Warn("Served "+msg.Method, "reqid", idForLog{msg.ID}, "t", time.Since(start), "err", resp.Error.Message)
 		} else {
-			// NOTE 20210724
-			// h.log.Debug("Served "+msg.Method, "reqid", idForLog{msg.ID}, "t", time.Since(start))
+			//h.log.Debug("Served "+msg.Method, "reqid", idForLog{msg.ID}, "t", time.Since(start))
 		}
 		return resp
 	case msg.hasValidID():

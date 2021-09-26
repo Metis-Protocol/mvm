@@ -25,15 +25,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/prque"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/metrics"
-	"github.com/MetisProtocol/l2geth/params"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
@@ -539,7 +539,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 
 	// Ensure the transaction doesn't exceed the current block limit gas.
-
 	if vm.UsingOVM {
 		if pool.currentMaxGas < tx.L2Gas() {
 			return ErrGasLimit
@@ -561,15 +560,19 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
-	if pool.currentState.GetNonce(from) > tx.Nonce() {
-		return ErrNonceTooLow
+	if vm.UsingOVM {
+		if pool.currentState.GetNonce(from) != tx.Nonce() {
+			return ErrNonceTooLow
+		}
+	} else {
+		if pool.currentState.GetNonce(from) > tx.Nonce() {
+			return ErrNonceTooLow
+		}
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
 	if vm.UsingOVM {
 		if pool.currentState.GetOVMBalance(from).Cmp(tx.Cost()) < 0 {
-			err := fmt.Errorf("Tx poop = %d,%d,%s,end", pool.currentState.GetOVMBalance(from), tx.Cost(), from)
-			log.Info("Tx_pool:", "error", err.Error())
 			return ErrInsufficientFunds
 		}
 	} else {

@@ -22,23 +22,22 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/math"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/bloombits"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/diffdb"
-	"github.com/MetisProtocol/l2geth/eth/downloader"
-	"github.com/MetisProtocol/l2geth/eth/gasprice"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes
@@ -95,10 +94,6 @@ func (b *EthAPIBackend) ChainConfig() *params.ChainConfig {
 
 func (b *EthAPIBackend) CurrentBlock() *types.Block {
 	return b.eth.blockchain.CurrentBlock()
-}
-
-func (b *EthAPIBackend) GetDiff(block *big.Int) (diffdb.Diff, error) {
-	return b.eth.blockchain.GetDiff(block)
 }
 
 func (b *EthAPIBackend) SetHead(number uint64) {
@@ -309,9 +304,6 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	if b.UsingOVM {
 		to := signedTx.To()
 		if to != nil {
-			if *to == (common.Address{}) {
-				return errors.New("Cannot send transaction to zero address")
-			}
 			// Prevent QueueOriginSequencer transactions that are too large to
 			// be included in a batch. The `MaxCallDataSize` should be set to
 			// the layer one consensus max transaction size in bytes minus the
@@ -321,23 +313,11 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			if len(signedTx.Data()) > b.MaxCallDataSize {
 				return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 			}
-			// If there is a value field set then reject transactions that
-			// contain calldata. The feature of sending transactions with value
-			// and calldata will be added in the future.
-			if signedTx.Value().Cmp(common.Big0) != 0 {
-				if len(signedTx.Data()) > 0 {
-					return errors.New("Cannot send transactions with value and calldata")
-				}
-			}
 		}
 		return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
 	}
 	// OVM Disabled
 	return b.eth.txPool.AddLocal(signedTx)
-}
-
-func (b *EthAPIBackend) SetTimestamp(timestamp int64) {
-	b.eth.blockchain.SetCurrentTimestamp(timestamp)
 }
 
 func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {

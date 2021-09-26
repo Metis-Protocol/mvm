@@ -19,10 +19,10 @@ import {
 import './type-extensions'
 
 const OPTIMISM_SOLC_VERSION_URL =
-  'https://mvm-solc.s3.us-east-2.amazonaws.com/version.json'
+  'https://api.github.com/repos/ethereum-optimism/solc-bin/git/refs/heads/gh-pages'
 
 const OPTIMISM_SOLC_BIN_URL =
-  'https://mvm-solc.s3.us-east-2.amazonaws.com'
+  'https://raw.githubusercontent.com/ethereum-optimism/solc-bin/gh-pages/bin'
 
 // I figured this was a reasonably modern default, but not sure if this is too new. Maybe we can
 // default to 0.6.X instead?
@@ -35,6 +35,7 @@ const OVM_POLLING_INTERVAL = 50
 /**
  * Find or generate an OVM soljson.js compiler file and return the path of this file.
  * We pass the path to this file into hardhat.
+ *
  * @param version Solidity compiler version to get a path for in the format `X.Y.Z`.
  * @return Path to the downloaded soljson.js file.
  */
@@ -289,7 +290,7 @@ extendEnvironment(async (hre) => {
         }
 
         ;(hre as any).ethers.getSigners = () => signers
-        /* tslint:disable:no-empty */
+        // eslint-disable-next-line no-empty
       } catch (e) {}
 
       // Update the provider at the very end to avoid any weird issues.

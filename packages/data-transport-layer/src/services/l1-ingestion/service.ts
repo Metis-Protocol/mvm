@@ -1,9 +1,10 @@
 /* Imports: External */
-import { fromHexString, EventArgsAddressSet } from '@eth-optimism/core-utils'
-import { BaseService } from '@eth-optimism/common-ts'
-import { JsonRpcProvider } from '@ethersproject/providers'
+import { fromHexString } from '@eth-optimism/core-utils'
+import { BaseService, Metrics } from '@eth-optimism/common-ts'
+import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { LevelUp } from 'levelup'
 import { ethers, constants } from 'ethers'
+import { Gauge, Counter } from 'prom-client'
 
 /* Imports: Internal */
 import { TransportDB, TransportDBMapHolder, TransportDBMap} from '../../db/transport-db'
@@ -19,11 +20,40 @@ import { handleEventsTransactionEnqueued } from './handlers/transaction-enqueued
 import { handleEventsSequencerBatchAppended } from './handlers/sequencer-batch-appended'
 import { handleEventsStateBatchAppended } from './handlers/state-batch-appended'
 import { L1DataTransportServiceOptions } from '../main/service'
+import { MissingElementError, EventName } from './handlers/errors'
+
+interface L1IngestionMetrics {
+  highestSyncedL1Block: Gauge<string>
+  missingElementCount: Counter<string>
+  unhandledErrorCount: Counter<string>
+}
+
+const registerMetrics = ({
+  client,
+  registry,
+}: Metrics): L1IngestionMetrics => ({
+  highestSyncedL1Block: new client.Gauge({
+    name: 'data_transport_layer_highest_synced_l1_block',
+    help: 'Highest Synced L1 Block Number',
+    registers: [registry],
+  }),
+  missingElementCount: new client.Counter({
+    name: 'data_transport_layer_missing_element_count',
+    help: 'Number of times recovery from missing elements happens',
+    registers: [registry],
+  }),
+  unhandledErrorCount: new client.Counter({
+    name: 'data_transport_layer_l1_unhandled_error_count',
+    help: 'Number of times recovered from unhandled errors',
+    registers: [registry],
+  }),
+})
 
 export interface L1IngestionServiceOptions
   extends L1DataTransportServiceOptions {
   db: LevelUp
   dbs: TransportDBMapHolder
+  metrics: Metrics
 }
 
 const optionSettings = {
@@ -54,6 +84,9 @@ const optionSettings = {
       return validators.isUrl(val) || validators.isJsonRpcProvider(val)
     },
   },
+  l2ChainId: {
+    validate: validators.isInteger,
+  },
 }
 
 export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
@@ -61,11 +94,13 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     super('L1_Ingestion_Service', options, optionSettings)
   }
 
+  private l1IngestionMetrics: L1IngestionMetrics
+
   private state: {
     db: TransportDB
     dbs: TransportDBMap
     contracts: OptimismContracts
-    l1RpcProvider: JsonRpcProvider
+    l1RpcProvider: StaticJsonRpcProvider
     startingL1BlockNumber: number
     l2ChainId: number
   } = {} as any
@@ -73,9 +108,11 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
   protected async _init(): Promise<void> {
     this.state.db = new TransportDB(this.options.db)
     this.state.dbs = {}
+    this.l1IngestionMetrics = registerMetrics(this.metrics)
+
     this.state.l1RpcProvider =
       typeof this.options.l1RpcProvider === 'string'
-        ? new JsonRpcProvider(this.options.l1RpcProvider)
+        ? new StaticJsonRpcProvider(this.options.l1RpcProvider)
         : this.options.l1RpcProvider
 
     this.logger.info('Using AddressManager', {
@@ -138,7 +175,8 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
     // Store the total number of submitted transactions so the server can tell clients if we're
     // done syncing or not
-    const totalElements = await this.state.contracts.OVM_CanonicalTransactionChain.getTotalElements()
+    const totalElements =
+      await this.state.contracts.OVM_CanonicalTransactionChain.getTotalElements()
     if (totalElements > 0) {
       await this.state.db.putHighestL2BlockNumber(totalElements - 1)
     }
@@ -200,6 +238,8 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
         await this.state.db.setHighestSyncedL1Block(targetL1Block)
 
+        this.l1IngestionMetrics.highestSyncedL1Block.set(targetL1Block)
+
         if (
           currentL1Block - highestSyncedL1Block <
           this.options.logsPerPollingInterval
@@ -207,7 +247,62 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           await sleep(this.options.pollingInterval)
         }
       } catch (err) {
-        if (!this.running || this.options.dangerouslyCatchAllErrors) {
+        if (err instanceof MissingElementError) {
+          this.logger.warn('recovering from a missing event', {
+            message: err.toString(),
+          })
+
+          // Different functions for getting the last good element depending on the event type.
+          const handlers = {
+            SequencerBatchAppended:
+              this.state.db.getLatestTransactionBatch.bind(this.state.db),
+            StateBatchAppended: this.state.db.getLatestStateRootBatch.bind(
+              this.state.db
+            ),
+            TransactionEnqueued: this.state.db.getLatestEnqueue.bind(
+              this.state.db
+            ),
+          }
+
+          // Find the last good element and reset the highest synced L1 block to go back to the
+          // last good element. Will resync other event types too but we have no issues with
+          // syncing the same events more than once.
+          const eventName = err.name
+          if (!(eventName in handlers)) {
+            throw new Error(
+              `unable to recover from missing event, no handler for ${eventName}`
+            )
+          }
+
+          const lastGoodElement: {
+            blockNumber: number
+          } = await handlers[eventName]()
+
+          // Erroring out here seems fine. An error like this is only likely to occur quickly after
+          // this service starts up so someone will be here to deal with it. Automatic recovery is
+          // nice but not strictly necessary. Could be a good feature for someone to implement.
+          if (lastGoodElement === null) {
+            throw new Error(`unable to recover from missing event`)
+          }
+
+          // Rewind back to the block number that the last good element was in.
+          await this.state.db.setHighestSyncedL1Block(
+            lastGoodElement.blockNumber
+          )
+
+          this.l1IngestionMetrics.highestSyncedL1Block.set(
+            lastGoodElement.blockNumber
+          )
+
+          // Something we should be keeping track of.
+          this.logger.warn('recovered from a missing event', {
+            eventName,
+            lastGoodBlockNumber: lastGoodElement.blockNumber,
+          })
+
+          this.l1IngestionMetrics.missingElementCount.inc()
+        } else if (!this.running || this.options.dangerouslyCatchAllErrors) {
+          this.l1IngestionMetrics.unhandledErrorCount.inc()
           this.logger.error('Caught an unhandled error', {
             message: err.toString(),
             stack: err.stack,
@@ -243,13 +338,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     // We need to figure out how to make this work without Infura. Mark and I think that infura is
     // doing some indexing of events beyond Geth's native capabilities, meaning some event logic
     // will only work on Infura and not on a local geth instance. Not great.
-    const addressSetEvents = ((await this.state.contracts.Lib_AddressManager.queryFilter(
-      this.state.contracts.Lib_AddressManager.filters.AddressSet(),
-      fromL1Block,
-      toL1Block
-    )) as TypedEthersEvent<EventArgsAddressSet>[]).filter((event) => {
-      return event.args._name === contractName
-    })
+    const addressSetEvents =
+      await this.state.contracts.Lib_AddressManager.queryFilter(
+        this.state.contracts.Lib_AddressManager.filters.AddressSet(
+          contractName
+        ),
+        fromL1Block,
+        toL1Block
+      )
 
     // We're going to parse things out in ranges because the address of a given contract may have
     // changed in the range provided by the user.
@@ -298,14 +394,16 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
         const tick = Date.now()
 
         for (const event of events) {
-          
           const extraData = await handlers.getExtraData(
             event,
             this.state.l1RpcProvider
           )
-          const parsedEvent = await handlers.parseEvent(event, extraData, this.state.l2ChainId)
-          
-          // filter chainId
+          const parsedEvent = await handlers.parseEvent(
+            event,
+            extraData,
+            this.options.l2ChainId
+          )
+	  // filter chainId
           var chainId = event.args._chainId.toNumber()
           var db=this.state.db
           if(chainId&&chainId!=0){
@@ -328,6 +426,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
   /**
    * Gets the address of a contract at a particular block in the past.
+   *
    * @param contractName Name of the contract to get an address for.
    * @param blockNumber Block at which to get an address.
    * @return Contract address.
@@ -336,21 +435,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     contractName: string,
     blockNumber: number
   ): Promise<string> {
-    // TODO: Should be much easier than this. Need to change the params of this event.
-    const relevantAddressSetEvents = (
-      await this.state.contracts.Lib_AddressManager.queryFilter(
-        this.state.contracts.Lib_AddressManager.filters.AddressSet(),
-        this.state.startingL1BlockNumber
-      )
-    ).filter((event) => {
-      return (
-        event.args._name === contractName && event.blockNumber < blockNumber
-      )
-    })
+    const events = await this.state.contracts.Lib_AddressManager.queryFilter(
+      this.state.contracts.Lib_AddressManager.filters.AddressSet(contractName),
+      this.state.startingL1BlockNumber,
+      blockNumber
+    )
 
-    if (relevantAddressSetEvents.length > 0) {
-      return relevantAddressSetEvents[relevantAddressSetEvents.length - 1].args
-        ._newAddress
+    if (events.length > 0) {
+      return events[events.length - 1].args._newAddress
     } else {
       // Address wasn't set before this.
       return constants.AddressZero
@@ -362,7 +454,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
     for (let i = 0; i < currentL1Block; i += 1000000) {
       const events = await this.state.contracts.Lib_AddressManager.queryFilter(
-        this.state.contracts.Lib_AddressManager.filters.AddressSet(),
+        this.state.contracts.Lib_AddressManager.filters.OwnershipTransferred(),
         i,
         Math.min(i + 1000000, currentL1Block)
       )

@@ -26,14 +26,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/consensus/ethash"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/eth"
-	"github.com/MetisProtocol/l2geth/internal/jsre"
-	"github.com/MetisProtocol/l2geth/miner"
-	"github.com/MetisProtocol/l2geth/node"
-	"github.com/MetisProtocol/l2geth/rollup"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/internal/jsre"
+	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/rollup"
 )
 
 const (
@@ -98,7 +98,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		t.Fatalf("failed to create node: %v", err)
 	}
 	ethConf := &eth.Config{
-		Genesis: core.DeveloperGenesisBlock(15, common.Address{}, common.Address{}, common.Address{}, common.Address{}, "", nil, 12000000),
+		Genesis: core.DeveloperGenesisBlock(15, common.Address{}, common.Address{}, common.Address{}, common.Address{}, common.Address{}, common.Address{}, "", nil, 12000000),
 		Miner: miner.Config{
 			Etherbase: common.HexToAddress(testAddress),
 		},

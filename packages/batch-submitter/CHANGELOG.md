@@ -1,5 +1,117 @@
 # Changelog
 
+## 0.3.13
+
+### Patch Changes
+
+- 7482d09c: Fixes a bug in the batch submitted that would cause it to submit transactions with increasing nonces
+
+## 0.3.12
+
+### Patch Changes
+
+- 21b17edd: Added coverage for packages
+- 78ca518b: Add loglines for eip1559 related fields before sending a transaction
+- Updated dependencies [888dafca]
+- Updated dependencies [eb0854e7]
+- Updated dependencies [21b17edd]
+- Updated dependencies [dfe3598f]
+  - @eth-optimism/contracts@0.4.11
+  - @eth-optimism/core-utils@0.5.5
+
+## 0.3.11
+
+### Patch Changes
+
+- 918c08ca: Bump ethers dependency to 5.4.x to support eip1559
+- Updated dependencies [918c08ca]
+  - @eth-optimism/contracts@0.4.10
+  - @eth-optimism/core-utils@0.5.2
+
+## 0.3.10
+
+### Patch Changes
+
+- b5b9fd89: Migrate to using `ethers.StaticJsonRpcProvider`
+- Updated dependencies [ecc2f8c1]
+  - @eth-optimism/contracts@0.4.9
+
+## 0.3.9
+
+### Patch Changes
+
+- 3b132974: Fix tx resubmission estimateGas bug in batch submitter
+- Updated dependencies [7f26667d]
+- Updated dependencies [77511b68]
+  - @eth-optimism/contracts@0.4.7
+
+## 0.3.8
+
+### Patch Changes
+
+- c73c3939: Update the typescript version to `4.3.5`
+- Updated dependencies [c73c3939]
+  - @eth-optimism/common-ts@0.1.5
+  - @eth-optimism/contracts@0.4.5
+  - @eth-optimism/core-utils@0.5.1
+
+## 0.3.7
+
+### Patch Changes
+
+- 8a1e63dd: Prevent batch submitter from submitting batches if low on ETH
+- Updated dependencies [0313794b]
+- Updated dependencies [049200f4]
+- Updated dependencies [21e47e1f]
+  - @eth-optimism/contracts@0.4.2
+  - @eth-optimism/core-utils@0.5.0
+
+## 0.3.6
+
+### Patch Changes
+
+- f87a2d00: Use dashes instead of colons in contract names
+- 52d02b14: Add failure metrics to batch submitter
+- 31f517a2: Improved logging of batch submission timeout logs
+- 5c89c45f: Move the metric prefix string to a label #1047
+- Updated dependencies [25f09abd]
+- Updated dependencies [dd8edc7b]
+- Updated dependencies [c87e4c74]
+- Updated dependencies [db0dbfb2]
+- Updated dependencies [7f5936a8]
+- Updated dependencies [f87a2d00]
+- Updated dependencies [85da4979]
+- Updated dependencies [57ca21a2]
+- Updated dependencies [5fc728da]
+- Updated dependencies [2e72fd90]
+- Updated dependencies [c43b33ec]
+- Updated dependencies [26bc63ad]
+- Updated dependencies [a0d9e565]
+- Updated dependencies [2bd49730]
+- Updated dependencies [38355a3b]
+- Updated dependencies [3c2c32e1]
+- Updated dependencies [d9644c34]
+- Updated dependencies [48ece14c]
+- Updated dependencies [e04de624]
+- Updated dependencies [014dea71]
+- Updated dependencies [fa29b03e]
+- Updated dependencies [6b46c8ba]
+- Updated dependencies [e045f582]
+- Updated dependencies [5c89c45f]
+- Updated dependencies [df5ff890]
+- Updated dependencies [e29fab10]
+- Updated dependencies [c2a04893]
+- Updated dependencies [baacda34]
+  - @eth-optimism/contracts@0.4.0
+  - @eth-optimism/core-utils@0.4.6
+  - @eth-optimism/common-ts@0.1.4
+
+## 0.3.5
+
+### Patch Changes
+
+- 7cce55a9: Add status to generic error log to disambiguate errors
+
 ## 0.3.4
 
 ### Patch Changes

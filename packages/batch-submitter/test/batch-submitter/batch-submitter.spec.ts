@@ -27,6 +27,8 @@ import {
   TX_BATCH_SUBMITTER_LOG_TAG,
   STATE_BATCH_SUBMITTER_LOG_TAG,
   BatchSubmitter,
+  YnatmTransactionSubmitter,
+  ResubmissionConfig,
 } from '../../src'
 
 import {
@@ -37,7 +39,6 @@ import {
 } from '@eth-optimism/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
-const DECOMPRESSION_ADDRESS = '0x4200000000000000000000000000000000000008'
 const DUMMY_ADDRESS = '0x' + '00'.repeat(20)
 const EXAMPLE_STATE_ROOT =
   '0x16b7f83f409c7195b1f4fde5652f1b54a4477eacb6db7927691becafba5f8801'
@@ -97,7 +98,7 @@ describe('BatchSubmitter', () => {
     )
     await AddressManager.setAddress(
       'OVM_DecompressionPrecompileAddress',
-      DECOMPRESSION_ADDRESS
+      predeploys.OVM_SequencerEntrypoint
     )
 
     Mock__OVM_ExecutionManager = await smockit(
@@ -130,7 +131,7 @@ describe('BatchSubmitter', () => {
       Mock__OVM_StateCommitmentChain
     )
 
-    //Mock__OVM_StateCommitmentChain.smocked.canOverwrite.will.return.with(false)
+    Mock__OVM_StateCommitmentChain.smocked.canOverwrite.will.return.with(false)
     Mock__OVM_ExecutionManager.smocked.getMaxTransactionGasLimit.will.return.with(
       MAX_GAS_LIMIT
     )
@@ -153,13 +154,12 @@ describe('BatchSubmitter', () => {
   let OVM_StateCommitmentChain: Contract
   let l2Provider: MockchainProvider
   beforeEach(async () => {
-    const unwrapped_OVM_CanonicalTransactionChain = await Factory__OVM_CanonicalTransactionChain.deploy(
-      AddressManager.address,
-      FORCE_INCLUSION_PERIOD_SECONDS,
-      FORCE_INCLUSION_PERIOD_SECONDS,
-      MAX_GAS_LIMIT
-    )
-    //await unwrapped_OVM_CanonicalTransactionChain.init()
+    const unwrapped_OVM_CanonicalTransactionChain =
+      await Factory__OVM_CanonicalTransactionChain.deploy(
+        AddressManager.address,
+        FORCE_INCLUSION_PERIOD_SECONDS
+      )
+    await unwrapped_OVM_CanonicalTransactionChain.init()
 
     await AddressManager.setAddress(
       'OVM_CanonicalTransactionChain',
@@ -172,13 +172,14 @@ describe('BatchSubmitter', () => {
       sequencer
     )
 
-    const unwrapped_OVM_StateCommitmentChain = await Factory__OVM_StateCommitmentChain.deploy(
-      AddressManager.address,
-      0, // fraudProofWindowSeconds
-      0 // sequencerPublishWindowSeconds
-    )
+    const unwrapped_OVM_StateCommitmentChain =
+      await Factory__OVM_StateCommitmentChain.deploy(
+        AddressManager.address,
+        0, // fraudProofWindowSeconds
+        0 // sequencerPublishWindowSeconds
+      )
 
-    //await unwrapped_OVM_StateCommitmentChain.init()
+    await unwrapped_OVM_StateCommitmentChain.init()
 
     await AddressManager.setAddress(
       'OVM_StateCommitmentChain',
@@ -201,8 +202,19 @@ describe('BatchSubmitter', () => {
     sinon.restore()
   })
 
-  const createBatchSubmitter = (timeout: number): TransactionBatchSubmitter =>
-    new TransactionBatchSubmitter(
+  const createBatchSubmitter = (timeout: number): TransactionBatchSubmitter => {
+    const resubmissionConfig: ResubmissionConfig = {
+      resubmissionTimeout: 100000,
+      minGasPriceInGwei: MIN_GAS_PRICE_IN_GWEI,
+      maxGasPriceInGwei: GAS_THRESHOLD_IN_GWEI,
+      gasRetryIncrement: GAS_RETRY_INCREMENT,
+    }
+    const txBatchTxSubmitter = new YnatmTransactionSubmitter(
+      sequencer,
+      resubmissionConfig,
+      1
+    )
+    return new TransactionBatchSubmitter(
       sequencer,
       l2Provider as any,
       MIN_TX_SIZE,
@@ -213,15 +225,14 @@ describe('BatchSubmitter', () => {
       100000,
       AddressManager.address,
       1,
-      MIN_GAS_PRICE_IN_GWEI,
-      MAX_GAS_PRICE_IN_GWEI,
-      GAS_RETRY_INCREMENT,
       GAS_THRESHOLD_IN_GWEI,
+      txBatchTxSubmitter,
       1,
       new Logger({ name: TX_BATCH_SUBMITTER_LOG_TAG }),
       testMetrics,
       false
     )
+  }
 
   describe('TransactionBatchSubmitter', () => {
     describe('submitNextBatch', () => {
@@ -235,7 +246,7 @@ describe('BatchSubmitter', () => {
         for (let i = 1; i < 15; i++) {
           await OVM_CanonicalTransactionChain.enqueue(
             '0x' + '01'.repeat(20),
-            100_000,
+            50_000,
             '0x' + i.toString().repeat(64),
             {
               gasLimit: 1_000_000,
@@ -245,7 +256,7 @@ describe('BatchSubmitter', () => {
         batchSubmitter = createBatchSubmitter(0)
       })
 
-      it.skip('should submit a sequencer batch correctly', async () => {
+      it('should submit a sequencer batch correctly', async () => {
         l2Provider.setNumBlocksToReturn(5)
         const nextQueueElement = await getQueueElement(
           OVM_CanonicalTransactionChain
@@ -272,7 +283,7 @@ describe('BatchSubmitter', () => {
         expect(parseInt(logData.slice(64 * 2, 64 * 3), 16)).to.equal(11) // _totalElements
       })
 
-      it.skip('should submit a queue batch correctly', async () => {
+      it('should submit a queue batch correctly', async () => {
         l2Provider.setNumBlocksToReturn(5)
         l2Provider.setL2BlockData({
           queueOrigin: QueueOrigin.L1ToL2,
@@ -289,7 +300,7 @@ describe('BatchSubmitter', () => {
         expect(parseInt(logData.slice(64 * 2, 64 * 3), 16)).to.equal(11) // _totalElements
       })
 
-      it.skip('should submit a batch with both queue and sequencer chain elements', async () => {
+      it('should submit a batch with both queue and sequencer chain elements', async () => {
         l2Provider.setNumBlocksToReturn(10) // For this batch we'll return 10 elements!
         l2Provider.setL2BlockData({
           queueOrigin: QueueOrigin.L1ToL2,
@@ -319,7 +330,7 @@ describe('BatchSubmitter', () => {
         expect(parseInt(logData.slice(64 * 2, 64 * 3), 16)).to.equal(11) // _totalElements
       })
 
-      it.skip('should submit a small batch only after the timeout', async () => {
+      it('should submit a small batch only after the timeout', async () => {
         l2Provider.setNumBlocksToReturn(2)
         l2Provider.setL2BlockData({
           queueOrigin: QueueOrigin.L1ToL2,
@@ -346,7 +357,7 @@ describe('BatchSubmitter', () => {
         expect(receipt).to.not.be.undefined
       })
 
-      it.skip('should not submit if gas price is over threshold', async () => {
+      it('should not submit if gas price is over threshold', async () => {
         l2Provider.setNumBlocksToReturn(2)
         l2Provider.setL2BlockData({
           queueOrigin: QueueOrigin.L1ToL2,
@@ -363,7 +374,7 @@ describe('BatchSubmitter', () => {
         expect(receipt).to.be.undefined
       })
 
-      it.skip('should submit if gas price is not over threshold', async () => {
+      it('should submit if gas price is not over threshold', async () => {
         l2Provider.setNumBlocksToReturn(2)
         l2Provider.setL2BlockData({
           queueOrigin: QueueOrigin.L1ToL2,
@@ -376,7 +387,7 @@ describe('BatchSubmitter', () => {
           .callsFake(async () => lowGasPriceWei)
 
         const receipt = await batchSubmitter.submitNextBatch()
-        expect(sequencer.getGasPrice).to.have.been.calledOnce
+        expect(sequencer.getGasPrice).to.have.been.calledTwice
         expect(receipt).to.not.be.undefined
       })
     })
@@ -389,7 +400,7 @@ describe('BatchSubmitter', () => {
       for (let i = 1; i < 15; i++) {
         await OVM_CanonicalTransactionChain.enqueue(
           '0x' + '01'.repeat(20),
-          100_000,
+          50_000,
           '0x' + i.toString().repeat(64),
           {
             gasLimit: 1_000_000,
@@ -418,6 +429,17 @@ describe('BatchSubmitter', () => {
       // submit a batch of transactions to enable state batch submission
       await txBatchSubmitter.submitNextBatch()
 
+      const resubmissionConfig: ResubmissionConfig = {
+        resubmissionTimeout: 100000,
+        minGasPriceInGwei: MIN_GAS_PRICE_IN_GWEI,
+        maxGasPriceInGwei: GAS_THRESHOLD_IN_GWEI,
+        gasRetryIncrement: GAS_RETRY_INCREMENT,
+      }
+      const stateBatchTxSubmitter = new YnatmTransactionSubmitter(
+        sequencer,
+        resubmissionConfig,
+        1
+      )
       stateBatchSubmitter = new StateBatchSubmitter(
         sequencer,
         l2Provider as any,
@@ -430,10 +452,7 @@ describe('BatchSubmitter', () => {
         0, // finalityConfirmations
         AddressManager.address,
         1,
-        MIN_GAS_PRICE_IN_GWEI,
-        MAX_GAS_PRICE_IN_GWEI,
-        GAS_RETRY_INCREMENT,
-        GAS_THRESHOLD_IN_GWEI,
+        stateBatchTxSubmitter,
         1,
         new Logger({ name: STATE_BATCH_SUBMITTER_LOG_TAG }),
         testMetrics,
@@ -442,7 +461,7 @@ describe('BatchSubmitter', () => {
     })
 
     describe('submitNextBatch', () => {
-      it.skip('should submit a state batch after a transaction batch', async () => {
+      it('should submit a state batch after a transaction batch', async () => {
         const receipt = await stateBatchSubmitter.submitNextBatch()
         expect(receipt).to.not.be.undefined
 
@@ -473,55 +492,5 @@ describe('Batch Submitter with Ganache', () => {
 
   after(async () => {
     await server.close()
-  })
-
-  // Unit test for getReceiptWithResubmission function,
-  // tests for increasing gas price on resubmission
-  it('should resubmit a transaction if it is not confirmed', async () => {
-    const gasPrices = []
-    const numConfirmations = 2
-    const sendTxFunc = async (gasPrice) => {
-      // push the retried gasPrice
-      gasPrices.push(gasPrice)
-
-      const tx = signer.sendTransaction({
-        to: DECOMPRESSION_ADDRESS,
-        value: 88,
-        nonce: 0,
-        gasPrice,
-      })
-
-      const response = await tx
-
-      return signer.provider.waitForTransaction(response.hash, numConfirmations)
-    }
-
-    const resubmissionConfig = {
-      numConfirmations,
-      resubmissionTimeout: 1_000, // retry every second
-      minGasPriceInGwei: 0,
-      maxGasPriceInGwei: 100,
-      gasRetryIncrement: 5,
-    }
-
-    BatchSubmitter.getReceiptWithResubmission(
-      sendTxFunc,
-      resubmissionConfig,
-      new Logger({ name: TX_BATCH_SUBMITTER_LOG_TAG })
-    )
-
-    // Wait 1.5s for at least 1 retry
-    await new Promise((r) => setTimeout(r, 1500))
-
-    // Iterate through gasPrices to ensure each entry increases from
-    // the last
-    const isIncreasing = gasPrices.reduce(
-      (isInc, gasPrice, i, gP) =>
-        (isInc && gasPrice > gP[i - 1]) || Number.NEGATIVE_INFINITY,
-      true
-    )
-
-    expect(gasPrices).to.have.lengthOf.above(1) // retried at least once
-    expect(isIncreasing).to.be.true
   })
 })

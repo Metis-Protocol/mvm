@@ -17,7 +17,7 @@
 package vm
 
 import (
-	"github.com/MetisProtocol/l2geth/params"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 func minSwapStack(n int) int {

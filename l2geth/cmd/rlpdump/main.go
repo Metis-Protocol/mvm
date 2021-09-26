@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (

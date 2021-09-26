@@ -34,8 +34,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type allocItem struct{ Addr, Balance *big.Int }

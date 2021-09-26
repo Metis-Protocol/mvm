@@ -5,7 +5,7 @@ package whisperv6
 import (
 	"encoding/json"
 
-	"github.com/MetisProtocol/l2geth/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 var _ = (*messageOverride)(nil)

@@ -32,37 +32,37 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/accounts/keystore"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/fdlimit"
-	"github.com/MetisProtocol/l2geth/consensus"
-	"github.com/MetisProtocol/l2geth/consensus/clique"
-	"github.com/MetisProtocol/l2geth/consensus/ethash"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/eth"
-	"github.com/MetisProtocol/l2geth/eth/downloader"
-	"github.com/MetisProtocol/l2geth/eth/gasprice"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/ethstats"
-	"github.com/MetisProtocol/l2geth/graphql"
-	"github.com/MetisProtocol/l2geth/les"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/metrics"
-	"github.com/MetisProtocol/l2geth/metrics/influxdb"
-	"github.com/MetisProtocol/l2geth/miner"
-	"github.com/MetisProtocol/l2geth/node"
-	"github.com/MetisProtocol/l2geth/p2p"
-	"github.com/MetisProtocol/l2geth/p2p/discv5"
-	"github.com/MetisProtocol/l2geth/p2p/enode"
-	"github.com/MetisProtocol/l2geth/p2p/nat"
-	"github.com/MetisProtocol/l2geth/p2p/netutil"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rollup"
-	"github.com/MetisProtocol/l2geth/rpc"
-	whisper "github.com/MetisProtocol/l2geth/whisper/whisperv6"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/fdlimit"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/clique"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethstats"
+	"github.com/ethereum/go-ethereum/graphql"
+	"github.com/ethereum/go-ethereum/les"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/metrics/influxdb"
+	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/p2p/discv5"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/p2p/nat"
+	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup"
+	"github.com/ethereum/go-ethereum/rpc"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	pcsclite "github.com/gballet/go-libpcsclite"
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -823,11 +823,17 @@ var (
 		Value:  "0x0000000000000000000000000000000000000000",
 		EnvVar: "ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS",
 	}
-	Eth1ETHGatewayAddressFlag = cli.StringFlag{
-		Name:   "eth1.l1ethgatewayaddress",
-		Usage:  "Deployment address of the Ethereum gateway",
+	Eth1L1FeeWalletAddressFlag = cli.StringFlag{
+		Name:   "eth1.l1feewalletaddress",
+		Usage:  "Address of the L1 wallet that will collect fees",
 		Value:  "0x0000000000000000000000000000000000000000",
-		EnvVar: "ETH1_L1_ETH_GATEWAY_ADDRESS",
+		EnvVar: "ETH1_L1_FEE_WALLET_ADDRESS",
+	}
+	Eth1StandardBridgeAddressFlag = cli.StringFlag{
+		Name:   "eth1.l1standardbridgeaddress",
+		Usage:  "Deployment address of the Standard Bridge",
+		Value:  "0x0000000000000000000000000000000000000000",
+		EnvVar: "ETH1_L1_STANDARD_BRIDGE_ADDRESS",
 	}
 	Eth1ChainIdFlag = cli.Uint64Flag{
 		Name:   "eth1.chainid",
@@ -858,7 +864,6 @@ var (
 		Value:  "l1",
 		EnvVar: "ROLLUP_BACKEND",
 	}
-	// Flag to enable verifier mode
 	RollupEnableVerifierFlag = cli.BoolFlag{
 		Name:   "rollup.verifier",
 		Usage:  "Enable the verifier",
@@ -876,45 +881,36 @@ var (
 		Value:  eth.DefaultConfig.Rollup.StateDumpPath,
 		EnvVar: "ROLLUP_STATE_DUMP_PATH",
 	}
-	RollupDiffDbFlag = cli.Uint64Flag{
-		Name:   "rollup.diffdbcache",
-		Usage:  "Number of diffdb batch updates",
-		Value:  eth.DefaultConfig.DiffDbCache,
-		EnvVar: "ROLLUP_DIFFDB_CACHE",
-	}
 	RollupMaxCalldataSizeFlag = cli.IntFlag{
 		Name:   "rollup.maxcalldatasize",
 		Usage:  "Maximum allowed calldata size for Queue Origin Sequencer Txs",
 		Value:  eth.DefaultConfig.Rollup.MaxCallDataSize,
 		EnvVar: "ROLLUP_MAX_CALLDATA_SIZE",
 	}
-	RollupDataPriceFlag = BigFlag{
-		Name:   "rollup.dataprice",
-		Usage:  "The L1 calldata price to use for the sequencer fees",
-		Value:  eth.DefaultConfig.Rollup.DataPrice,
-		EnvVar: "ROLLUP_DATAPRICE",
-	}
-	RollupExecutionPriceFlag = BigFlag{
-		Name:   "rollup.executionprice",
-		Usage:  "The execution gas price to use for the sequencer fees",
-		Value:  eth.DefaultConfig.Rollup.ExecutionPrice,
-		EnvVar: "ROLLUP_EXECUTIONPRICE",
-	}
-	RollupGasPriceOracleAddressFlag = cli.StringFlag{
-		Name:   "rollup.gaspriceoracleaddress",
-		Usage:  "Address of the rollup gas price oracle",
-		Value:  "0x0000000000000000000000000000000000000000",
-		EnvVar: "ROLLUP_GAS_PRICE_ORACLE_ADDRESS",
-	}
-	RollupEnableL2GasPollingFlag = cli.BoolFlag{
-		Name:   "rollup.enablel2gaspolling",
-		Usage:  "Poll for the L2 gas price from the L2 state",
-		EnvVar: "ROLLUP_ENABLE_L2_GAS_POLLING",
-	}
 	RollupEnforceFeesFlag = cli.BoolFlag{
 		Name:   "rollup.enforcefeesflag",
 		Usage:  "Disable transactions with 0 gas price",
 		EnvVar: "ROLLUP_ENFORCE_FEES",
+	}
+	RollupMinL2GasLimitFlag = cli.Uint64Flag{
+		Name:   "rollup.minl2gaslimit",
+		Usage:  "Minimum accepted L2 gas limit",
+		EnvVar: "ROLLUP_MIN_L2_GAS_LIMIT",
+	}
+	RollupFeeThresholdDownFlag = cli.Float64Flag{
+		Name:   "rollup.feethresholddown",
+		Usage:  "Allow txs with fees below the current fee up to this amount, must be < 1",
+		EnvVar: "ROLLUP_FEE_THRESHOLD_DOWN",
+	}
+	RollupFeeThresholdUpFlag = cli.Float64Flag{
+		Name:   "rollup.feethresholdup",
+		Usage:  "Allow txs with fees above the current fee up to this amount, must be > 1",
+		EnvVar: "ROLLUP_FEE_THRESHOLD_UP",
+	}
+	GasPriceOracleOwnerAddress = cli.StringFlag{
+		Name:   "rollup.gaspriceoracleowneraddress",
+		Usage:  "Owner of the OVM_GasPriceOracle",
+		EnvVar: "ROLLUP_GAS_PRICE_ORACLE_OWNER_ADDRESS",
 	}
 )
 
@@ -1139,6 +1135,7 @@ func setIPC(ctx *cli.Context, cfg *node.Config) {
 	}
 }
 
+// UsingOVM
 // setEth1 configures the sync service
 func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainDeployHeightFlag.Name) {
@@ -1149,9 +1146,13 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 		addr := ctx.GlobalString(Eth1L1CrossDomainMessengerAddressFlag.Name)
 		cfg.L1CrossDomainMessengerAddress = common.HexToAddress(addr)
 	}
-	if ctx.GlobalIsSet(Eth1ETHGatewayAddressFlag.Name) {
-		addr := ctx.GlobalString(Eth1ETHGatewayAddressFlag.Name)
-		cfg.L1ETHGatewayAddress = common.HexToAddress(addr)
+	if ctx.GlobalIsSet(Eth1L1FeeWalletAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1L1FeeWalletAddressFlag.Name)
+		cfg.L1FeeWalletAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(Eth1StandardBridgeAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1StandardBridgeAddressFlag.Name)
+		cfg.L1StandardBridgeAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(Eth1ChainIdFlag.Name) {
 		cfg.Eth1ChainId = ctx.GlobalUint64(Eth1ChainIdFlag.Name)
@@ -1164,6 +1165,8 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	}
 }
 
+// UsingOVM
+// setRollup configures the rollup
 func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(RollupAddressManagerOwnerAddressFlag.Name) {
 		addr := ctx.GlobalString(RollupAddressManagerOwnerAddressFlag.Name)
@@ -1189,11 +1192,9 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(RollupTimstampRefreshFlag.Name) {
 		cfg.TimestampRefreshThreshold = ctx.GlobalDuration(RollupTimstampRefreshFlag.Name)
 	}
-	if ctx.GlobalIsSet(RollupDataPriceFlag.Name) {
-		cfg.DataPrice = GlobalBig(ctx, RollupDataPriceFlag.Name)
-	}
-	if ctx.GlobalIsSet(RollupExecutionPriceFlag.Name) {
-		cfg.ExecutionPrice = GlobalBig(ctx, RollupExecutionPriceFlag.Name)
+	if ctx.GlobalIsSet(GasPriceOracleOwnerAddress.Name) {
+		addr := ctx.GlobalString(GasPriceOracleOwnerAddress.Name)
+		cfg.GasPriceOracleOwnerAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(RollupBackendFlag.Name) {
 		val := ctx.GlobalString(RollupBackendFlag.Name)
@@ -1204,15 +1205,20 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 		}
 		cfg.Backend = backend
 	}
-	if ctx.GlobalIsSet(RollupGasPriceOracleAddressFlag.Name) {
-		addr := ctx.GlobalString(RollupGasPriceOracleAddressFlag.Name)
-		cfg.GasPriceOracleAddress = common.HexToAddress(addr)
-	}
-	if ctx.GlobalIsSet(RollupEnableL2GasPollingFlag.Name) {
-		cfg.EnableL2GasPolling = true
-	}
 	if ctx.GlobalIsSet(RollupEnforceFeesFlag.Name) {
 		cfg.EnforceFees = true
+	}
+	if ctx.GlobalIsSet(RollupMinL2GasLimitFlag.Name) {
+		val := ctx.GlobalUint64(RollupMinL2GasLimitFlag.Name)
+		cfg.MinL2GasLimit = new(big.Int).SetUint64(val)
+	}
+	if ctx.GlobalIsSet(RollupFeeThresholdDownFlag.Name) {
+		val := ctx.GlobalFloat64(RollupFeeThresholdDownFlag.Name)
+		cfg.FeeThresholdDown = new(big.Float).SetFloat64(val)
+	}
+	if ctx.GlobalIsSet(RollupFeeThresholdUpFlag.Name) {
+		val := ctx.GlobalFloat64(RollupFeeThresholdUpFlag.Name)
+		cfg.FeeThresholdUp = new(big.Float).SetFloat64(val)
 	}
 }
 
@@ -1676,9 +1682,6 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setEth1(ctx, &cfg.Rollup)
 	setRollup(ctx, &cfg.Rollup)
 
-	if ctx.GlobalIsSet(RollupDiffDbFlag.Name) {
-		cfg.DiffDbCache = ctx.GlobalUint64(RollupDiffDbFlag.Name)
-	}
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	}
@@ -1773,15 +1776,21 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 			chainID = new(big.Int).SetUint64(id)
 		}
 
+		// UsingOVM
+		// The genesis block includes state that is set at runtime.
+		// This allows the statedump to be generic and not created
+		// specific for each network.
 		gasLimit := cfg.Rollup.GasLimit
 		if gasLimit == 0 {
 			gasLimit = params.GenesisGasLimit
 		}
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
+		l1FeeWalletAddress := cfg.Rollup.L1FeeWalletAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
-		l1ETHGatewayAddress := cfg.Rollup.L1ETHGatewayAddress
+		l1StandardBridgeAddress := cfg.Rollup.L1StandardBridgeAddress
+		gpoOwnerAddress := cfg.Rollup.GasPriceOracleOwnerAddress
 		stateDumpPath := cfg.Rollup.StateDumpPath
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, l1ETHGatewayAddress, addrManagerOwnerAddress, stateDumpPath, chainID, gasLimit)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, l1StandardBridgeAddress, addrManagerOwnerAddress, gpoOwnerAddress, l1FeeWalletAddress, stateDumpPath, chainID, gasLimit)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}

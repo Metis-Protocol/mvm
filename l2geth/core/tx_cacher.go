@@ -19,7 +19,7 @@ package core
 import (
 	"runtime"
 
-	"github.com/MetisProtocol/l2geth/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 // senderCacher is a concurrent transaction sender recoverer and cacher.

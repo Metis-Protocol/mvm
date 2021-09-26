@@ -17,12 +17,11 @@
 package main
 
 import (
-	"fmt"
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/hexutil"
-	"github.com/MetisProtocol/l2geth/core/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
@@ -46,9 +45,6 @@ type RPCTransaction struct {
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
-	// NOTE 20210724
-	fmt.Println("Test: newRPCTransaction in retesteth_copypaste.go")
-
 	var signer types.Signer = types.FrontierSigner{}
 	if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())

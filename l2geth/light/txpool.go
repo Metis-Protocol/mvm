@@ -23,16 +23,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -446,25 +446,21 @@ func (pool *TxPool) Add(ctx context.Context, tx *types.Transaction) error {
 	return nil
 }
 
-// AddBatch adds all valid transactions to the pool and passes them to
+// AddTransactions adds all valid transactions to the pool and passes them to
 // the tx relay backend
-func (pool *TxPool) AddBatch(ctx context.Context, txs []*types.Transaction) []error {
+func (pool *TxPool) AddBatch(ctx context.Context, txs []*types.Transaction) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 	var sendTx types.Transactions
 
-	errors := make([]error, len(txs))
-	for i, tx := range txs {
+	for _, tx := range txs {
 		if err := pool.add(ctx, tx); err == nil {
 			sendTx = append(sendTx, tx)
-		} else {
-			errors[i] = err
 		}
 	}
 	if len(sendTx) > 0 {
 		pool.relay.Send(sendTx)
 	}
-	return errors
 }
 
 // GetTransaction returns a transaction if it is contained in the pool

@@ -21,29 +21,20 @@ import (
 	"errors"
 	"io"
 	"math/big"
-	"sync/atomic"
 	"os"
+	"sync/atomic"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/hexutil"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/rlp"
-	"github.com/MetisProtocol/l2geth/rollup/fees"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/fees"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
 
 var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
-)
-
-// TODO(mark): migrate from sighash type to type
-type SignatureHashType uint8
-
-const (
-	SighashEIP155  SignatureHashType = 0
-	SighashEthSign SignatureHashType = 1
-	CreateEOA      SignatureHashType = 2
 )
 
 type Transaction struct {
@@ -70,18 +61,6 @@ type txdata struct {
 
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
-
-	// NOTE 20210724
-	// L1Info
-	// L1BlockNumber     *big.Int          `json:"l1BlockNumber" rlp:"0"`
-	// L1Timestamp       uint64            `json:"l1Timestamp" rlp:"0"`
-	// L1MessageSender   *common.Address   `json:"L1MessageSender" rlp:"nil"`
-	// SignatureHashType SignatureHashType `json:"signatureHashType" rlp:"1"`
-	// QueueOrigin       *big.Int          `json:"queueOrigin" rlp:"0"`
-	// // The canonical transaction chain index
-	// Index *uint64 `json:"index" rlp:"0"`
-	// // The queue index, nil for queue origin sequencer transactions
-	// QueueIndex *uint64 `json:"queueIndex" rlp:"0"`
 }
 
 type txdataMarshaling struct {
@@ -93,20 +72,12 @@ type txdataMarshaling struct {
 	V            *hexutil.Big
 	R            *hexutil.Big
 	S            *hexutil.Big
-	// NOTE 20210724
-	// L1BlockNumber     *hexutil.Big
-	// L1Timestamp       hexutil.Uint64
-	// SignatureHashType *hexutil.Big
-	// QueueOrigin       *hexutil.Big
-	// Index             *hexutil.Uint64
-	// QueueIndex        *hexutil.Uint64
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
-// TODO: cannot deploy contracts with SighashEthSign right until SighashEIP155 is no longer hardcoded
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
@@ -116,8 +87,8 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		data = common.CopyBytes(data)
 	}
 
-	meta := NewTransactionMeta(nil, 0, nil, SighashEIP155, QueueOriginSequencer, nil, nil, nil)
-	// index1 := uint64(0)
+	meta := NewTransactionMeta(nil, 0, nil, QueueOriginSequencer, nil, nil, nil)
+
 	d := txdata{
 		AccountNonce: nonce,
 		Recipient:    to,
@@ -128,13 +99,6 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
-		// NOTE 20210724
-		// L1BlockNumber:     new(big.Int),
-		// L1Timestamp:       0,
-		// SignatureHashType: SighashEIP155,
-		// QueueOrigin:       big.NewInt(int64(QueueOriginSequencer)),
-		// Index:             &index1,
-		// QueueIndex:        &index1,
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -146,28 +110,11 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	return &Transaction{data: d, meta: *meta}
 }
 
-func (t *Transaction) ResetPayload() {
-	if t.meta.RawTransaction == nil {
-		return
-	}
-	t.data.Payload = t.meta.RawTransaction
-}
-
 func (t *Transaction) SetTransactionMeta(meta *TransactionMeta) {
 	if meta == nil {
 		return
 	}
 	t.meta = *meta
-
-	// NOTE 20210724
-	// t.data.L1BlockNumber = t.meta.L1BlockNumber
-	// t.data.L1Timestamp = t.meta.L1Timestamp
-	// t.data.SignatureHashType = t.meta.SignatureHashType
-	// t.data.QueueOrigin = t.meta.QueueOrigin
-	// t.data.Index = t.meta.Index	
-	// t.data.QueueIndex = t.meta.QueueIndex
-	
-	// t.data.L1MessageSender = t.meta.L1MessageSender
 }
 
 func (t *Transaction) GetMeta() *TransactionMeta {
@@ -181,9 +128,6 @@ func (t *Transaction) SetIndex(index uint64) {
 		return
 	}
 	t.meta.Index = &index
-
-	// NOTE 20210724
-	// t.data.Index = t.meta.Index
 }
 
 func (t *Transaction) SetL1Timestamp(ts uint64) {
@@ -191,9 +135,6 @@ func (t *Transaction) SetL1Timestamp(ts uint64) {
 		return
 	}
 	t.meta.L1Timestamp = ts
-
-	// NOTE 20210724
-	// t.data.L1Timestamp = t.meta.L1Timestamp
 }
 
 func (t *Transaction) L1Timestamp() uint64 {
@@ -208,9 +149,6 @@ func (t *Transaction) SetL1BlockNumber(bn uint64) {
 		return
 	}
 	t.meta.L1BlockNumber = new(big.Int).SetUint64(bn)
-
-	// NOTE 20210724
-	// t.data.L1BlockNumber = t.meta.L1BlockNumber
 }
 
 // ChainId returns which chain id this transaction was signed for (if at all)
@@ -250,12 +188,12 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 
 // MarshalJSON encodes the web3 RPC transaction format.
 func (tx *Transaction) MarshalJSON() ([]byte, error) {
-	return tx.data.TransactionMarshalJSON()
+	return tx.data.MarshalJSON()
 }
 
 // UnmarshalJSON decodes the web3 RPC transaction format.
 func (tx *Transaction) UnmarshalJSON(input []byte) error {
-	err := tx.data.TransactionUnmarshalJSON(input)
+	err := tx.data.UnmarshalJSON(input)
 	if err != nil {
 		return err
 	}
@@ -277,23 +215,15 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte  { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64   { return tx.data.GasLimit }
-func (tx *Transaction) L2Gas() uint64 { return fees.DecodeL2GasLimitU64(tx.data.GasLimit) }
-
+func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
+func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
+func (tx *Transaction) L2Gas() uint64      { return fees.DecodeL2GasLimitU64(tx.data.GasLimit) }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
-func (tx *Transaction) SetNonce(nonce uint64)                { tx.data.AccountNonce = nonce }
-func (tx *Transaction) SignatureHashType() SignatureHashType { return tx.meta.SignatureHashType }
-func (tx *Transaction) SetSignatureHashType(sighashType SignatureHashType) {
-	tx.meta.SignatureHashType = sighashType
-}
-func (tx *Transaction) IsEthSignSighash() bool {
-	return tx.SignatureHashType() == SighashEthSign
-}
+func (tx *Transaction) SetNonce(nonce uint64) { tx.data.AccountNonce = nonce }
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
@@ -325,13 +255,9 @@ func (tx *Transaction) L1BlockNumber() *big.Int {
 	return &l1BlockNumber
 }
 
-// QueueOrigin returns the Queue Origin of the transaction if it exists.
-func (tx *Transaction) QueueOrigin() *big.Int {
-	if tx.meta.QueueOrigin == nil {
-		return nil
-	}
-	queueOrigin := *tx.meta.QueueOrigin
-	return &queueOrigin
+// QueueOrigin returns the Queue Origin of the transaction
+func (tx *Transaction) QueueOrigin() QueueOrigin {
+	return tx.meta.QueueOrigin
 }
 
 // Hash hashes the RLP encoding of tx.
@@ -366,36 +292,13 @@ func (tx *Transaction) Size() common.StorageSize {
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	// TOOD 20210724
 	txMeta := tx.GetMeta()
-	// if tx.data.V.Cmp(big.NewInt(0)) == 0 {
-	// 	txMeta.L1BlockNumber = big.NewInt(0)
-	// 	txMeta.L1Timestamp = 0
-	// 	l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
-	// 	txMeta.L1MessageSender = &l1
-	// 	txMeta.QueueOrigin = big.NewInt(int64(QueueOriginL1ToL2))
-	// 	index1 := uint64(0)
-	// 	txMeta.Index = &index1
-	// 	qindex1 := uint64(0)
-	// 	txMeta.QueueIndex = &qindex1
-	// 	txMeta.RawTransaction = tx.data.Payload
-	// }
-	// if txMeta.QueueOrigin == nil {
-	// 	txMeta.L1BlockNumber = big.NewInt(0)
-	// 	txMeta.L1Timestamp = 0
-	// 	txMeta.L1MessageSender = nil
-	// 	txMeta.QueueOrigin = big.NewInt(int64(QueueOriginSequencer))
-	// 	index1 := uint64(0)
-	// 	txMeta.Index = &index1
-	// 	qindex1 := uint64(0)
-	// 	txMeta.QueueIndex = &qindex1
-	// 	txMeta.RawTransaction = tx.data.Payload
-	// }
 	if tx.data.V.Cmp(big.NewInt(0)) == 0 {
 		// L1 message
 		txMeta.L1BlockNumber = big.NewInt(0)
 		txMeta.L1Timestamp = 0
 		l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
 		txMeta.L1MessageSender = &l1
-		txMeta.QueueOrigin = big.NewInt(int64(QueueOriginL1ToL2))
+		txMeta.QueueOrigin = QueueOriginL1ToL2
 		index1 := uint64(0)
 		txMeta.Index = &index1
 		qindex1 := uint64(0)
@@ -404,10 +307,11 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	} else {
 		txMeta.L1BlockNumber = big.NewInt(0)
 		if &txMeta.L1Timestamp == nil {
-		 	txMeta.L1Timestamp = 0
+			txMeta.L1Timestamp = 0
 		}
-		// txMeta.L1MessageSender = nil
-		txMeta.QueueOrigin = big.NewInt(int64(QueueOriginSequencer))
+		//l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
+		txMeta.L1MessageSender = nil
+		txMeta.QueueOrigin = QueueOriginSequencer
 		if txMeta.Index == nil {
 			index1 := uint64(0)
 			txMeta.Index = &index1
@@ -417,18 +321,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 			txMeta.QueueIndex = &qindex1
 		}
 		txMeta.RawTransaction = tx.data.Payload
-
-		// txMeta.L1Timestamp = tx.data.L1Timestamp
-		// txMeta.L1BlockNumber = tx.data.L1BlockNumber
-		// txMeta.Index = tx.data.Index
-		// txMeta.QueueIndex = tx.data.QueueIndex
-		// txMeta.QueueOrigin = tx.data.QueueOrigin
 	}
-	// txMeta.L1Timestamp = tx.data.L1Timestamp
-	// txMeta.L1BlockNumber = tx.data.L1BlockNumber
-	// txMeta.Index = tx.data.Index
-	// txMeta.QueueIndex = tx.data.QueueIndex
-	// txMeta.L1MessageSender = tx.data.L1MessageSender
 	tx.SetTransactionMeta(txMeta)
 
 	msg := Message{
@@ -440,15 +333,9 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		data:       tx.data.Payload,
 		checkNonce: true,
 
-		l1MessageSender:   tx.meta.L1MessageSender,
-		l1BlockNumber:     tx.meta.L1BlockNumber,
-		signatureHashType: tx.meta.SignatureHashType,
-		queueOrigin:       tx.meta.QueueOrigin,
-
-		// NOTE 20210724
-		// l1Timestamp: tx.meta.L1Timestamp,
-		// index:       tx.meta.Index,
-		// queueIndex:  tx.meta.QueueIndex,
+		l1MessageSender: tx.meta.L1MessageSender,
+		l1BlockNumber:   tx.meta.L1BlockNumber,
+		queueOrigin:     tx.meta.QueueOrigin,
 	}
 
 	var err error
@@ -551,44 +438,12 @@ func (s *TxByPrice) Pop() interface{} {
 	return x
 }
 
-type TxByIndexAndPrice Transactions
-
-func (s TxByIndexAndPrice) Len() int { return len(s) }
-func (s TxByIndexAndPrice) Less(i, j int) bool {
-	metai, metaj := s[i].GetMeta(), s[j].GetMeta()
-	// They should never be the same integer but they
-	// can both be nil. Sort by gasPrice in this case.
-	if metai.Index == nil && metaj.Index == nil {
-		return s[i].data.Price.Cmp(s[j].data.Price) > 0
-	}
-	// When the index is nil, it means that it is unknown. This
-	// indicates queue origin sequencer.
-	if metai.Index == nil && metaj.Index != nil {
-		return false
-	}
-	if metai.Index != nil && metaj.Index == nil {
-		return true
-	}
-	return *metai.Index < *metaj.Index
-}
-func (s TxByIndexAndPrice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s *TxByIndexAndPrice) Push(x interface{}) {
-	*s = append(*s, x.(*Transaction))
-}
-func (s *TxByIndexAndPrice) Pop() interface{} {
-	old := *s
-	n := len(old)
-	x := old[n-1]
-	*s = old[0 : n-1]
-	return x
-}
-
 // TransactionsByPriceAndNonce represents a set of transactions that can return
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
 type TransactionsByPriceAndNonce struct {
 	txs    map[common.Address]Transactions // Per account nonce-sorted list of transactions
-	heads  TxByIndexAndPrice               // Next transaction for each unique account (price heap)
+	heads  TxByPrice                       // Next transaction for each unique account (price heap)
 	signer Signer                          // Signer for the set of transactions
 }
 
@@ -599,7 +454,7 @@ type TransactionsByPriceAndNonce struct {
 // if after providing it to the constructor.
 func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transactions) *TransactionsByPriceAndNonce {
 	// Initialize a price based heap with the head transactions
-	heads := make(TxByIndexAndPrice, 0, len(txs))
+	heads := make(TxByPrice, 0, len(txs))
 	for from, accTxs := range txs {
 		// This prevents a panic, not ideal.
 		if len(accTxs) > 0 {
@@ -661,19 +516,12 @@ type Message struct {
 	data       []byte
 	checkNonce bool
 
-	l1MessageSender   *common.Address
-	l1BlockNumber     *big.Int
-	signatureHashType SignatureHashType
-	queueOrigin       *big.Int
-
-	// NOTE 20210724
-	// l1Timestamp uint64
-	// index       *uint64
-	// queueIndex  *uint64
+	l1MessageSender *common.Address
+	l1BlockNumber   *big.Int
+	queueOrigin     QueueOrigin
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, signatureHashType SignatureHashType) Message {
-	// index1 := uint64(0)
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin) Message {
 	return Message{
 		from:       from,
 		to:         to,
@@ -684,40 +532,11 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		data:       data,
 		checkNonce: checkNonce,
 
-		l1BlockNumber:     l1BlockNumber,
-		l1MessageSender:   l1MessageSender,
-		signatureHashType: signatureHashType,
-		queueOrigin:       big.NewInt(int64(queueOrigin)),
-
-		// TODO 20200724
-		// l1Timestamp: 0,
-		// index:       &index1,
-		// queueIndex:  &index1,
+		l1BlockNumber:   l1BlockNumber,
+		l1MessageSender: l1MessageSender,
+		queueOrigin:     queueOrigin,
 	}
 }
-
-// NOTE 20210724
-// func NewMessage2(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, signatureHashType SignatureHashType, l1Timestamp uint64, index *uint64, queueIndex *uint64) Message {
-// 	return Message{
-// 		from:       from,
-// 		to:         to,
-// 		nonce:      nonce,
-// 		amount:     amount,
-// 		gasLimit:   gasLimit,
-// 		gasPrice:   gasPrice,
-// 		data:       data,
-// 		checkNonce: checkNonce,
-
-// 		l1BlockNumber:     l1BlockNumber,
-// 		l1MessageSender:   l1MessageSender,
-// 		signatureHashType: signatureHashType,
-// 		queueOrigin:       big.NewInt(int64(queueOrigin)),
-
-// 		l1Timestamp: l1Timestamp,
-// 		index:       index,
-// 		queueIndex:  queueIndex,
-// 	}
-// }
 
 func (m Message) From() common.Address { return m.from }
 func (m Message) To() *common.Address  { return m.to }
@@ -728,12 +547,6 @@ func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
 
-func (m Message) L1MessageSender() *common.Address     { return m.l1MessageSender }
-func (m Message) L1BlockNumber() *big.Int              { return m.l1BlockNumber }
-func (m Message) SignatureHashType() SignatureHashType { return m.signatureHashType }
-func (m Message) QueueOrigin() *big.Int                { return m.queueOrigin }
-
-// NOTE 20210724
-// func (m Message) L1Timestamp() uint64 { return m.l1Timestamp }
-// func (m Message) Index() *uint64      { return m.index }
-// func (m Message) QueueIndex() *uint64 { return m.queueIndex }
+func (m Message) L1MessageSender() *common.Address { return m.l1MessageSender }
+func (m Message) L1BlockNumber() *big.Int          { return m.l1BlockNumber }
+func (m Message) QueueOrigin() QueueOrigin         { return m.queueOrigin }

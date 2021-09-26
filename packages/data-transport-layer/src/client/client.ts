@@ -1,9 +1,9 @@
 // Only load if not in browser.
 import { isNode } from 'browser-or-node'
 
+// eslint-disable-next-line no-var
 declare var window: any
 
-/* tslint:disable-next-line:no-var-requires */
 const fetch = isNode ? require('node-fetch') : window.fetch
 
 import {
@@ -72,7 +72,7 @@ export class L1DataTransportClient {
   public async getLatestStateRootBatch(): Promise<StateRootBatchResponse> {
     return this._get(`/batch/stateroot/latest/${this._chainId}`)
   }
-  
+
   private async _get<TResponse>(endpoint: string): Promise<TResponse> {
     return (await fetch(`${this.url}${endpoint}`)).json()
   }

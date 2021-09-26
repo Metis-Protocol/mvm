@@ -3,7 +3,7 @@ import * as fees from '../../src/fees'
 import { BigNumber, utils } from 'ethers'
 
 const hundredBillion = 10 ** 11
-const million = 10 ** 6
+const tenThousand = 10 ** 4
 
 describe('Fees', () => {
   it('should count zeros and ones', () => {
@@ -61,11 +61,9 @@ describe('Fees', () => {
       {
         name: 'zero-l2-gasprice',
         dataLen: 10,
-
         l1GasPrice: hundredBillion,
         l2GasPrice: 0,
         l2GasLimit: 196205,
-
       },
       {
         name: 'one-l2-gasprice',
@@ -119,5 +117,12 @@ describe('Fees', () => {
         expect(decoded).to.deep.eq(roundedL2GasLimit)
       })
     }
+
+    it('should decode numbers', () => {
+      const x = 1
+      expect(fees.TxGasLimit.decode(x)).to.deep.equal(
+        BigNumber.from(x * tenThousand)
+      )
+    })
   })
 })

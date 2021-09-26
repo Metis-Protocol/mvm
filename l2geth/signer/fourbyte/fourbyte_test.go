@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MetisProtocol/l2geth/accounts/abi"
-	"github.com/MetisProtocol/l2geth/common"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Tests that all the selectors contained in the 4byte database are valid.

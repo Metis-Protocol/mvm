@@ -1,21 +1,27 @@
 /* External Imports */
-import { Contract, Signer, utils, providers } from 'ethers'
-import { TransactionReceipt } from '@ethersproject/abstract-provider'
-import { Gauge, Histogram } from 'prom-client'
-import * as ynatm from '@eth-optimism/ynatm'
-import { RollupInfo } from '@eth-optimism/core-utils'
+import {
+  Contract,
+  Signer,
+  utils,
+  providers,
+  PopulatedTransaction,
+} from 'ethers'
+import {
+  TransactionReceipt,
+  TransactionResponse,
+} from '@ethersproject/abstract-provider'
+import { Gauge, Histogram, Counter } from 'prom-client'
+import { RollupInfo, sleep } from '@eth-optimism/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 import { getContractFactory } from '@metis.io/contracts'
 
-export interface Range {
+
+/* Internal Imports */
+import { TxSubmissionHooks } from '../utils/'
+
+export interface BlockRange {
   start: number
   end: number
-}
-export interface ResubmissionConfig {
-  resubmissionTimeout: number
-  minGasPriceInGwei: number
-  maxGasPriceInGwei: number
-  gasRetryIncrement: number
 }
 
 interface BatchSubmitterMetrics {
@@ -24,21 +30,10 @@ interface BatchSubmitterMetrics {
   numTxPerBatch: Histogram<string>
   submissionTimestamp: Histogram<string>
   submissionGasUsed: Histogram<string>
+  batchesSubmitted: Counter<string>
+  failedSubmissions: Counter<string>
+  malformedBatches: Counter<string>
 }
-
-const rejectOnTheseMessages = (err) => {
-  const errMsg = err.toString().toLowerCase();
-
-  const conditions = ["revert", "gas", "nonce", "invalid"];
-
-  for (const i of conditions) {
-   if (errMsg.includes(i)) {
-     return true;
-   }
-  }
-
-   return false;
-};
 
 export abstract class BatchSubmitter {
   protected rollupInfo: RollupInfo
@@ -50,7 +45,7 @@ export abstract class BatchSubmitter {
 
   constructor(
     readonly signer: Signer,
-    readonly l2Provider: providers.JsonRpcProvider,
+    readonly l2Provider: providers.StaticJsonRpcProvider,
     readonly minTxSize: number,
     readonly maxTxSize: number,
     readonly maxBatchSize: number,
@@ -60,10 +55,6 @@ export abstract class BatchSubmitter {
     readonly finalityConfirmations: number,
     readonly addressManagerAddress: string,
     readonly minBalanceEther: number,
-    readonly minGasPriceInGwei: number,
-    readonly maxGasPriceInGwei: number,
-    readonly gasRetryIncrement: number,
-    readonly gasThresholdInGwei: number,
     readonly blockOffset: number,
     readonly logger: Logger,
     readonly defaultMetrics: Metrics
@@ -76,7 +67,7 @@ export abstract class BatchSubmitter {
     endBlock: number
   ): Promise<TransactionReceipt>
   public abstract _onSync(): Promise<TransactionReceipt>
-  public abstract _getBatchStartAndEnd(): Promise<Range>
+  public abstract _getBatchStartAndEnd(): Promise<BlockRange>
   public abstract _updateChainInfo(): Promise<void>
 
   public async submitNextBatch(): Promise<TransactionReceipt> {
@@ -84,12 +75,16 @@ export abstract class BatchSubmitter {
       this.l2ChainId = await this._getL2ChainId()
     }
     await this._updateChainInfo()
-    await this._checkBalance()
 
-    //this.logger.info('Readying to submit next batch...', {
-    //  l2ChainId: this.l2ChainId,
-    //  batchSubmitterAddress: await this.signer.getAddress(),
-    //})
+    if (!(await this._hasEnoughETHToCoverGasCosts())) {
+      await sleep(this.resubmissionTimeout)
+      return
+    }
+
+    this.logger.info('Readying to submit next batch...', {
+      l2ChainId: this.l2ChainId,
+      batchSubmitterAddress: await this.signer.getAddress(),
+    })
 
     if (this.syncing === true) {
       this.logger.info(
@@ -105,16 +100,17 @@ export abstract class BatchSubmitter {
     return this._submitBatch(range.start, range.end)
   }
 
-  protected async _checkBalance(): Promise<void> {
+  protected async _hasEnoughETHToCoverGasCosts(): Promise<boolean> {
     const address = await this.signer.getAddress()
     const balance = await this.signer.getBalance()
     const ether = utils.formatEther(balance)
     const num = parseFloat(ether)
 
-    //this.logger.info('Checked balance', {
-    //  address,
-    //  ether,
-    //})
+    this.logger.info('Checked balance', {
+      address,
+      ether,
+    })
+
     this.metrics.batchSubmitterETHBalance.set(num)
 
     if (num < this.minBalanceEther) {
@@ -122,7 +118,10 @@ export abstract class BatchSubmitter {
         current: num,
         safeBalance: this.minBalanceEther,
       })
+      return false
     }
+
+    return true
   }
 
   protected async _getRollupInfo(): Promise<RollupInfo> {
@@ -154,15 +153,16 @@ export abstract class BatchSubmitter {
 
   protected _shouldSubmitBatch(batchSizeInBytes: number): boolean {
     const currentTimestamp = Date.now()
-    const isTimeoutReached =
-      this.lastBatchSubmissionTimestamp + this.maxBatchSubmissionTime <=
-      currentTimestamp
     if (batchSizeInBytes < this.minTxSize) {
-      if (!isTimeoutReached) {
+      const timeSinceLastSubmission =
+        currentTimestamp - this.lastBatchSubmissionTimestamp
+      if (timeSinceLastSubmission < this.maxBatchSubmissionTime) {
         this.logger.info(
           'Skipping batch submission. Batch too small & max submission timeout not reached.',
           {
             batchSizeInBytes,
+            timeSinceLastSubmission,
+            maxBatchSubmissionTime: this.maxBatchSubmissionTime,
             minTxSize: this.minTxSize,
             lastBatchSubmissionTimestamp: this.lastBatchSubmissionTimestamp,
             currentTimestamp,
@@ -172,6 +172,8 @@ export abstract class BatchSubmitter {
       }
       this.logger.info('Timeout reached, proceeding with batch submission.', {
         batchSizeInBytes,
+        timeSinceLastSubmission,
+        maxBatchSubmissionTime: this.maxBatchSubmissionTime,
         lastBatchSubmissionTimestamp: this.lastBatchSubmissionTimestamp,
         currentTimestamp,
       })
@@ -189,77 +191,65 @@ export abstract class BatchSubmitter {
     this.metrics.batchSizeInBytes.observe(batchSizeInBytes)
     return true
   }
-  
-  public static async getReceiptWithResubmission(
-    txFunc: (gasPrice) => Promise<TransactionReceipt>,
-    resubmissionConfig: ResubmissionConfig,
-    logger: Logger
-  ): Promise<TransactionReceipt> {
-    const {
-      resubmissionTimeout,
-      minGasPriceInGwei,
-      maxGasPriceInGwei,
-      gasRetryIncrement,
-    } = resubmissionConfig
 
-    const receipt = await ynatm.send({
-      sendTransactionFunction: txFunc,
-      minGasPrice: ynatm.toGwei(minGasPriceInGwei),
-      maxGasPrice: ynatm.toGwei(maxGasPriceInGwei),
-      gasPriceScalingFunction: ynatm.LINEAR(gasRetryIncrement),
-      delay: resubmissionTimeout,
-      rejectImmediatelyOnCondition: rejectOnTheseMessages
-    })
-
-    logger.debug('Resubmission tx receipt', { receipt })
-
-    return receipt
+  protected _makeHooks(txName: string): TxSubmissionHooks {
+    return {
+      beforeSendTransaction: (tx: PopulatedTransaction) => {
+        this.logger.info(`Submitting ${txName} transaction`, {
+          gasPrice: tx.gasPrice,
+          maxFeePerGas: tx.maxFeePerGas,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+          gasLimit: tx.gasLimit,
+          nonce: tx.nonce,
+          contractAddr: this.chainContract.address,
+        })
+      },
+      onTransactionResponse: (txResponse: TransactionResponse) => {
+        this.logger.info(`Submitted ${txName} transaction`, {
+          txHash: txResponse.hash,
+          from: txResponse.from,
+        })
+        this.logger.debug(`${txName} transaction data`, {
+          data: txResponse.data,
+        })
+      },
+    }
   }
 
-  private async _getMinGasPriceInGwei(): Promise<number> {
-    if (this.minGasPriceInGwei !== 0) {
-      return this.minGasPriceInGwei
-    }
-    let minGasPriceInGwei = parseInt(
-      utils.formatUnits(await this.signer.getGasPrice(), 'gwei'),
-      10
-    )
-    if (minGasPriceInGwei > this.maxGasPriceInGwei) {
-      this.logger.warn(
-        'Minimum gas price is higher than max! Ethereum must be congested...'
-      )
-      minGasPriceInGwei = this.maxGasPriceInGwei
-    }
-    return minGasPriceInGwei
-  }
-
- 
-  
   protected async _submitAndLogTx(
-    txFunc: (gasPrice) => Promise<TransactionReceipt>,
+    submitTransaction: () => Promise<TransactionReceipt>,
     successMessage: string
   ): Promise<TransactionReceipt> {
     this.lastBatchSubmissionTimestamp = Date.now()
-    this.logger.debug('Waiting for receipt...')
+    this.logger.debug('Submitting transaction & waiting for receipt...')
 
-    const resubmissionConfig: ResubmissionConfig = {
-      resubmissionTimeout: this.resubmissionTimeout,
-      minGasPriceInGwei: await this._getMinGasPriceInGwei(),
-      maxGasPriceInGwei: this.maxGasPriceInGwei,
-      gasRetryIncrement: this.gasRetryIncrement,
+    let receipt: TransactionReceipt
+    try {
+      receipt = await submitTransaction()
+    } catch (err) {
+      this.metrics.failedSubmissions.inc()
+      if (err.reason) {
+        this.logger.error(`Transaction invalid: ${err.reason}, aborting`, {
+          message: err.toString(),
+          stack: err.stack,
+          code: err.code,
+        })
+        return
+      }
+
+      this.logger.error('Encountered error at submission, aborting', {
+        message: err.toString(),
+        stack: err.stack,
+        code: err.code,
+      })
+      return
     }
-
-    var receipt = await BatchSubmitter.getReceiptWithResubmission(
-      txFunc,
-      resubmissionConfig,
-      this.logger
-    )
 
     this.logger.info('Received transaction receipt', { receipt })
     this.logger.info(successMessage)
+    this.metrics.batchesSubmitted.inc()
     this.metrics.submissionGasUsed.observe(receipt.gasUsed.toNumber())
     this.metrics.submissionTimestamp.observe(Date.now())
-
     return receipt
   }
 
@@ -290,6 +280,21 @@ export abstract class BatchSubmitter {
       submissionGasUsed: new metrics.client.Histogram({
         name: 'submission_gash_used',
         help: 'Gas used to submit each batch',
+        registers: [metrics.registry],
+      }),
+      batchesSubmitted: new metrics.client.Counter({
+        name: 'batches_submitted',
+        help: 'Count of batches submitted',
+        registers: [metrics.registry],
+      }),
+      failedSubmissions: new metrics.client.Counter({
+        name: 'failed_submissions',
+        help: 'Count of failed batch submissions',
+        registers: [metrics.registry],
+      }),
+      malformedBatches: new metrics.client.Counter({
+        name: 'malformed_batches',
+        help: 'Count of malformed batches',
         registers: [metrics.registry],
       }),
     }

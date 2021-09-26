@@ -66,7 +66,8 @@ export const deploy = async (
         contracts[name] = await fac
           .connect(config.deploymentSigner)
           .deploy(
-            ...(contractDeployParameters.params || [])
+            ...(contractDeployParameters.params || []),
+            config.deployOverrides
           )
         if (config.waitForReceipts) {
           await contracts[name].deployTransaction.wait()

@@ -21,9 +21,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/log"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -161,6 +161,8 @@ func (t *Trie) Update(key, value []byte) {
 // stored in the trie.
 //
 // If a node was not found in the database, a MissingNodeError is returned.
+// UsingOVM
+// Do not delete empty nodes
 func (t *Trie) TryUpdate(key, value []byte) error {
 	k := keybytesToHex(key)
 	_, n, err := t.insert(t.root, nil, k, valueNode(value))

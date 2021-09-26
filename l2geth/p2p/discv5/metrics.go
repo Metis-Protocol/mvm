@@ -16,7 +16,7 @@
 
 package discv5
 
-import "github.com/MetisProtocol/l2geth/metrics"
+import "github.com/ethereum/go-ethereum/metrics"
 
 var (
 	ingressTrafficMeter = metrics.NewRegisteredMeter("discv5/InboundTraffic", nil)

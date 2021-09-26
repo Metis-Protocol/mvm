@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/ethdb"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethdb"
 )
 
 // Tests that the node iterator indeed walks over the entire database contents.

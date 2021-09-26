@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/common/mclock"
+	"github.com/ethereum/go-ethereum/common/mclock"
 )
 
 func TestSetBalance(t *testing.T) {

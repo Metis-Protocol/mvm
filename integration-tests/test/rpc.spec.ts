@@ -2,12 +2,19 @@ import {
   injectL2Context,
   TxGasLimit,
   TxGasPrice,
-  toRpcHexString,
 } from '@eth-optimism/core-utils'
-import { Wallet, BigNumber, Contract } from 'ethers'
+import { Wallet, BigNumber, Contract, ContractFactory } from 'ethers'
 import { ethers } from 'hardhat'
 import chai, { expect } from 'chai'
-import { sleep, l2Provider, l1Provider } from './shared/utils'
+import {
+  sleep,
+  l2Provider,
+  DEFAULT_TRANSACTION,
+  fundUser,
+  expectApprox,
+  L2_CHAINID,
+  IS_LIVE_NETWORK,
+} from './shared/utils'
 import chaiAsPromised from 'chai-as-promised'
 import { OptimismEnv } from './shared/env'
 import {
@@ -21,14 +28,6 @@ chai.use(solidity)
 describe('Basic RPC tests', () => {
   let env: OptimismEnv
   let wallet: Wallet
-
-  const DEFAULT_TRANSACTION = {
-    to: '0x' + '1234'.repeat(10),
-    gasLimit: 33600000000001,
-    gasPrice: 0,
-    data: '0x',
-    value: 0,
-  }
 
   const provider = injectL2Context(l2Provider)
 
@@ -131,20 +130,12 @@ describe('Basic RPC tests', () => {
       const tx = {
         ...DEFAULT_TRANSACTION,
         gasLimit: 1,
-<<<<<<< HEAD
-        gasPrice: 1,
-      }
-
-      await expect(env.l2Wallet.sendTransaction(tx)).to.be.rejectedWith(
-        'fee too low: 1, use at least tx.gasLimit = 33600000000001 and tx.gasPrice = 1'
-=======
         gasPrice: TxGasPrice,
       }
       const fee = tx.gasPrice.mul(tx.gasLimit)
-      const gasLimit = 5920001
 
       await expect(env.l2Wallet.sendTransaction(tx)).to.be.rejectedWith(
-        `fee too low: ${fee}, use at least tx.gasLimit = ${gasLimit} and tx.gasPrice = ${TxGasPrice.toString()}`
+        `fee too low: ${fee}, use at least tx.gasLimit =`
       )
     })
 
@@ -157,12 +148,11 @@ describe('Basic RPC tests', () => {
 
       await expect(env.l2Wallet.sendTransaction(tx)).to.be.rejectedWith(
         `tx.gasPrice must be ${TxGasPrice.toString()}`
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
       )
     })
 
     it('should correctly report OOG for contract creations', async () => {
-      const factory = await ethers.getContractFactory('TestOOG')
+      const factory = await ethers.getContractFactory('TestOOGInConstructor')
 
       await expect(factory.connect(wallet).deploy()).to.be.rejectedWith(
         'gas required exceeds allowance'
@@ -215,17 +205,37 @@ describe('Basic RPC tests', () => {
         'Contract creation code contains unsafe opcodes. Did you use the right compiler or pass an unsafe constructor argument?'
       )
     })
+
+    it('should allow eth_calls with nonzero value', async () => {
+      // Deploy a contract to check msg.value of the call
+      const Factory__ValueContext: ContractFactory =
+        await ethers.getContractFactory('ValueContext', wallet)
+      const ValueContext: Contract = await Factory__ValueContext.deploy()
+      await ValueContext.deployTransaction.wait()
+
+      // Fund account to call from
+      const from = wallet.address
+      const value = 15
+      await fundUser(env.watcher, env.l1Bridge, value, from)
+
+      // Do the call and check msg.value
+      const data = ValueContext.interface.encodeFunctionData('getCallValue')
+      const res = await provider.call({
+        to: ValueContext.address,
+        from,
+        data,
+        value,
+      })
+
+      expect(res).to.eq(BigNumber.from(value))
+    })
   })
 
   describe('eth_getTransactionReceipt', () => {
     it('correctly exposes revert data for contract calls', async () => {
       const req: TransactionRequest = {
         ...revertingTx,
-<<<<<<< HEAD
-        gasLimit: 934111908999999, // override gas estimation
-=======
         gasLimit: 5980899, // override gas estimation
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
       }
 
       const tx = await wallet.sendTransaction(req)
@@ -248,11 +258,7 @@ describe('Basic RPC tests', () => {
     it('correctly exposes revert data for contract creations', async () => {
       const req: TransactionRequest = {
         ...revertingDeployTx,
-<<<<<<< HEAD
-        gasLimit: 1051391908999999, // override gas estimation
-=======
-        gasLimit: 17700899, // override gas estimation
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
+        gasLimit: 27700899, // override gas estimation
       }
 
       const tx = await wallet.sendTransaction(req)
@@ -280,7 +286,6 @@ describe('Basic RPC tests', () => {
       await result.wait()
 
       const transaction = (await provider.getTransaction(result.hash)) as any
-      expect(transaction.txType).to.equal('EIP155')
       expect(transaction.queueOrigin).to.equal('sequencer')
       expect(transaction.transactionIndex).to.be.eq(0)
       expect(transaction.gasLimit).to.be.deep.eq(BigNumber.from(tx.gasLimit))
@@ -301,7 +306,6 @@ describe('Basic RPC tests', () => {
       expect(block.number).to.not.equal(0)
       expect(typeof block.stateRoot).to.equal('string')
       expect(block.transactions.length).to.equal(1)
-      expect(block.transactions[0].txType).to.equal('EIP155')
       expect(block.transactions[0].queueOrigin).to.equal('sequencer')
       expect(block.transactions[0].l1TxOrigin).to.equal(null)
     })
@@ -313,13 +317,32 @@ describe('Basic RPC tests', () => {
     // canonical transaction chain. This test catches this by
     // querying for the latest block and then waits and then queries
     // the latest block again and then asserts that they are the same.
-    it('should return the same result when new transactions are not applied', async () => {
+    //
+    // Needs to be skipped on Prod networks because this test doesn't work when
+    // other people are sending transactions to the Sequencer at the same time
+    // as this test is running.
+    it('should return the same result when new transactions are not applied', async function () {
+      if (IS_LIVE_NETWORK) {
+        this.skip()
+      }
+
       // Get latest block once to start.
       const prev = await provider.getBlockWithTransactions('latest')
+      // set wait to null to allow a deep object comparison
+      prev.transactions[0].wait = null
 
       // Over ten seconds, repeatedly check the latest block to make sure nothing has changed.
       for (let i = 0; i < 5; i++) {
         const latest = await provider.getBlockWithTransactions('latest')
+        latest.transactions[0].wait = null
+        // Check each key of the transaction individually
+        // for easy debugging if one field changes
+        for (const [key, value] of Object.entries(latest.transactions[0])) {
+          expect(value).to.deep.equal(
+            prev.transactions[0][key],
+            `mismatch ${key}`
+          )
+        }
         expect(latest).to.deep.equal(prev)
         await sleep(2000)
       }
@@ -337,19 +360,11 @@ describe('Basic RPC tests', () => {
   describe('eth_chainId', () => {
     it('should get the correct chainid', async () => {
       const { chainId } = await provider.getNetwork()
-      expect(chainId).to.be.eq(420)
+      expect(chainId).to.be.eq(L2_CHAINID)
     })
   })
 
   describe('eth_gasPrice', () => {
-<<<<<<< HEAD
-    it('gas price should be 1 gwei', async () => {
-      expect(await provider.getGasPrice()).to.be.deep.equal(1)
-    })
-  })
-
-  describe('eth_estimateGas (returns the fee)', () => {
-=======
     it('gas price should be the fee scalar', async () => {
       expect(await provider.getGasPrice()).to.be.deep.equal(
         TxGasPrice.toNumber()
@@ -358,7 +373,6 @@ describe('Basic RPC tests', () => {
   })
 
   describe('eth_estimateGas (returns the scaled fee)', () => {
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
     it('gas estimation is deterministic', async () => {
       let lastEstimate: BigNumber
       for (let i = 0; i < 10; i++) {
@@ -380,11 +394,8 @@ describe('Basic RPC tests', () => {
         to: DEFAULT_TRANSACTION.to,
         value: 0,
       })
-<<<<<<< HEAD
-      expect(estimate).to.be.eq(33600000119751)
-=======
-      expect(estimate).to.be.eq(5920012)
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
+      // Expect gas to be less than or equal to the target plus 1%
+      expectApprox(estimate, 5920012, { upperPercentDeviation: 1 })
     })
 
     it('should return a gas estimate that grows with the size of data', async () => {
@@ -395,10 +406,6 @@ describe('Basic RPC tests', () => {
       for (const data of dataLen) {
         const tx = {
           to: '0x' + '1234'.repeat(10),
-<<<<<<< HEAD
-          gasPrice: '0x1',
-=======
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
           value: '0x0',
           data: '0x' + '00'.repeat(data),
           from: '0x' + '1234'.repeat(10),
@@ -406,20 +413,6 @@ describe('Basic RPC tests', () => {
         const estimate = await l2Provider.estimateGas(tx)
         const l2Gaslimit = await l2Provider.send('eth_estimateExecutionGas', [
           tx,
-<<<<<<< HEAD
-        ])
-
-        const decoded = L2GasLimit.decode(estimate)
-        expect(decoded).to.deep.eq(BigNumber.from(l2Gaslimit))
-        expect(estimate.toString().endsWith(l2Gaslimit.toString()))
-
-        // The L2GasPrice should be fetched from the L2GasPrice oracle contract,
-        // but it does not yet exist. Use the default value for now
-        const l2GasPrice = BigNumber.from(1)
-        const expected = L2GasLimit.encode({
-          data: tx.data,
-          l1GasPrice: roundL1GasPrice(l1GasPrice),
-=======
           true,
         ])
 
@@ -427,13 +420,10 @@ describe('Basic RPC tests', () => {
         expect(decoded).to.deep.eq(BigNumber.from(l2Gaslimit))
         expect(estimate.toString().endsWith(l2Gaslimit.toString()))
 
-        const l2GasPrice = BigNumber.from(0)
-        // The L2GasPrice should be fetched from the L2GasPrice oracle contract,
-        // but it does not yet exist. Use the default value for now
+        const l2GasPrice = await env.gasPriceOracle.gasPrice()
         const expected = TxGasLimit.encode({
           data: tx.data,
           l1GasPrice,
->>>>>>> e389ba105fa167d195444d047cdeae29182d1e45
           l2GasLimit: BigNumber.from(l2Gaslimit),
           l2GasPrice,
         })
@@ -449,6 +439,17 @@ describe('Basic RPC tests', () => {
     it('should fail for a reverting deploy transaction', async () => {
       await expect(provider.send('eth_estimateGas', [revertingDeployTx])).to.be
         .reverted
+    })
+  })
+
+  describe('rollup_gasPrices', () => {
+    it('should return the L1 and L2 gas prices', async () => {
+      const result = await provider.send('rollup_gasPrices', [])
+      const l1GasPrice = await env.l1Wallet.provider.getGasPrice()
+      const l2GasPrice = await env.gasPriceOracle.gasPrice()
+
+      expect(BigNumber.from(result.l1GasPrice)).to.deep.eq(l1GasPrice)
+      expect(BigNumber.from(result.l2GasPrice)).to.deep.eq(l2GasPrice)
     })
   })
 })

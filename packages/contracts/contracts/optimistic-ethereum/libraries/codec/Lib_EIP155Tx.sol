@@ -48,12 +48,12 @@ library Lib_EIP155Tx {
         // didn't use a uint8, then recovery_parameter would always be a negative number for chain
         // IDs greater than 110 (`255 - 110 * 2 - 35 = 0`). So we need to wrap around to support
         // anything larger.
-        uint8 recoveryParam; 
+        uint8 recoveryParam;
 
         // Whether or not the transaction is a creation. Necessary because we can't make an address
         // "nil". Using the zero address creates a potential conflict if the user did actually
         // intend to send a transaction to the zero address.
-        bool isCreate;       
+        bool isCreate;
     }
 
     // Lets us use nicer syntax.
@@ -138,7 +138,7 @@ library Lib_EIP155Tx {
         // We write the encoding of empty bytes when the transaction is a creation, *not* the zero
         // address as one might assume.
         if (_transaction.isCreate) {
-            raw[3] = Lib_RLPWriter.writeBytes('');
+            raw[3] = Lib_RLPWriter.writeBytes("");
         } else {
             raw[3] = Lib_RLPWriter.writeAddress(_transaction.to);
         }
@@ -152,9 +152,9 @@ library Lib_EIP155Tx {
             raw[8] = Lib_RLPWriter.writeBytes32(_transaction.s);
         } else {
             // Chain ID *is* included in the unsigned transaction.
-            raw[6] = Lib_RLPWriter.writeUint(_transaction.chainId); 
-            raw[7] = Lib_RLPWriter.writeBytes('');
-            raw[8] = Lib_RLPWriter.writeBytes('');
+            raw[6] = Lib_RLPWriter.writeUint(_transaction.chainId);
+            raw[7] = Lib_RLPWriter.writeBytes("");
+            raw[8] = Lib_RLPWriter.writeBytes("");
         }
 
         return Lib_RLPWriter.writeList(raw);

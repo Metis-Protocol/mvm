@@ -101,19 +101,6 @@ interface iOVM_ChainStorageContainer {
         external;
 
     /**
-     * Marks an index as overwritable, meaing the underlying buffer can start to write values over
-     * any objects before and including the given index.
-     */
-    function setNextOverwritableIndex(
-        uint256 _index
-    )
-        external;
-        
-        
-        
-        
-    
-    /**
      * Sets the container's global metadata field. We're using `bytes27` here because we use five
      * bytes to maintain the length of the underlying data structure, meaning we have an extra
      * 27 bytes to store arbitrary data.
@@ -220,15 +207,5 @@ interface iOVM_ChainStorageContainer {
         bytes27 _globalMetadata
     )
         external;
-
-    /**
-     * Marks an index as overwritable, meaing the underlying buffer can start to write values over
-     * any objects before and including the given index.
-     * @param _chainId identity for the l2 chain.
-     */
-    function setNextOverwritableIndexByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        external;
+        
 }

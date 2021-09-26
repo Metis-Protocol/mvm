@@ -23,9 +23,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // The values in those tests are from the Transaction Tests
@@ -262,9 +262,5 @@ func TestOVMMetaDataHash(t *testing.T) {
 
 	if emptyTx.Hash() != emptyTxEmptyL1Sender.Hash() {
 		t.Errorf("L1MessageSender, should not affect the hash, want %x, got %x with L1MessageSender", emptyTx.Hash(), emptyTxEmptyL1Sender.Hash())
-	}
-
-	if emptyTx.Hash() != emptyTxSighashEthSign.Hash() {
-		t.Errorf("SignatureHashType, should not affect the hash, want %x, got %x with SighashEthSign", emptyTx.Hash(), emptyTxSighashEthSign.Hash())
 	}
 }

@@ -1,39 +1,82 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >0.5.0 <0.8.0;
-pragma experimental ABIEncoderV2;
-
-/* Interface Imports */
-import { iOVM_L1TokenGateway } from "../iOVM/bridge/tokens/iOVM_L1TokenGateway.sol";
-
-/* Contract Imports */
-import { UniswapV2ERC20 } from "../libraries/standards/UniswapV2ERC20.sol";
 
 /* Library Imports */
-import { OVM_L2DepositedERC20 } from "../OVM/bridge/tokens/OVM_L2DepositedERC20.sol";
+import { Lib_PredeployAddresses } from "../libraries/constants/Lib_PredeployAddresses.sol";
+
+/* Contract Imports */
+import { L2StandardERC20 } from "../libraries/standards/L2StandardERC20.sol";
+import { IWETH9 } from "../libraries/standards/IWETH9.sol";
 
 /**
- * @title OVM_L2DepositedERC20
- * @dev The L2 Deposited ERC20 is an ERC20 implementation which represents L1 assets deposited into L2.
- * This contract mints new tokens when it hears about deposits into the L1 ERC20 gateway.
- * This contract also burns the tokens intended for withdrawal, informing the L1 gateway to release L1 funds.
+ * @title OVM_ETH
+ * @dev The ETH predeploy provides an ERC20 interface for ETH deposited to Layer 2. Note that
+ * unlike on Layer 1, Layer 2 accounts do not have a balance field.
  *
- * NOTE: This contract implements the Abs_L2DepositedToken contract using Uniswap's ERC20 as the implementation.
- * Alternative implementations can be used in this similar manner.
- *
- * Compiler used: optimistic-solc
  * Runtime target: OVM
  */
-contract MVM_Coinbase is OVM_L2DepositedERC20 {
-    constructor(
-        address _l2CrossDomainMessenger,
-        address _l1ETHGateway
-    ) 
-        OVM_L2DepositedERC20(
-            _l2CrossDomainMessenger,
+contract MVM_Coinbase is L2StandardERC20, IWETH9 {
+
+    /***************
+     * Constructor *
+     ***************/
+
+    constructor()
+        L2StandardERC20(
+            Lib_PredeployAddresses.L2_STANDARD_BRIDGE,
+            address(0),
             "Metis Token",
             "Metis"
         )
+    {}
+
+
+    /******************************
+     * Custom WETH9 Functionality *
+     ******************************/
+    fallback() external payable {
+        deposit();
+    }
+
+    /**
+     * Implements the WETH9 deposit() function as a no-op.
+     * WARNING: this function does NOT have to do with cross-chain asset bridging. The relevant
+     * deposit and withdraw functions for that use case can be found at L2StandardBridge.sol.
+     * This function allows developers to treat OVM_ETH as WETH without any modifications to their
+     * code.
+     */
+    function deposit()
+        public
+        payable
+        override
     {
-        init(iOVM_L1TokenGateway(_l1ETHGateway));
+        // Calling deposit() with nonzero value will send the ETH to this contract address.
+        // Once received here, we transfer it back by sending to the msg.sender.
+        _transfer(address(this), msg.sender, msg.value);
+
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    /**
+     * Implements the WETH9 withdraw() function as a no-op.
+     * WARNING: this function does NOT have to do with cross-chain asset bridging. The relevant
+     * deposit and withdraw functions for that use case can be found at L2StandardBridge.sol.
+     * This function allows developers to treat OVM_ETH as WETH without any modifications to their
+     * code.
+     * @param _wad Amount being withdrawn
+     */
+    function withdraw(
+        uint256 _wad
+    )
+        external
+        override
+    {
+        // Calling withdraw() with value exceeding the withdrawer's ovmBALANCE should revert,
+        // as in WETH9.
+        require(balanceOf(msg.sender) >= _wad);
+
+        // Other than emitting an event, OVM_ETH already is native ETH, so we don't need to do
+        // anything else.
+        emit Withdrawal(msg.sender, _wad);
     }
 }

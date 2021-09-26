@@ -28,16 +28,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/cmd/evm/internal/compiler"
-	"github.com/MetisProtocol/l2geth/cmd/utils"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/core/vm/runtime"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
+	"github.com/ethereum/go-ethereum/cmd/evm/internal/compiler"
+	"github.com/ethereum/go-ethereum/cmd/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm/runtime"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -124,9 +124,7 @@ func runCmd(ctx *cli.Context) error {
 	} else {
 		debugLogger = vm.NewStructLogger(logconfig)
 	}
-	fmt.Println("NOTE: genesis...")
 	if ctx.GlobalString(GenesisFlag.Name) != "" {
-		fmt.Println("NOTE: debug genesis, use existing, " + ctx.GlobalString(GenesisFlag.Name))
 		gen := readGenesis(ctx.GlobalString(GenesisFlag.Name))
 		genesisConfig = gen
 		db := rawdb.NewMemoryDatabase()
@@ -134,7 +132,6 @@ func runCmd(ctx *cli.Context) error {
 		statedb, _ = state.New(genesis.Root(), state.NewDatabase(db))
 		chainConfig = gen.Config
 	} else {
-		fmt.Println("NOTE: debug genesis, new genesis")
 		statedb, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()))
 		genesisConfig = new(core.Genesis)
 	}

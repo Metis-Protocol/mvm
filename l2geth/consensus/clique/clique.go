@@ -27,20 +27,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/hexutil"
-	"github.com/MetisProtocol/l2geth/consensus"
-	"github.com/MetisProtocol/l2geth/consensus/misc"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rlp"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rpc"
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/crypto/sha3"
 )
@@ -329,10 +329,16 @@ func (c *Clique) verifyCascadingFields(chain consensus.ChainReader, header *type
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
-	// [REMOVED] to account for timestamp changes
-	//if parent.Time+c.config.Period > header.Time {
-	//	return ErrInvalidTimestamp
-	//}
+
+	// Do not account for timestamps in consensus when running the OVM
+	// changes. The timestamp must be montonic, meaning that it can be the same
+	// or increase. L1 dictates the timestamp.
+	if !vm.UsingOVM {
+		if parent.Time+c.config.Period > header.Time {
+			return ErrInvalidTimestamp
+		}
+
+	}
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
 	if err != nil {
@@ -552,11 +558,14 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	// [REMOVED] so we can control timestamps
-	//header.Time = parent.Time + c.config.Period
-	//if header.Time < uint64(time.Now().Unix()) {
-	//	header.Time = uint64(time.Now().Unix())
-	//}
+
+	// Do not manipulate the timestamps when running with the OVM
+	if !vm.UsingOVM {
+		header.Time = parent.Time + c.config.Period
+		if header.Time < uint64(time.Now().Unix()) {
+			header.Time = uint64(time.Now().Unix())
+		}
+	}
 	return nil
 }
 

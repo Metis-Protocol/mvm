@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/MetisProtocol/l2geth/node"
-	"github.com/MetisProtocol/l2geth/p2p"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // SampleService is a trivial network service that can be attached to a node for

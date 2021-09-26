@@ -19,12 +19,12 @@ package rawdb
 import (
 	"math/big"
 
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // ReadTxLookupEntry retrieves the positional metadata associated with a transaction
@@ -86,6 +86,10 @@ func ReadTransaction(db ethdb.Reader, hash common.Hash) (*types.Transaction, com
 	}
 	for txIndex, tx := range body.Transactions {
 		if tx.Hash() == hash {
+			// UsingOVM
+			// Read the transaction meta from the database and attach it
+			// to the transaction. Since there is 1 transaction per block, the
+			// blocknumber is used as the key.
 			txMeta := ReadTransactionMeta(db, *blockNumber)
 			if txMeta != nil {
 				tx.SetTransactionMeta(txMeta)

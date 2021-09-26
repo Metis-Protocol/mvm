@@ -24,22 +24,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MetisProtocol/l2geth"
-	"github.com/MetisProtocol/l2geth/accounts/abi/bind"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/math"
-	"github.com/MetisProtocol/l2geth/consensus/ethash"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/bloombits"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/state"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/eth/filters"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/filters"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // This nil assignment ensures compile time that SimulatedBackend implements bind.ContractBackend.
@@ -601,15 +601,11 @@ func (m callmsg) Gas() uint64          { return m.CallMsg.Gas }
 func (m callmsg) Value() *big.Int      { return m.CallMsg.Value }
 func (m callmsg) Data() []byte         { return m.CallMsg.Data }
 
-func (m callmsg) L1MessageSender() *common.Address           { return m.CallMsg.L1MessageSender }
-func (m callmsg) L1BlockNumber() *big.Int                    { return m.CallMsg.L1BlockNumber }
-func (m callmsg) QueueOrigin() *big.Int                      { return m.CallMsg.QueueOrigin }
-func (m callmsg) SignatureHashType() types.SignatureHashType { return m.CallMsg.SignatureHashType }
-
-// NOTE 20210724
-// func (m callmsg) L1Timestamp() uint64 { return m.CallMsg.L1Timestamp }
-// func (m callmsg) Index() *uint64      { return m.CallMsg.Index }
-// func (m callmsg) QueueIndex() *uint64 { return m.CallMsg.QueueIndex }
+// UsingOVM
+// These getters return OVM specific fields
+func (m callmsg) L1MessageSender() *common.Address { return m.CallMsg.L1MessageSender }
+func (m callmsg) L1BlockNumber() *big.Int          { return m.CallMsg.L1BlockNumber }
+func (m callmsg) QueueOrigin() types.QueueOrigin   { return m.CallMsg.QueueOrigin }
 
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.

@@ -19,7 +19,7 @@ package keystore
 import (
 	"os"
 
-	"github.com/MetisProtocol/l2geth/accounts/keystore"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 )
 
 func Fuzz(input []byte) int {

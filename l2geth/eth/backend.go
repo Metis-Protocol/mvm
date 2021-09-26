@@ -22,39 +22,38 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
 
-	"github.com/MetisProtocol/l2geth/rollup"
+	"github.com/ethereum/go-ethereum/rollup"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/accounts/abi/bind"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/hexutil"
-	"github.com/MetisProtocol/l2geth/consensus"
-	"github.com/MetisProtocol/l2geth/consensus/clique"
-	"github.com/MetisProtocol/l2geth/consensus/ethash"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/bloombits"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/eth/downloader"
-	"github.com/MetisProtocol/l2geth/eth/filters"
-	"github.com/MetisProtocol/l2geth/eth/gasprice"
-	"github.com/MetisProtocol/l2geth/ethdb"
-	"github.com/MetisProtocol/l2geth/event"
-	"github.com/MetisProtocol/l2geth/internal/ethapi"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/miner"
-	"github.com/MetisProtocol/l2geth/node"
-	"github.com/MetisProtocol/l2geth/p2p"
-	"github.com/MetisProtocol/l2geth/p2p/enr"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rlp"
-	"github.com/MetisProtocol/l2geth/rpc"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/clique"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/downloader"
+	"github.com/ethereum/go-ethereum/eth/filters"
+	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/internal/ethapi"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type LesServer interface {
@@ -190,9 +189,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		}
 	)
 
-	// Save the diffdb under chaindata/diffdb
-	diffdbPath := filepath.Join(ctx.ResolvePath("chaindata"), "diffdb")
-	eth.blockchain, err = core.NewBlockChainWithDiffDb(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, diffdbPath, config.DiffDbCache)
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +223,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
-	log.Info("Backend Config", "max-calldata-size", config.Rollup.MaxCallDataSize, "gas-limit", config.Rollup.GasLimit, "is-verifier", config.Rollup.IsVerifier, "using-ovm", vm.UsingOVM, "data-price", config.Rollup.DataPrice, "execution-price", config.Rollup.ExecutionPrice)
+	log.Info("Backend Config", "max-calldata-size", config.Rollup.MaxCallDataSize, "gas-limit", config.Rollup.GasLimit, "is-verifier", config.Rollup.IsVerifier, "using-ovm", vm.UsingOVM)
 	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil, nil, config.Rollup.IsVerifier, config.Rollup.GasLimit, vm.UsingOVM, config.Rollup.MaxCallDataSize}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
@@ -234,13 +231,23 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 	// create the Rollup GPO and allow the API backend and the sync service to access it
-	rollupGpo := gasprice.NewRollupOracle(config.Rollup.DataPrice, config.Rollup.ExecutionPrice)
+	rollupGpo := gasprice.NewRollupOracle()
 	eth.APIBackend.rollupGpo = rollupGpo
 	eth.syncService.RollupGpo = rollupGpo
 	return eth, nil
 }
 
 func makeExtraData(extra []byte) []byte {
+	if vm.UsingOVM {
+		// Make the extradata deterministic
+		extra, _ = rlp.EncodeToBytes([]interface{}{
+			uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch),
+			"geth",
+			"go1.15.13",
+			"linux",
+		})
+		return extra
+	}
 	if len(extra) == 0 {
 		// create default extradata
 		extra, _ = rlp.EncodeToBytes([]interface{}{

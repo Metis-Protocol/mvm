@@ -21,8 +21,8 @@ package geth
 import (
 	"errors"
 
-	ethereum "github.com/MetisProtocol/l2geth"
-	"github.com/MetisProtocol/l2geth/common"
+	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Subscription represents an event subscription where events are

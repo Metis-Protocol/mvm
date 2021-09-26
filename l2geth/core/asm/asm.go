@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/MetisProtocol/l2geth/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 // Iterator for disassembled EVM instructions

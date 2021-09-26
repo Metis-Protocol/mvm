@@ -19,8 +19,8 @@ package les
 import (
 	"time"
 
-	"github.com/MetisProtocol/l2geth/common/bitutil"
-	"github.com/MetisProtocol/l2geth/light"
+	"github.com/ethereum/go-ethereum/common/bitutil"
+	"github.com/ethereum/go-ethereum/light"
 )
 
 const (

@@ -10,15 +10,15 @@ import { getContractDefinition } from '../../src/contract-defs'
 export const DEFAULT_ACCOUNTS = defaultAccounts
 export const DEFAULT_ACCOUNTS_HARDHAT = defaultAccounts.map((account) => {
   return {
-    balance: ethers.BigNumber.from(account.balance).toHexString(),
+    balance: account.balance,
     privateKey: account.secretKey,
   }
 })
 
 export const OVM_TX_GAS_LIMIT = 10_000_000
 export const RUN_OVM_TEST_GAS = 20_000_000
-export const FORCE_INCLUSION_PERIOD_SECONDS = 60000
-export const FORCE_INCLUSION_PERIOD_BLOCKS = 60000 / 12
+export const FORCE_INCLUSION_PERIOD_SECONDS = 600
+export const FORCE_INCLUSION_PERIOD_BLOCKS = 600 / 12
 
 export const NON_NULL_BYTES32 =
   '0x1111111111111111111111111111111111111111111111111111111111111111'
@@ -45,7 +45,7 @@ try {
   len = fromHexString(
     getContractDefinition('Helper_TestRunner').deployedBytecode
   ).byteLength
-  /* tslint:disable:no-empty */
+  // eslint-disable-next-line no-empty
 } catch {}
 
 export const Helper_TestRunner_BYTELEN = len

@@ -19,7 +19,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/MetisProtocol/l2geth/params"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // EnableEIP enables the given EIP on the config.

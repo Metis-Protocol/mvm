@@ -18,21 +18,19 @@ package vm
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/accounts/abi"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/hexutil"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rollup/dump"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup/dump"
 )
 
 // codec is a decoder for the return values of the execution manager. It decodes
@@ -119,21 +117,20 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 	if UsingOVM {
 		// OVM_ENABLED
 		// Only log for non `eth_call`s
-
-		if evm.Context.EthCallSender == nil {
-			for name, account := range evm.chainConfig.StateDump.Accounts {
-				if contract.Address() == account.Address && name != "OVM_StateManager" {
-					abi := &(account.ABI)
-					method, err := abi.MethodById(input)
-					if err != nil {
-						log.Debug("Calling Known Contract Error", "Name", name, "Message", err, "ID", evm.Id, "Address", contract.Address().Hex(), "Data", hexutil.Encode(input))
-					} else {
-						log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
-					}
+		//if evm.Context.EthCallSender == nil {
+		for name, account := range evm.chainConfig.StateDump.Accounts {
+			if contract.Address() == account.Address && name != "OVM_StateManager" {
+				abi := &(account.ABI)
+				method, err2 := abi.MethodById(input)
+				if err2 == nil {
+					log.Debug("Calling Known Contract Start", "Name", name, "Method", method.RawName, "Address", contract.Address().Hex()) //, "Data", hexutil.Encode(input))
+					// } else {
+					// 	log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
 				}
 			}
-			//log.Debug("Calling contract", "ID", evm.Id, "Address", contract.Address().Hex(), "Data", hexutil.Encode(input))
 		}
+		//log.Debug("Calling contract", "ID", evm.Id, "Address", contract.Address().Hex(), "Data", hexutil.Encode(input))
+		//}
 
 		// Uncomment to make Safety checker always returns true.
 		// if contract.Address() == evm.Context.SafetyChecker.Address {
@@ -144,10 +141,28 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		if contract.Address() == evm.Context.OvmStateManager.Address {
 			// The caller must be the execution manager
 			if contract.Caller() != evm.Context.OvmExecutionManager.Address {
-				log.Error("StateManager called by non ExecutionManager", "ID", evm.Id, "caller", contract.Caller().Hex())
+				log.Error("StateManager called by non ExecutionManager", "caller", contract.Caller().Hex())
 				return nil, ErrOvmSandboxEscape
 			}
 			return callStateManager(input, evm, contract)
+		}
+
+		// Only in the case where EnableArbitraryContractDeployment is
+		// set, allows codepath to be skipped when it is not set
+		if EnableArbitraryContractDeployment != nil {
+			// When the address manager is called
+			if contract.Address() == WhitelistAddress {
+				// If the first four bytes match `isDeployerAllowed(address)`
+				if bytes.Equal(input[0:4], isDeployerAllowedSig) {
+					// Already checked to make sure this value is not nil
+					switch *EnableArbitraryContractDeployment {
+					case EnableArbitraryContractDeploymentTrue:
+						return AbiBytesTrue, nil
+					case EnableArbitraryContractDeploymentFalse:
+						return AbiBytesFalse, nil
+					}
+				}
+			}
 		}
 	}
 
@@ -212,6 +227,7 @@ type Context struct {
 	OvmSafetyChecker          dump.OvmDumpAccount
 	OvmL2CrossDomainMessenger dump.OvmDumpAccount
 	OvmETH                    dump.OvmDumpAccount
+	OvmL2StandardBridge       dump.OvmDumpAccount
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -249,8 +265,6 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
-
-	Id string
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -264,10 +278,8 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		ctx.OvmSafetyChecker = chainConfig.StateDump.Accounts["OVM_SafetyChecker"]
 		ctx.OvmL2CrossDomainMessenger = chainConfig.StateDump.Accounts["OVM_L2CrossDomainMessenger"]
 		ctx.OvmETH = chainConfig.StateDump.Accounts["MVM_Coinbase"]
+		ctx.OvmL2StandardBridge = chainConfig.StateDump.Accounts["OVM_L2StandardBridge"]
 	}
-
-	id := make([]byte, 4)
-	rand.Read(id)
 
 	evm := &EVM{
 		Context:      ctx,
@@ -276,8 +288,6 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		chainConfig:  chainConfig,
 		chainRules:   chainConfig.Rules(ctx.BlockNumber),
 		interpreters: make([]Interpreter, 0, 1),
-
-		Id: hex.EncodeToString(id),
 	}
 
 	if chainConfig.IsEWASM(ctx.BlockNumber) {
@@ -416,7 +426,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.Context.IsL1ToL2Message && evm.depth == 3 {
 		var isValidMessageTarget = true
 		// 0x420... addresses are not valid targets except for the ETH predeploy.
-		if bytes.HasPrefix(addr.Bytes(), fortyTwoPrefix) && addr != evm.Context.OvmETH.Address {
+		if bytes.HasPrefix(addr.Bytes(), fortyTwoPrefix) && addr != evm.Context.OvmL2StandardBridge.Address {
 			isValidMessageTarget = false
 		}
 		// 0xdead... addresses are not valid targets.
@@ -478,20 +488,20 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			}
 		}
 
-		if evm.Context.EthCallSender == nil && err != nil {
-			for name, account := range evm.chainConfig.StateDump.Accounts {
-				if contract.Address() == account.Address && name != "OVM_StateManager" {
-					abi := &(account.ABI)
-					method, err := abi.MethodById(input)
-					if err != nil {
-						log.Debug("Calling Known Contract Error", "Name", name, "Message", err, "ID", evm.Id, "Address", contract.Address().Hex(), "Data", hexutil.Encode(input))
-					} else {
-						log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
-					}
+		//if evm.Context.EthCallSender == nil && err != nil {
+		for name, account := range evm.chainConfig.StateDump.Accounts {
+			if contract.Address() == account.Address && name != "OVM_StateManager" {
+				abi := &(account.ABI)
+				method, err2 := abi.MethodById(input)
+				if err2 == nil {
+					log.Debug("Calling Known Contract End", "Name", name, "Method", method.RawName, "Message", err, "Address", contract.Address().Hex()) //, "Data", hexutil.Encode(input))
+					//} else {
+					//	log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
 				}
 			}
-			log.Debug("Reached the end of an OVM execution", "ID", evm.Id, "Return Data", hexutil.Encode(ret), "Error", err)
 		}
+		log.Debug("Reached the end of an OVM execution", "Error", err)
+		//}
 	}
 
 	return ret, contract.Gas, err
@@ -722,7 +732,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 		contractAddr = evm.OvmADDRESS()
 
 		if evm.Context.EthCallSender == nil {
-			log.Debug("[EM] Creating contract.", "ID", evm.Id, "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+			log.Debug("[EM] Creating contract.", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
 		}
 	}
 
@@ -748,7 +758,7 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 		contractAddr = evm.OvmADDRESS()
 
 		if evm.Context.EthCallSender == nil {
-			log.Debug("[EM] Creating contract [create2].", "ID", evm.Id, "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+			log.Debug("[EM] Creating contract [create2].", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
 		}
 	}
 

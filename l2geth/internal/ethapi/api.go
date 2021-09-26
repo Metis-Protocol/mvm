@@ -25,28 +25,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MetisProtocol/l2geth/accounts"
-	"github.com/MetisProtocol/l2geth/accounts/abi"
-	"github.com/MetisProtocol/l2geth/accounts/keystore"
-	"github.com/MetisProtocol/l2geth/accounts/scwallet"
-	"github.com/MetisProtocol/l2geth/common"
-	"github.com/MetisProtocol/l2geth/common/hexutil"
-	"github.com/MetisProtocol/l2geth/common/math"
-	"github.com/MetisProtocol/l2geth/consensus/clique"
-	"github.com/MetisProtocol/l2geth/consensus/ethash"
-	"github.com/MetisProtocol/l2geth/core"
-	"github.com/MetisProtocol/l2geth/core/rawdb"
-	"github.com/MetisProtocol/l2geth/core/types"
-	"github.com/MetisProtocol/l2geth/core/vm"
-	"github.com/MetisProtocol/l2geth/crypto"
-	"github.com/MetisProtocol/l2geth/diffdb"
-	"github.com/MetisProtocol/l2geth/log"
-	"github.com/MetisProtocol/l2geth/p2p"
-	"github.com/MetisProtocol/l2geth/params"
-	"github.com/MetisProtocol/l2geth/rlp"
-	"github.com/MetisProtocol/l2geth/rollup/fees"
-	"github.com/MetisProtocol/l2geth/rpc"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/accounts/scwallet"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus/clique"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/fees"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/tyler-smith/go-bip39"
 )
 
@@ -417,7 +416,7 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 //
 // The key used to calculate the signature is decrypted with the given password.
 //
-// https://github.com/MetisProtocol/l2geth/wiki/Management-APIs#personal_sign
+// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
 func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
@@ -445,7 +444,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
 // the V value must be 27 or 28 for legacy reasons.
 //
-// https://github.com/MetisProtocol/l2geth/wiki/Management-APIs#personal_ecRecover
+// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecover
 func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	if len(sig) != crypto.SignatureLength {
 		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)
@@ -557,73 +556,6 @@ type StorageResult struct {
 	Key   string       `json:"key"`
 	Value *hexutil.Big `json:"value"`
 	Proof []string     `json:"proof"`
-}
-
-// Result structs for GetStateDiffProof
-type StateDiffProof struct {
-	Header   *HeaderMeta     `json:"header"`
-	Accounts []AccountResult `json:"accounts"`
-}
-type HeaderMeta struct {
-	Number    *big.Int    `json:"number"`
-	Hash      common.Hash `json:"hash"`
-	StateRoot common.Hash `json:"stateRoot"`
-	Timestamp uint64      `json:"timestamp"`
-}
-
-func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (diffdb.Diff, error) {
-	_, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if err != nil {
-		return nil, err
-	}
-	return s.b.GetDiff(new(big.Int).Add(header.Number, big.NewInt(1)))
-}
-
-// GetStateDiffProof returns the Merkle-proofs corresponding to all the accounts and
-// storage slots which were touched for a given block number or hash.
-func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*StateDiffProof, error) {
-	state, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || header == nil || err != nil {
-		return nil, err
-	}
-
-	// get the changed accounts for this block
-	diffs, err := s.GetStateDiff(ctx, blockNrOrHash)
-	if err != nil {
-		return nil, err
-	}
-
-	// for each changed account, get their proof
-	var accounts []AccountResult
-	for address, keys := range diffs {
-		// need to convert the hashes to strings, we could maybe refactor getProof
-		// alternatively
-		keyStrings := make([]string, len(keys))
-		for i, key := range keys {
-			keyStrings[i] = key.Key.String()
-		}
-
-		// get the proofs
-		res, err := s.GetProof(ctx, address, keyStrings, blockNrOrHash)
-		if err != nil {
-			return nil, err
-		}
-
-		accounts = append(accounts, *res)
-	}
-
-	// add some metadata
-	stateDiffProof := &StateDiffProof{
-		Header: &HeaderMeta{
-			Number:    header.Number,
-			Hash:      header.Hash(),
-			StateRoot: header.Root,
-			Timestamp: header.Time,
-		},
-		Accounts: accounts,
-	}
-
-	return stateDiffProof, state.Error()
 }
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.
@@ -905,7 +837,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 		}
 	}
 	// Set default gas & gas price if none were set
-	gas := b.GasLimit()
+	gas := uint64(math.MaxUint64 / 2)
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
 	}
@@ -933,7 +865,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 
 	// Create new call message
 	var msg core.Message
-	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
+	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer)
 	if vm.UsingOVM {
 		cfg := b.ChainConfig()
 		executionManager := cfg.StateDump.Accounts["OVM_ExecutionManager"]
@@ -951,9 +883,6 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 				tx := txs[0]
 				blockNumber = tx.L1BlockNumber()
 				timestamp = new(big.Int).SetUint64(tx.L1Timestamp())
-
-				// NOTE 20210724
-				// msg = types.NewMessage2(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0, tx.L1Timestamp(), tx.GetMeta().Index, tx.GetMeta().QueueIndex)
 			}
 		}
 		msg, err = core.EncodeSimulatedMessage(msg, timestamp, blockNumber, executionManager, stateManager)
@@ -1053,7 +982,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	if err != nil {
 		return 0, err
 	}
-
 	data := []byte{}
 	if args.Data != nil {
 		data = *args.Data
@@ -1065,7 +993,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	if !fee.IsUint64() {
 		return 0, fmt.Errorf("estimate gas overflow: %s", fee)
 	}
-
 	return (hexutil.Uint64)(fee.Uint64()), nil
 }
 
@@ -1153,7 +1080,6 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 
 // EstimateExecutionGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
-
 func (s *PublicBlockChainAPI) EstimateExecutionGas(ctx context.Context, args CallArgs, round *bool) (hexutil.Uint64, error) {
 	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	estimate, err := legacyDoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
@@ -1370,14 +1296,8 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		if meta.L1BlockNumber != nil {
 			result.L1BlockNumber = (*hexutil.Big)(meta.L1BlockNumber)
 		}
-		if meta.QueueOrigin != nil {
-			switch meta.QueueOrigin.Uint64() {
-			case uint64(types.QueueOriginSequencer):
-				result.QueueOrigin = "sequencer"
-			case uint64(types.QueueOriginL1ToL2):
-				result.QueueOrigin = "l1"
-			}
-		}
+
+		result.QueueOrigin = fmt.Sprint(meta.QueueOrigin)
 
 		if meta.Index != nil {
 			index := (hexutil.Uint64)(*meta.Index)
@@ -1386,15 +1306,6 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		if meta.QueueIndex != nil {
 			queueIndex := (hexutil.Uint64)(*meta.QueueIndex)
 			result.QueueIndex = &queueIndex
-		}
-
-		switch meta.SignatureHashType {
-		case types.SighashEthSign:
-			result.TxType = "EthSign"
-		case types.SighashEIP155:
-			result.TxType = "EIP155"
-		case types.CreateEOA:
-			result.TxType = "CreateEOA"
 		}
 	}
 	return result
@@ -1628,9 +1539,8 @@ type SendTxArgs struct {
 	Data  *hexutil.Bytes `json:"data"`
 	Input *hexutil.Bytes `json:"input"`
 
-	L1BlockNumber     *big.Int                `json:"l1BlockNumber"`
-	L1MessageSender   *common.Address         `json:"l1MessageSender"`
-	SignatureHashType types.SignatureHashType `json:"signatureHashType"`
+	L1BlockNumber   *big.Int        `json:"l1BlockNumber"`
+	L1MessageSender *common.Address `json:"l1MessageSender"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
@@ -1703,13 +1613,13 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		tx := types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 		raw, _ := rlp.EncodeToBytes(tx)
-		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil, raw)
+		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.QueueOriginSequencer, nil, nil, raw)
 		tx.SetTransactionMeta(txMeta)
 		return tx
 	}
 	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 	raw, _ := rlp.EncodeToBytes(tx)
-	txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, args.L1MessageSender, args.SignatureHashType, types.QueueOriginSequencer, nil, nil, raw)
+	txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, args.L1MessageSender, types.QueueOriginSequencer, nil, nil, raw)
 	tx.SetTransactionMeta(txMeta)
 	return tx
 }
@@ -1806,7 +1716,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	// L1Timestamp and L1BlockNumber will be set right before execution
-	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil, encodedTx)
+	txMeta := types.NewTransactionMeta(nil, 0, nil, types.QueueOriginSequencer, nil, nil, encodedTx)
 	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -2005,6 +1915,27 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	}
 }
 
+type gasPrices struct {
+	L1GasPrice *hexutil.Big `json:"l1GasPrice"`
+	L2GasPrice *hexutil.Big `json:"l2GasPrice"`
+}
+
+// GasPrices returns the L1 and L2 gas price known by the node
+func (api *PublicRollupAPI) GasPrices(ctx context.Context) (*gasPrices, error) {
+	l1GasPrice, err := api.b.SuggestL1GasPrice(ctx)
+	if err != nil {
+		return nil, err
+	}
+	l2GasPrice, err := api.b.SuggestL2GasPrice(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &gasPrices{
+		L1GasPrice: (*hexutil.Big)(l1GasPrice),
+		L2GasPrice: (*hexutil.Big)(l2GasPrice),
+	}, nil
+}
+
 // PrivatelRollupAPI provides private RPC methods to control the sequencer.
 // These methods can be abused by external users and must be considered insecure for use by untrusted users.
 type PrivateRollupAPI struct {
@@ -2163,7 +2094,6 @@ func (api *PrivateDebugAPI) IngestTransactions(txs []*RPCTransaction) error {
 		l1Timestamp := uint64(tx.L1Timestamp)
 		rawTransaction := tx.RawTransaction
 
-		sighashType := types.SighashEIP155
 		var queueOrigin types.QueueOrigin
 		switch tx.QueueOrigin {
 		case "sequencer":
@@ -2182,14 +2112,13 @@ func (api *PrivateDebugAPI) IngestTransactions(txs []*RPCTransaction) error {
 		}
 
 		meta := types.TransactionMeta{
-			L1BlockNumber:     l1BlockNumber,
-			L1Timestamp:       l1Timestamp,
-			L1MessageSender:   tx.L1TxOrigin,
-			SignatureHashType: sighashType,
-			QueueOrigin:       big.NewInt(int64(queueOrigin)),
-			Index:             (*uint64)(tx.Index),
-			QueueIndex:        (*uint64)(tx.QueueIndex),
-			RawTransaction:    rawTransaction,
+			L1BlockNumber:   l1BlockNumber,
+			L1Timestamp:     l1Timestamp,
+			L1MessageSender: tx.L1TxOrigin,
+			QueueOrigin:     queueOrigin,
+			Index:           (*uint64)(tx.Index),
+			QueueIndex:      (*uint64)(tx.QueueIndex),
+			RawTransaction:  rawTransaction,
 		}
 		transaction.SetTransactionMeta(&meta)
 		transactions[i] = transaction
