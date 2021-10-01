@@ -294,24 +294,31 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	txMeta := tx.GetMeta()
 	if tx.data.V.Cmp(big.NewInt(0)) == 0 {
 		// L1 message
-		txMeta.L1BlockNumber = big.NewInt(0)
-		txMeta.L1Timestamp = 0
+		if txMeta.L1BlockNumber == nil {
+			txMeta.L1BlockNumber = big.NewInt(0)
+		}
+		// txMeta.L1Timestamp = 0
 		l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
 		txMeta.L1MessageSender = &l1
 		txMeta.QueueOrigin = QueueOriginL1ToL2
-		index1 := uint64(0)
-		txMeta.Index = &index1
-		qindex1 := uint64(0)
-		txMeta.QueueIndex = &qindex1
+		if txMeta.Index == nil {
+			index1 := uint64(0)
+			txMeta.Index = &index1
+		}
+		if txMeta.QueueIndex == nil {
+			qindex1 := uint64(0)
+			txMeta.QueueIndex = &qindex1
+		}
 		txMeta.RawTransaction = tx.data.Payload
 	} else {
-		txMeta.L1BlockNumber = big.NewInt(0)
-		if &txMeta.L1Timestamp == nil {
-			txMeta.L1Timestamp = 0
+		if txMeta.L1BlockNumber == nil {
+			txMeta.L1BlockNumber = big.NewInt(0)
 		}
-		//l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
-		txMeta.L1MessageSender = nil
-		txMeta.QueueOrigin = QueueOriginSequencer
+		// if &txMeta.L1Timestamp == nil {
+		// 	txMeta.L1Timestamp = 0
+		// }
+		// txMeta.L1MessageSender = nil
+		//txMeta.QueueOrigin = QueueOriginSequencer
 		if txMeta.Index == nil {
 			index1 := uint64(0)
 			txMeta.Index = &index1
