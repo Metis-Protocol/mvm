@@ -41,7 +41,7 @@ const main = async () => {
   const L1_NODE_WEB3_URL = config.str('l1-node-web3-url', env.L1_NODE_WEB3_URL)
   const L2_NODE_CHAIN_ID = config.uint(
     'l2-node-chain-id',
-    parseInt(env.L2_NODE_CHAIN_ID, 10) || 0
+    parseInt(env.CHAIN_ID, 10) || 0
   )
   const ADDRESS_MANAGER_ADDRESS = config.str(
     'address-manager-address',

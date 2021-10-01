@@ -910,7 +910,7 @@ contract OVM_ExecutionManager is iOVM_ExecutionManager, Lib_AddressResolver {
         // Static call because this should be a read-only query.
         (bool success, bytes memory returndata) = ovmSTATICCALL(
             gasleft(),
-            Lib_PredeployAddresses.OVM_ETH,
+            Lib_PredeployAddresses.MVM_COINBASE,
             balanceOfCalldata
         );
 
@@ -1395,7 +1395,7 @@ contract OVM_ExecutionManager is iOVM_ExecutionManager, Lib_AddressResolver {
         // Thus, success of the call frame is sufficient to infer success of the transfer itself.
         (bool success, ) = ovmCALL(
             gasleft(),
-            Lib_PredeployAddresses.OVM_ETH,
+            Lib_PredeployAddresses.MVM_COINBASE,
             0,
             transferCalldata
         );

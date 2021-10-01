@@ -59,7 +59,7 @@ const deployFn: DeployFunction = async (hre) => {
   
   await registerAddressToMvm({
     hre,
-    name: '429_MVM_Sequencer',
+    name: '488_MVM_Sequencer',
     address: (hre as any).deployConfig.ovmSequencerAddress,
   })
   

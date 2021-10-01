@@ -88,6 +88,22 @@ const deployFn: DeployFunction = async (hre) => {
       'L2 bridge address was not correctly set, check the key value used in setStorage'
     )
   }
+  
+  // Set Slot 1 to the L2 Standard Bridge Address
+  await Proxy__WithChugSplashInterface.setStorage(
+    hre.ethers.utils.hexZeroPad('0x02', 32),
+    hre.ethers.utils.hexZeroPad((hre as any).deployConfig.mvmMetisAddress, 32)
+  )
+  
+  // Verify that the slot was set correctly
+  const metis =
+    await Proxy__WithBridgeInterface.callStatic.metis()
+  console.log('metis:', metis)
+  if (metis !== (hre as any).deployConfig.mvmMetisAddress) {
+    throw new Error(
+      'metis address was not correctly set, check the key value used in setStorage'
+    )
+  }
 
   // transfer ownership to Address Manager owner
   const addressManagerOwner = Lib_AddressManager.callStatic.owner()
