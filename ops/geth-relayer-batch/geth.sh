@@ -16,18 +16,18 @@ if [[ ! -z "$URL" ]]; then
     ADDRESSES=$(curl --fail --show-error --silent --retry-connrefused --retry $RETRIES --retry-delay 5 $URL)
     
     # set all the necessary env vars
-    envSet ETH1_ADDRESS_RESOLVER_ADDRESS AddressManager
+    envSet ETH1_ADDRESS_RESOLVER_ADDRESS  AddressManager
     envSet ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS Proxy__OVM_L1CrossDomainMessenger
     envSet ROLLUP_ADDRESS_MANAGER_OWNER_ADDRESS Deployer
 
     # set the address to the proxy gateway if possible
-    envSet ETH1_L1_ETH_GATEWAY_ADDRESS Proxy__OVM_L1ETHGateway
+    envSet ETH1_L1_STANDARD_BRIDGE_ADDRESS Proxy__OVM_L1StandardBridge
+    if [ $ETH1_L1_STANDARD_BRIDGE_ADDRESS == null ]; then
+        envSet ETH1_L1_STANDARD_BRIDGE_ADDRESS OVM_L1StandardBridge
+    fi
+    envSet MVM_L1GATEWAY_ADDRESS Proxy__OVM_L1StandardBridge
     if [ $ETH1_L1_ETH_GATEWAY_ADDRESS == null ]; then
         envSet ETH1_L1_ETH_GATEWAY_ADDRESS OVM_L1ETHGateway
-    fi
-    envSet MVM_L1GATEWAY_ADDRESS Proxy__MVM_L1MetisGateway
-    if [ $MVM_L1GATEWAY_ADDRESS == null ]; then
-        envSet MVM_L1GATEWAY_ADDRESS MVM_L1MetisGateway
     fi
 fi
 
