@@ -118,17 +118,17 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		// OVM_ENABLED
 		// Only log for non `eth_call`s
 		//if evm.Context.EthCallSender == nil {
-		for name, account := range evm.chainConfig.StateDump.Accounts {
-			if contract.Address() == account.Address && name != "OVM_StateManager" {
-				abi := &(account.ABI)
-				method, err2 := abi.MethodById(input)
-				if err2 == nil {
-					log.Debug("Calling Known Contract Start", "Name", name, "Method", method.RawName, "Address", contract.Address().Hex()) //, "Data", hexutil.Encode(input))
-					// } else {
-					// 	log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
-				}
-			}
-		}
+		// for name, account := range evm.chainConfig.StateDump.Accounts {
+		// 	if contract.Address() == account.Address && name != "OVM_StateManager" {
+		// 		abi := &(account.ABI)
+		// 		method, err2 := abi.MethodById(input)
+		// 		if err2 == nil {
+		// 			log.Debug("Calling Known Contract Start", "Name", name, "Method", method.RawName, "Address", contract.Address().Hex()) //, "Data", hexutil.Encode(input))
+		// 			// } else {
+		// 			// 	log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
+		// 		}
+		// 	}
+		// }
 		//log.Debug("Calling contract", "ID", evm.Id, "Address", contract.Address().Hex(), "Data", hexutil.Encode(input))
 		//}
 
@@ -489,17 +489,17 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}
 
 		//if evm.Context.EthCallSender == nil && err != nil {
-		for name, account := range evm.chainConfig.StateDump.Accounts {
-			if contract.Address() == account.Address && name != "OVM_StateManager" {
-				abi := &(account.ABI)
-				method, err2 := abi.MethodById(input)
-				if err2 == nil {
-					log.Debug("Calling Known Contract End", "Name", name, "Method", method.RawName, "Message", err, "Address", contract.Address().Hex()) //, "Data", hexutil.Encode(input))
-					//} else {
-					//	log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
-				}
-			}
-		}
+		// for name, account := range evm.chainConfig.StateDump.Accounts {
+		// 	if contract.Address() == account.Address && name != "OVM_StateManager" {
+		// 		abi := &(account.ABI)
+		// 		method, err2 := abi.MethodById(input)
+		// 		if err2 == nil {
+		// 			log.Debug("Calling Known Contract End", "Name", name, "Method", method.RawName, "Message", err, "Address", contract.Address().Hex()) //, "Data", hexutil.Encode(input))
+		// 			//} else {
+		// 			//	log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
+		// 		}
+		// 	}
+		// }
 		log.Debug("Reached the end of an OVM execution", "Error", err)
 		//}
 	}
