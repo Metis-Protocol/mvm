@@ -69,6 +69,7 @@ describe('Basic ERC20 interactions', async () => {
     wallet = l2Wallet
     other = Wallet.createRandom().connect(l2Provider)
     Factory__ERC20 = await ethers.getContractFactory('ERC20', wallet)
+    
   })
 
   beforeEach(async () => {
@@ -90,8 +91,11 @@ describe('Basic ERC20 interactions', async () => {
   })
 
   it('should get the token name', async () => {
-    // const name = await ERC20.name()
-    // expect(name).to.equal(tokenName)
+    const name = await ERC20.name()
+    expect(name).to.equal(tokenName)
+    
+    const peerErc20=Factory__ERC20.connect(l2PeerWallet).attach(ERC20.address)
+    console.log(await peerErc20.name())
   })
 
   it.skip('should get the token decimals', async () => {
