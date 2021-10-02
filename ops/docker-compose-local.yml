@@ -37,6 +37,10 @@ services:
         # skip compilation when run in docker-compose, since the contracts
         # were already compiled in the builder step
         NO_COMPILE: 1
+        SEQENCER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        PROPOSER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        RELAYER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        METIS_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     ports:
         # expose the service to the host for getting the contract addrs
       - ${DEPLOYER_PORT:-8080}:8081

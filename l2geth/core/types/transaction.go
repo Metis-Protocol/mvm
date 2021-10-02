@@ -297,10 +297,10 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		if txMeta.L1BlockNumber == nil {
 			txMeta.L1BlockNumber = big.NewInt(0)
 		}
+		txMeta.QueueOrigin = QueueOriginL1ToL2
 		// txMeta.L1Timestamp = 0
 		l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
 		txMeta.L1MessageSender = &l1
-		txMeta.QueueOrigin = QueueOriginL1ToL2
 		if txMeta.Index == nil {
 			index1 := uint64(0)
 			txMeta.Index = &index1
@@ -327,7 +327,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 			qindex1 := uint64(0)
 			txMeta.QueueIndex = &qindex1
 		}
-		txMeta.RawTransaction = tx.data.Payload
+		//txMeta.RawTransaction = tx.data.Payload
 	}
 	tx.SetTransactionMeta(txMeta)
 

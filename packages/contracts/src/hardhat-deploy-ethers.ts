@@ -66,12 +66,12 @@ export const registerAddress = async ({
     )
     return
   }
-
   console.log(`Registering address for ${name} to ${address}...`)
   const tx = await Lib_AddressManager.setAddress(name, address)
   await tx.wait()
 
   const remoteAddress = await Lib_AddressManager.getAddress(name)
+  console.log(`Registered address for ${remoteAddress} to ${address}...${remoteAddress !== address}`)
   if (remoteAddress !== address) {
     throw new Error(
       `\n**FATAL ERROR. THIS SHOULD NEVER HAPPEN. CHECK YOUR DEPLOYMENT.**:\n` +
