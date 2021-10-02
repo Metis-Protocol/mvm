@@ -39,6 +39,14 @@ const PROXY_SEQUENCER_ENTRYPOINT_ADDRESS = '0x4200000000000000000000000000000000
 const MVM_Coinbase_Address = '0x4200000000000000000000000000000000000006'
 const TAX_ADDRESS = '0x1234123412341234123412341234123412341234'
 
+const NON_NULL_BYTES32 =
+  '0x1111111111111111111111111111111111111111111111111111111111111111'
+const NON_ZERO_ADDRESS = '0x1111111111111111111111111111111111111111'
+const INITIAL_TOTAL_L1_SUPPLY = 5000
+const FINALIZATION_GAS = 3_200_000
+
+var depositAmount
+
 let l1Provider: JsonRpcProvider
 let l2Provider: JsonRpcProvider
 let l2PeerProvider: JsonRpcProvider
@@ -106,8 +114,8 @@ describe('Fee Payment Integration Tests', async () => {
     console.log(
       await l1Wallet.address,
       await l2Wallet.address,
+      await AddressManager.getAddress('MVM_AddressManager'),
       await MvmAddressManager.getAddress('429_MVM_Sequencer'),
-      await AddressManager.getAddress('429_MVM_Sequencer'),
       await AddressManager.getAddress('Proxy__OVM_L1StandardBridge'),
       await AddressManager.getAddress('OVM_L2BatchMessageRelayer'))
     const l1StandardBridgeInterface = getContractInterface('iOVM_L1StandardBridge')
@@ -122,28 +130,19 @@ describe('Fee Payment Integration Tests', async () => {
       getContractInterface('OVM_L2CrossDomainMessenger'),
       l2Wallet
     )
-  })
-  
-const NON_NULL_BYTES32 =
-  '0x1111111111111111111111111111111111111111111111111111111111111111'
-const NON_ZERO_ADDRESS = '0x1111111111111111111111111111111111111111'
-const INITIAL_TOTAL_L1_SUPPLY = 5000
-const FINALIZATION_GAS = 3_200_000
-
-  beforeEach(async () => {
-    const depositAmount = utils.parseEther('100')
+    
+    depositAmount = utils.parseEther('100')
+    console.log("test:"+depositAmount)
     // let postBalances = await getBalances()
     // console.log(postBalances.l1UserBalance + "," + postBalances.l2UserBalance + "," + postBalances.l1GatewayBalance + "," + postBalances.sequencerBalance)
-    const tx2 = await OVM_L1ETHGateway.depositETHByChainId(
-      429, 
-      FINALIZATION_GAS,
-      NON_NULL_BYTES32,
-      {
-      value: depositAmount,
-      gasLimit: '9400000',
-      gasPrice: 10500
-    })
-    const res = await tx2.wait()
+
+
+  })
+  
+
+  beforeEach(async () => {
+    
+    console.log("input balance:"+await l1Wallet.getBalance()+","+depositAmount);
     // postBalances = await getBalances()
     // console.log(postBalances.l1UserBalance + "," + postBalances.l2UserBalance + "," + postBalances.l1GatewayBalance + "," + postBalances.sequencerBalance)
   })
@@ -167,7 +166,16 @@ const FINALIZATION_GAS = 3_200_000
     //await res.wait()
     // const postBalances = await getBalances()
     // console.log("l1 wallet balance:" + postBalances.l1UserBalance + ",l2 wallet balance" + postBalances.l2UserBalance + ",l1gateway balance" + postBalances.l1GatewayBalance + ",seq balance" + postBalances.sequencerBalance)
-    
+    const tx2 = await OVM_L1ETHGateway.depositETHByChainId(
+      429, 
+      FINALIZATION_GAS,
+      NON_NULL_BYTES32,
+      {
+      value: depositAmount,
+      gasLimit: 1000000,
+      gasPrice: 10500
+    })
+    const res = await tx2.wait()
     console.log("test")
     const taxBalance = await MVM_Coinbase.balanceOf(l2Wallet.address)
     const taxBalancePeer = await MVM_CoinbasePeer.balanceOf(l2PeerWallet.address)
