@@ -9,7 +9,7 @@ import sinon from 'sinon'
 import { Web3Provider } from '@ethersproject/providers'
 
 import scc from '@metis.io/contracts/artifacts/contracts/optimistic-ethereum/OVM/chain/OVM_StateCommitmentChain.sol/OVM_StateCommitmentChain.json'
-import { getContractInterface } from '@metis.io/contracts'
+import { getContractInterface, predeploys } from '@eth-optimism/contracts'
 import { smockit, MockContract } from '@eth-optimism/smock'
 
 /* Internal Imports */
@@ -230,7 +230,6 @@ describe('BatchSubmitter', () => {
       1,
       new Logger({ name: TX_BATCH_SUBMITTER_LOG_TAG }),
       testMetrics,
-      false
     )
   }
 

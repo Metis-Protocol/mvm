@@ -1,7 +1,7 @@
 /* Imports: External */
-import { fromHexString } from '@eth-optimism/core-utils'
+import { fromHexString, FallbackProvider } from '@eth-optimism/core-utils'
 import { BaseService, Metrics } from '@eth-optimism/common-ts'
-import { StaticJsonRpcProvider } from '@ethersproject/providers'
+import { StaticJsonRpcProvider, BaseProvider } from '@ethersproject/providers'
 import { LevelUp } from 'levelup'
 import { ethers, constants } from 'ethers'
 import { Gauge, Counter } from 'prom-client'
@@ -81,7 +81,7 @@ const optionSettings = {
   },
   l1RpcProvider: {
     validate: (val: any) => {
-      return validators.isUrl(val) || validators.isJsonRpcProvider(val)
+      return validators.isString(val) || validators.isJsonRpcProvider(val)
     },
   },
   l2ChainId: {
@@ -100,7 +100,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     db: TransportDB
     dbs: TransportDBMap
     contracts: OptimismContracts
-    l1RpcProvider: StaticJsonRpcProvider
+    l1RpcProvider: BaseProvider
     startingL1BlockNumber: number
     l2ChainId: number
   } = {} as any
@@ -110,10 +110,11 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     this.state.dbs = {}
     this.l1IngestionMetrics = registerMetrics(this.metrics)
 
-    this.state.l1RpcProvider =
-      typeof this.options.l1RpcProvider === 'string'
-        ? new StaticJsonRpcProvider(this.options.l1RpcProvider)
-        : this.options.l1RpcProvider
+    if (typeof this.options.l1RpcProvider === 'string') {
+      this.state.l1RpcProvider = FallbackProvider(this.options.l1RpcProvider)
+    } else {
+      this.state.l1RpcProvider = this.options.l1RpcProvider
+    }
 
     this.logger.info('Using AddressManager', {
       addressManager: this.options.addressManager,
