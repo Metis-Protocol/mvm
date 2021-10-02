@@ -42,7 +42,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
     // L2 tx gas-related
     uint256 constant public MIN_ROLLUP_TX_GAS = 100000;
     uint256 constant public MAX_ROLLUP_TX_SIZE = 50000;
-    uint256 constant public L2_GAS_DISCOUNT_DIVISOR = 32;
+    uint256 constant public L2_GAS_DISCOUNT_DIVISOR = 3200; // TODO: the divisor needs to be dynamic based on metis price oracle
 
     //default l2 chain id
     uint256 constant public DEFAULT_CHAINID = 420;

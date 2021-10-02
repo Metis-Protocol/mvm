@@ -51,6 +51,14 @@ contract OVM_L2StandardBridge is iOVM_L2ERC20Bridge, OVM_CrossDomainEnabled {
     {
         l1TokenBridge = _l1TokenBridge;
     }
+    
+    function getChainID() internal view returns (uint256) {
+        uint256 id;
+        assembly {
+            id := chainid()
+        }
+        return id;
+    }
 
     /***************
      * Withdrawing *
@@ -141,9 +149,19 @@ contract OVM_L2StandardBridge is iOVM_L2ERC20Bridge, OVM_CrossDomainEnabled {
                         _amount,
                         _data
                     );
+        } else if (_l2Token == Lib_PredeployAddresses.MVM_COINBASE) {
+            message = abi.encodeWithSelector(
+                        iOVM_L1ERC20Bridge.finalizeMetisWithdrawalByChainId.selector,
+                        getChainID(),
+                        _from,
+                        _to,
+                        _amount,
+                        _data
+                    );
         } else {
             message = abi.encodeWithSelector(
-                        iOVM_L1ERC20Bridge.finalizeERC20Withdrawal.selector,
+                        iOVM_L1ERC20Bridge.finalizeERC20WithdrawalByChainId.selector,
+                        getChainID(),
                         l1Token,
                         _l2Token,
                         _from,

@@ -46,6 +46,10 @@ const parseEnv = () => {
       'SEQUENCER_PUBLISH_WINDOW_SECONDS',
       'number'
     ),
+    ovmSequencerAddress: ensure('SEQENCER_ADDRESS', 'xx'),
+    ovmProposerAddress: ensure('PROPOSER_ADDRESS', 'xx'),
+    ovmRelayerAddress: ensure('RELAYER_ADDRESS', 'xx'),
+    mvmMetisAddress: ensure('METIS_ADDRESS', 'xx'),
   }
 }
 
@@ -63,11 +67,12 @@ const main = async () => {
     emOvmChainId: config.emOvmChainId,
     sccFraudProofWindow: config.sccFraudProofWindow,
     sccSequencerPublishWindow: config.sccFraudProofWindow,
-    ovmSequencerAddress: sequencer.address,
-    ovmProposerAddress: sequencer.address,
-    ovmRelayerAddress: sequencer.address,
+    ovmSequencerAddress: config.ovmSequencerAddress,
+    ovmProposerAddress: config.ovmProposerAddress,
+    ovmRelayerAddress: config.ovmRelayerAddress,
     ovmAddressManagerOwner: deployer.address,
     noCompile: process.env.NO_COMPILE ? true : false,
+    mvmMetisAddress: config.mvmMetisAddress,
   })
 
   // Stuff below this line is currently required for CI to work properly. We probably want to

@@ -12,7 +12,7 @@ import { Lib_ExecutionManagerWrapper } from
 import { Lib_PredeployAddresses } from "../../libraries/constants/Lib_PredeployAddresses.sol";
 
 /* Contract Imports */
-import { OVM_ETH } from "../predeploys/OVM_ETH.sol";
+import { MVM_Coinbase } from "../../MVM/MVM_Coinbase.sol";
 
 /* External Imports */
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -123,7 +123,7 @@ contract OVM_ECDSAContractAccount is iOVM_ECDSAContractAccount {
 
         // Transfer fee to relayer.
         require(
-            OVM_ETH(Lib_PredeployAddresses.OVM_ETH).transfer(
+            MVM_Coinbase(Lib_PredeployAddresses.MVM_COINBASE).transfer(
                 Lib_PredeployAddresses.SEQUENCER_FEE_WALLET,
                 SafeMath.mul(_transaction.gasLimit, _transaction.gasPrice)
             ),
