@@ -5,7 +5,7 @@ pragma solidity >0.5.0 <0.8.0;
 import { Lib_PredeployAddresses } from "../../libraries/constants/Lib_PredeployAddresses.sol";
 
 /* Contract Imports */
-import { OVM_ETH } from "../predeploys/OVM_ETH.sol";
+import { MVM_Coinbase } from "../../MVM/MVM_Coinbase.sol";
 import { OVM_L2StandardBridge } from "../bridge/tokens/OVM_L2StandardBridge.sol";
 
 /**
@@ -57,7 +57,7 @@ contract OVM_SequencerFeeVault {
     function withdraw()
         public
     {
-        uint256 balance = OVM_ETH(Lib_PredeployAddresses.OVM_ETH).balanceOf(address(this));
+        uint256 balance = MVM_Coinbase(Lib_PredeployAddresses.MVM_COINBASE).balanceOf(address(this));
 
         require(
             balance >= MIN_WITHDRAWAL_AMOUNT,
@@ -66,7 +66,7 @@ contract OVM_SequencerFeeVault {
         );
 
         OVM_L2StandardBridge(Lib_PredeployAddresses.L2_STANDARD_BRIDGE).withdrawTo(
-            Lib_PredeployAddresses.OVM_ETH,
+            Lib_PredeployAddresses.MVM_COINBASE,
             l1FeeWallet,
             balance,
             0,
