@@ -29,7 +29,9 @@ class MyEnv:
         continue
       if len(line.strip())==0:
         continue
-      k, v = line.split("=")
+      #k, v = line.split("=")
+      k = line[:line.index("=")]
+      v = line[line.index("=")+1:]
       self.envs[k] = v
     inf.close()
    
