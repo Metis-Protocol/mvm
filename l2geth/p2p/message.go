@@ -30,6 +30,11 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+// type newBlockData2 struct {
+// 	Block *types.Block
+// 	TD    *big.Int
+// }
+
 // Msg defines the structure of a p2p message.
 //
 // Note that a Msg can only be sent once since the Payload reader is

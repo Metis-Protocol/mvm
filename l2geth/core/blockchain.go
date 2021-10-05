@@ -1504,7 +1504,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	bc.chainmu.Lock()
 	n, err := bc.insertChain(chain, true)
 	// NOTE 20210724
-	log.Debug("Test: after insert chain")
+	// log.Debug("Test: after insert chain", "err", err)
 	// bc.chainmu.Unlock()
 	bc.wg.Done()
 

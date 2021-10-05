@@ -267,6 +267,10 @@ func (p *peer) AsyncSendNewBlockHash(block *types.Block) {
 func (p *peer) SendNewBlock(block *types.Block, td *big.Int) error {
 	// Mark all the block hash as known, but ensure we don't overflow our limits
 	p.Log().Debug("SendNewBlock", "block hash", block.Hash())
+	txs := block.Body().Transactions
+	if len(txs) > 0 {
+		p.Log().Debug("Test: Sent New Block", "meta L1Timestamp", txs[0].GetMeta().L1Timestamp, "L1MessageSender", txs[0].GetMeta().L1MessageSender, "Index", txs[0].GetMeta().Index)
+	}
 	p.knownBlocks.Add(block.Hash())
 	for p.knownBlocks.Cardinality() >= maxKnownBlocks {
 		p.knownBlocks.Pop()

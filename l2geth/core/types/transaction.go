@@ -37,6 +37,11 @@ var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
 )
 
+type txRLP struct {
+	Data txdata
+	Meta TransactionMeta
+}
+
 type Transaction struct {
 	data txdata
 	meta TransactionMeta
@@ -172,15 +177,27 @@ func isProtectedV(V *big.Int) bool {
 
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, &tx.data)
+	// return rlp.Encode(w, &tx.data)
+	newRLP := txRLP{Data: tx.data, Meta: tx.meta}
+	err := rlp.Encode(w, &newRLP)
+	return err
 }
 
 // DecodeRLP implements rlp.Decoder
 func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
-	_, size, _ := s.Kind()
-	err := s.Decode(&tx.data)
+	// _, size, _ := s.Kind()
+	// err := s.Decode(&tx.data)
+	// if err == nil {
+	// 	tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+	// }
+
+	newRLP := txRLP{}
+	err := s.Decode(&newRLP)
 	if err == nil {
-		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+		tx.data, tx.meta = newRLP.Data, newRLP.Meta
+		c := writeCounter(0)
+		rlp.Encode(&c, &tx.data)
+		tx.size.Store(common.StorageSize(c))
 	}
 
 	return err

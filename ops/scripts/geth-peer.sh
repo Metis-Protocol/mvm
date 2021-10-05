@@ -14,7 +14,7 @@ if [[ ! -z "$URL" ]]; then
         VAR=$1
         export $VAR=$(echo $ADDRESSES | jq -r ".$2")
     }
-    
+
     # set all the necessary env vars
     envSet ETH1_ADDRESS_RESOLVER_ADDRESS  AddressManager
     envSet ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS Proxy__OVM_L1CrossDomainMessenger
