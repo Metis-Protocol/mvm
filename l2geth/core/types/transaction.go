@@ -49,6 +49,9 @@ type Transaction struct {
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
+
+	// l2 tx tag
+	l2tx uint
 }
 
 type txdata struct {
@@ -180,16 +183,21 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	// return rlp.Encode(w, &tx.data)
 	newRLP := txRLP{Data: tx.data, Meta: tx.meta}
 	err := rlp.Encode(w, &newRLP)
+	// log.Debug("Test peer", "encode RLP", newRLP, "err", err)
 	return err
 }
 
 // DecodeRLP implements rlp.Decoder
 func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
-	// _, size, _ := s.Kind()
-	// err := s.Decode(&tx.data)
-	// if err == nil {
-	// 	tx.size.Store(common.StorageSize(rlp.ListSize(size)))
-	// }
+	if tx.l2tx == 1 {
+		_, size, _ := s.Kind()
+		err := s.Decode(&tx.data)
+		if err == nil {
+			tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+		}
+		// log.Debug("Test peer", "decode for tx.data", tx.data, "err", err)
+		return err
+	}
 
 	newRLP := txRLP{}
 	err := s.Decode(&newRLP)
@@ -199,8 +207,12 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 		rlp.Encode(&c, &tx.data)
 		tx.size.Store(common.StorageSize(c))
 	}
-
+	// log.Debug("Test peer", "decode for txRLP", newRLP, "err", err)
 	return err
+}
+
+func (t *Transaction) SetL2Tx(l2tx uint) {
+	t.l2tx = l2tx
 }
 
 // MarshalJSON encodes the web3 RPC transaction format.
