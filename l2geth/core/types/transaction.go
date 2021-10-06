@@ -114,7 +114,6 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
 	}
-
 	return &Transaction{data: d, meta: *meta}
 }
 
@@ -180,7 +179,10 @@ func isProtectedV(V *big.Int) bool {
 
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
-	// return rlp.Encode(w, &tx.data)
+	//peer, only for calc hash
+	if tx.l2tx == 2 {
+		return rlp.Encode(w, &tx.data)
+	}
 	newRLP := txRLP{Data: tx.data, Meta: tx.meta}
 	err := rlp.Encode(w, &newRLP)
 	// log.Debug("Test peer", "encode RLP", newRLP, "err", err)
@@ -295,8 +297,10 @@ func (tx *Transaction) Hash() common.Hash {
 	if hash := tx.hash.Load(); hash != nil {
 		return hash.(common.Hash)
 	}
-
+	tmpL2tx := tx.l2tx
+	tx.l2tx = 2
 	v := rlpHash(tx)
+	tx.l2tx = tmpL2tx
 	tx.hash.Store(v)
 	return v
 }
@@ -328,15 +332,15 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		}
 		txMeta.QueueOrigin = QueueOriginL1ToL2
 		// txMeta.L1Timestamp = 0
-		l1 := common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
-		txMeta.L1MessageSender = &l1
+		if txMeta.L1MessageSender == nil {
+			txMeta.L1MessageSender = new(common.Address)
+			*(txMeta.L1MessageSender) = common.HexToAddress(os.Getenv("ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"))
+		}
 		if txMeta.Index == nil {
-			index1 := uint64(0)
-			txMeta.Index = &index1
+			txMeta.Index = new(uint64)
 		}
 		if txMeta.QueueIndex == nil {
-			qindex1 := uint64(0)
-			txMeta.QueueIndex = &qindex1
+			txMeta.QueueIndex = new(uint64)
 		}
 		txMeta.RawTransaction = tx.data.Payload
 	} else {
@@ -349,12 +353,10 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		// txMeta.L1MessageSender = nil
 		//txMeta.QueueOrigin = QueueOriginSequencer
 		if txMeta.Index == nil {
-			index1 := uint64(0)
-			txMeta.Index = &index1
+			txMeta.Index = new(uint64)
 		}
 		if txMeta.QueueIndex == nil {
-			qindex1 := uint64(0)
-			txMeta.QueueIndex = &qindex1
+			txMeta.QueueIndex = new(uint64)
 		}
 		//txMeta.RawTransaction = tx.data.Payload
 	}

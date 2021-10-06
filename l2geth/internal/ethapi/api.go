@@ -1613,7 +1613,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		tx := types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 		raw, _ := rlp.EncodeToBytes(tx)
-		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.QueueOriginSequencer, nil, nil, raw)
+		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, &common.Address{}, types.QueueOriginSequencer, nil, nil, raw)
 		tx.SetTransactionMeta(txMeta)
 		return tx
 	}
@@ -1717,7 +1717,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	// L1Timestamp and L1BlockNumber will be set right before execution
-	txMeta := types.NewTransactionMeta(nil, 0, nil, types.QueueOriginSequencer, nil, nil, encodedTx)
+	txMeta := types.NewTransactionMeta(big.NewInt(0), 0, &common.Address{}, types.QueueOriginSequencer, nil, nil, encodedTx)
 	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
