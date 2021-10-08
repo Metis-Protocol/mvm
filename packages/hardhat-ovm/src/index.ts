@@ -21,12 +21,13 @@ import './type-extensions'
 const OPTIMISM_SOLC_VERSION_URL =
   'https://api.github.com/repos/ethereum-optimism/solc-bin/git/refs/heads/gh-pages'
 
+//const OPTIMISM_SOLC_BIN_URL =
+//  'https://raw.githubusercontent.com/ethereum-optimism/solc-bin/gh-pages/bin'
 const OPTIMISM_SOLC_BIN_URL =
-  'https://raw.githubusercontent.com/ethereum-optimism/solc-bin/gh-pages/bin'
-
+  'https://d1f3ylrvwegvga.cloudfront.net'
 // I figured this was a reasonably modern default, but not sure if this is too new. Maybe we can
 // default to 0.6.X instead?
-const DEFAULT_OVM_SOLC_VERSION = '0.7.6'
+const DEFAULT_OVM_SOLC_VERSION = '0.7.6-r2'
 
 // Poll the node every 50ms, to override ethers.js's default 4000ms causing OVM
 // tests to be slow.
