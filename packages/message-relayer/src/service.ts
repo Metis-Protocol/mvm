@@ -358,8 +358,16 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           startingBlock,
           startingBlock + this.options.getLogsInterval
         )
-
-      this.state.eventCache = this.state.eventCache.concat(events)
+      const filteredEvents = events.filter((event) => {
+        if (event != undefined) {
+          return event.args._chainId.toNumber() == this.options.l2ChainId
+        }else{
+          return false
+        }
+      })
+      
+      this.state.eventCache = this.state.eventCache.concat(filteredEvents)
+      //this.state.eventCache = this.state.eventCache.concat(events)
       startingBlock += this.options.getLogsInterval
 
       // We need to stop syncing early once we find the event we're looking for to avoid putting

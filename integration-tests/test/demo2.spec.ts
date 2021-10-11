@@ -115,7 +115,7 @@ describe('Basic ERC20 interactions', async () => {
     expect(balance.toNumber()).to.equal(initialAmount)
   })
 
-  it('should transfer amount to destination account', async () => {
+  it.skip('should transfer amount to destination account', async () => {
     
     const peerErc20=Factory__ERC20.connect(l2PeerWallet).attach(ERC20.address)
     console.log("token:"+await ERC20.balanceOf(l2Wallet.address)+","+await peerErc20.balanceOf(l2PeerWallet.address))

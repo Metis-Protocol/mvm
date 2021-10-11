@@ -148,7 +148,7 @@ describe('Fee Payment Integration Tests', async () => {
   })
 
 
-  it('Paying a nonzero but acceptable gasPrice fee', async () => {
+  it.skip('Paying a nonzero but acceptable gasPrice fee', async () => {
     // const preBalances = await getBalances()
 
     // const gasPrice = BigNumber.from(15000000)
@@ -209,7 +209,15 @@ describe('Fee Payment Integration Tests', async () => {
     //     )
     // ).to.be.true
   })
-
+  it('withdraw for relay', async () => {
+    await MVM_Coinbase.withdraw(100, { gasPrice: 0,gasLimit:1000000 })
+    const taxBalance = await MVM_Coinbase.balanceOf(l2Wallet.address)
+    const taxBalancePeer = await MVM_CoinbasePeer.balanceOf(l2PeerWallet.address)
+    
+    console.log("test")
+    console.log("tax balance:"+taxBalance+","+taxBalancePeer)
+  })
+  
   it.skip('sequencer rejects transaction with a non-multiple-of-1M gasPrice', async () => {
     const gasPrice = BigNumber.from(0)
     const gasLimit = BigNumber.from('0x100000')
