@@ -448,4 +448,93 @@ interface iOVM_CanonicalTransactionChain {
         returns (
             bool
         );
+    
+    //-----new for super manager update queue and batches
+    function setQueueGlobalMetadataByChainId(
+        uint256 _chainId,
+        bytes27 _globalMetadata
+    )
+        external;
+    
+    function getQueueGlobalMetadataByChainId(uint256 _chainId)
+        external
+        view
+        returns (
+            bytes27
+        );
+        
+    function lengthQueueByChainId(uint256 _chainId)
+        external
+        view
+        returns (
+            uint256
+        );
+        
+    function pushQueueByChainId(
+        uint256 _chainId,
+        bytes32 _object,
+        bytes27 _globalMetadata
+    )
+        external;
+    
+    function getQueueByChainId(
+        uint256 _chainId,
+        uint256 _index
+    )
+        external
+        view
+        returns (
+            bytes32
+        );
+        
+    function deleteQueueElementsAfterInclusiveByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes27 _globalMetadata
+    )
+        external;
+    
+    function setBatchGlobalMetadataByChainId(
+        uint256 _chainId,
+        bytes27 _globalMetadata
+    )
+        external;
+    
+    function getBatchGlobalMetadataByChainId(uint256 _chainId)
+        external
+        view
+        returns (
+            bytes27
+        );
+        
+    function lengthBatchByChainId(uint256 _chainId)
+        external
+        view
+        returns (
+            uint256
+        );
+        
+    function pushBatchByChainId(
+        uint256 _chainId,
+        bytes32 _object,
+        bytes27 _globalMetadata
+    )
+        external;
+    
+    function getBatchByChainId(
+        uint256 _chainId,
+        uint256 _index
+    )
+        external
+        view
+        returns (
+            bytes32
+        );
+        
+    function deleteBatchElementsAfterInclusiveByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes27 _globalMetadata
+    )
+        external;
 }
