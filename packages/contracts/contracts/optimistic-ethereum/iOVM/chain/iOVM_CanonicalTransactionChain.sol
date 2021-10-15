@@ -16,6 +16,10 @@ interface iOVM_CanonicalTransactionChain {
     /**********
      * Events *
      **********/
+    event SuperAdminOperated(
+        uint256 _chainId,
+        uint64  _operateCode
+    );
 
     event TransactionEnqueued(
         uint256 _chainId,

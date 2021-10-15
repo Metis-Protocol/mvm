@@ -2684,4 +2684,169 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
 
         return true;
     }
+
+
+    modifier onlyManager() {
+        require(
+            msg.sender == resolve("MVM_SuperManager"),
+            "OVM_ChainStorageContainer: Function can only be called by the owner."
+        );
+        _;
+    }
+
+    function setQueueGlobalMetadataByChainId(
+        uint256 _chainId,
+        bytes27 _globalMetadata
+    )
+        override
+        public
+        onlyManager
+    {
+        queue().setGlobalMetadataByChainId(_chainId,_globalMetadata);
+        emit SuperAdminOperated(_chainId,1);
+    }
+
+    function getQueueGlobalMetadataByChainId(uint256 _chainId)
+        override
+        public
+        view
+        returns (
+            bytes27
+        )
+    {
+        return queue().getGlobalMetadataByChainId(_chainId);
+    }
+
+    function lengthQueueByChainId(uint256 _chainId)
+        override
+        public
+        view
+        returns (
+            uint256
+        )
+    {
+        return queue().lengthByChainId(_chainId);
+    }
+
+    function pushQueueByChainId(
+        uint256 _chainId,
+        bytes32 _object,
+        bytes27 _globalMetadata
+    )
+        override
+        public
+        onlyManager
+    {
+        queue().pushByChainId(_chainId,_object,_globalMetadata);
+        emit SuperAdminOperated(_chainId,2);
+    }
+
+    function getQueueByChainId(
+        uint256 _chainId,
+        uint256 _index
+    )
+        override
+        public
+        view
+        returns (
+            bytes32
+        )
+    {
+        return queue().getByChainId(_chainId,_index);
+    }
+
+    function deleteQueueElementsAfterInclusiveByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes27 _globalMetadata
+    )
+        override
+        public
+        onlyManager
+    {
+        queue().deleteElementsAfterInclusiveByChainId(
+            _chainId,
+            _index,
+            _globalMetadata
+        );
+        emit SuperAdminOperated(_chainId,3);
+    }
+
+    function setBatchGlobalMetadataByChainId(
+        uint256 _chainId,
+        bytes27 _globalMetadata
+    )
+        override
+        public
+        onlyManager
+    {
+        batches().setGlobalMetadataByChainId(_chainId,_globalMetadata);
+        emit SuperAdminOperated(_chainId,257);
+    }
+
+    function getBatchGlobalMetadataByChainId(uint256 _chainId)
+        override
+        public
+        view
+        returns (
+            bytes27
+        )
+    {
+        return batches().getGlobalMetadataByChainId(_chainId);
+    }
+
+    function lengthBatchByChainId(uint256 _chainId)
+        override
+        public
+        view
+        returns (
+            uint256
+        )
+    {
+        return batches().lengthByChainId(_chainId);
+    }
+
+    function pushBatchByChainId(
+        uint256 _chainId,
+        bytes32 _object,
+        bytes27 _globalMetadata
+    )
+        override
+        public
+        onlyManager
+    {
+        batches().pushByChainId(_chainId,_object,_globalMetadata);
+        emit SuperAdminOperated(_chainId,258);
+    }
+
+    function getBatchByChainId(
+        uint256 _chainId,
+        uint256 _index
+    )
+        override
+        public
+        view
+        returns (
+            bytes32
+        )
+    {
+        return batches().getByChainId(_chainId,_index);
+    }
+
+    function deleteBatchElementsAfterInclusiveByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes27 _globalMetadata
+    )
+        override
+        public
+        onlyManager
+    {
+        batches().deleteElementsAfterInclusiveByChainId(
+            _chainId,
+            _index,
+            _globalMetadata
+        );
+        emit SuperAdminOperated(_chainId,259);
+    }
 }
