@@ -386,12 +386,12 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
       event.transactionHash
     )
 
-    const [stateRoots] =
+    const txData =
       this.state.OVM_StateCommitmentChain.interface.decodeFunctionData(
         'appendStateBatchByChainId',
         transaction.data
       )
-
+    const stateRoots = txData[1]//param in appendStateBatchByChainId is: chainId,batch,_extraData
     return {
       batch: {
         batchIndex: event.args._batchIndex,
