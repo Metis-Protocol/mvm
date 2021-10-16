@@ -500,7 +500,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		// 		}
 		// 	}
 		// }
-		log.Debug("Reached the end of an OVM execution", "Error", err)
+		// NOTE 20210724
+		// log.Debug("Reached the end of an OVM execution", "Error", err)
 		//}
 	}
 

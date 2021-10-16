@@ -1463,15 +1463,19 @@ func (bc *BlockChain) addFutureBlock(block *types.Block) error {
 	return nil
 }
 
+func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
+	return bc.InsertChainWithFunc(chain, nil)
+}
+
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
 // wrong.
 //
 // After insertion is done, all accumulated events will be fired.
-func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
+func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (int, error) {
 	// NOTE 20210724
-	log.Debug("Test: BlockChain.InsertChain")
+	// log.Debug("Test: BlockChain.InsertChain")
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
 		// NOTE 20210724
@@ -1502,13 +1506,19 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
-	n, err := bc.insertChain(chain, true)
+	// NOTE 20210724
+	// n, err := bc.insertChain(chain, true)
+	n, err := bc.insertChainWithFunc(chain, true, f)
 	// NOTE 20210724
 	// log.Debug("Test: after insert chain", "err", err)
 	// bc.chainmu.Unlock()
-	bc.wg.Done()
+	// bc.wg.Done()
 
 	return n, err
+}
+
+func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
+	return bc.insertChainWithFunc(chain, verifySeals, nil)
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1519,14 +1529,15 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // racey behaviour. If a sidechain import is in progress, and the historic state
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
-func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
+func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, f interface{}) (int, error) {
 	// NOTE 20210724
-	log.Debug("Test: BlockChain.insertChain")
+	// log.Debug("Test: BlockChain.insertChain", "seals", verifySeals)
 	// If the chain is terminating, don't even bother starting up
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		// NOTE 20210724
 		if verifySeals {
 			bc.chainmu.Unlock()
+			bc.wg.Done()
 		}
 		return 0, nil
 	}
@@ -1540,15 +1551,19 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	// Fire a single chain head event if we've progressed the chain
 	defer func() {
 		// NOTE 20210724
-		//fmt.Println("Test: defer 1 in insertChain", lastCanon != nil, bc.CurrentBlock().Hash(), lastCanon.Hash())
+		fmt.Println("Test: defer 1 in insertChain", "lastCanon", lastCanon != nil, "block hash", bc.CurrentBlock().Hash())
 		if verifySeals {
 			bc.chainmu.Unlock()
+			bc.wg.Done()
+		}
+
+		// NOTE 20210724
+		if f != nil {
+			f.(func())()
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
-			// NOTE 20210724
-			fmt.Println("Test: defer 2 in insertChain")
 		}
 	}()
 	// Start the parallel header verifier
@@ -1562,7 +1577,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 
 	// NOTE 20210724
-	fmt.Println("Test: VerifyHeaders before insert chain", abort, results)
+	// fmt.Println("Test: VerifyHeaders before insert chain", abort, results)
 
 	defer close(abort)
 
@@ -1606,9 +1621,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// head full block(new pivot point).
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
+			// NOTE 20210724 disable writeKnownBlock
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
 			lastCanon = block
 
 			block, err = it.next()
@@ -1682,9 +1698,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
+			// NOTE 20210724 disable writeKnownBlock
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
 			stats.processed++
 
 			// We can assume that logs are empty here, since the only way for consecutive
@@ -1808,7 +1825,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		stats.report(chain, it.index, dirty)
 	}
 	// NOTE 20210724
-	log.Debug("Test: insert chain done updated 1", block != nil, err)
+	// log.Debug("Test: insert chain done updated 1", "block", block != nil, "err", err)
 	// Any blocks remaining here? The only ones we care about are the future ones
 	if block != nil && err == consensus.ErrFutureBlock {
 		if err := bc.addFutureBlock(block); err != nil {
@@ -1826,7 +1843,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	stats.ignored += it.remaining()
 
 	// NOTE 20210724
-	log.Debug("Test: insert chain done updated 2", it.index, err)
+	// log.Debug("Test: insert chain done updated 2", "index", it.index, "remaining", it.remaining(), "err", err)
 
 	return it.index, err
 }
