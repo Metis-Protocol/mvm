@@ -5,6 +5,19 @@ if [ -n "$1"  ]
 then
     region=$1
 fi
+
+stack="metis"
+if [ -n "$2" ]
+then
+    stack=$2
+fi
+
+account="950087689901"
+if [ -n "$2" ]
+then
+    account=$2
+fi
+
 # --no-cache
 echo 'Building metis_l2_geth_peer image'
 cmd="sed -i s#REGION_VAR_FOR_ENV#$region#g ./settings/efs-utils.conf"
@@ -15,11 +28,11 @@ cmd="sed -i s#$region#REGION_VAR_FOR_ENV#g ./settings/efs-utils.conf"
 $cmd
 
 profile="aws --profile default ecr get-login-password --region $region"
-login="docker login --username AWS --password-stdin 950087689901.dkr.ecr.$region.amazonaws.com"
+login="docker login --username AWS --password-stdin $account.dkr.ecr.$region.amazonaws.com"
 $profile | $login
 
 echo 'Pushing metis_l2_geth_peer'
-l2geth="docker tag metis_l2_geth_peer:latest 950087689901.dkr.ecr.$region.amazonaws.com/metis-l2-geth-peer:latest"
+l2geth="docker tag metis_l2_geth_peer:latest $account.dkr.ecr.$region.amazonaws.com/$stack-l2-geth-peer:latest"
 $l2geth
-l2geth_push="docker push 950087689901.dkr.ecr.$region.amazonaws.com/metis-l2-geth-peer:latest"
+l2geth_push="docker push $account.dkr.ecr.$region.amazonaws.com/$stack-l2-geth-peer:latest"
 $l2geth_push

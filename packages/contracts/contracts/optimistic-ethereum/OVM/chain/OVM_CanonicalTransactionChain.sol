@@ -7,6 +7,7 @@ pragma experimental ABIEncoderV2;
 import { Lib_OVMCodec } from "../../libraries/codec/Lib_OVMCodec.sol";
 import { Lib_AddressResolver } from "../../libraries/resolver/Lib_AddressResolver.sol";
 import { MVM_AddressResolver } from "../../libraries/resolver/MVM_AddressResolver.sol";
+import { MVM_DiscountOracle } from "../../MVM/MVM_DiscountOracle.sol";
 import { Lib_MerkleTree } from "../../libraries/utils/Lib_MerkleTree.sol";
 
 /* Interface Imports */
@@ -42,7 +43,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
     // L2 tx gas-related
     uint256 constant public MIN_ROLLUP_TX_GAS = 100000;
     uint256 constant public MAX_ROLLUP_TX_SIZE = 50000;
-    uint256 constant public L2_GAS_DISCOUNT_DIVISOR = 3200; // TODO: the divisor needs to be dynamic based on metis price oracle
+    //uint256 constant public L2_GAS_DISCOUNT_DIVISOR = 32;
 
     //default l2 chain id
     uint256 constant public DEFAULT_CHAINID = 420;
@@ -287,7 +288,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         // We need to consume some amount of L1 gas in order to rate limit transactions going into
         // L2. However, L2 is cheaper than L1 so we only need to burn some small proportion of the
         // provided L1 gas.
-        uint256 gasToConsume = _gasLimit/L2_GAS_DISCOUNT_DIVISOR;
+        uint256 gasToConsume = _gasLimit/MVM_DiscountOracle(resolve('MVM_DiscountOracle')).discount();
         uint256 startingGas = gasleft();
 
         // Although this check is not necessary (burn below will run out of gas if not true), it
@@ -1445,7 +1446,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         // We need to consume some amount of L1 gas in order to rate limit transactions going into
         // L2. However, L2 is cheaper than L1 so we only need to burn some small proportion of the
         // provided L1 gas.
-        uint256 gasToConsume = _gasLimit/L2_GAS_DISCOUNT_DIVISOR;
+        uint256 gasToConsume = _gasLimit/MVM_DiscountOracle(resolve('MVM_DiscountOracle')).discount();
         uint256 startingGas = gasleft();
 
         // Although this check is not necessary (burn below will run out of gas if not true), it
