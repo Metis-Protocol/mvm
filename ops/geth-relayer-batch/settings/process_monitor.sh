@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+# set -e
 # waits for l2geth to be up
 curl --fail \
     --show-error \

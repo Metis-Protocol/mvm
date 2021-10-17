@@ -512,7 +512,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         elements.push(ethers.utils.keccak256('0x' + '00'.repeat(32)))
       }
     }
-
+    
     const hash = (el: Buffer | string): Buffer => {
       return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
     }
@@ -520,7 +520,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     const leaves = elements.map((element) => {
       return fromHexString(element)
     })
-
+    
     const tree = new MerkleTree(leaves, hash)
     const index =
       message.parentTransactionIndex - header.batch.prevTotalElements.toNumber()
