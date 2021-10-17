@@ -2703,7 +2703,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         queue().setGlobalMetadataByChainId(_chainId,_globalMetadata);
-        emit QueueGlobalMetadataSet(msg.sender_chainId,_globalMetadata);
+        emit QueueGlobalMetadataSet(msg.sender,_chainId,_globalMetadata);
     }
 
     function getQueueGlobalMetadataByChainId(uint256 _chainId)
@@ -2781,7 +2781,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         batches().setGlobalMetadataByChainId(_chainId,_globalMetadata);
-        emit BatchesGlobalMetadataSet(msg.sender_chainId,_globalMetadata);
+        emit BatchesGlobalMetadataSet(msg.sender,_chainId,_globalMetadata);
     }
 
     function getBatchGlobalMetadataByChainId(uint256 _chainId)
