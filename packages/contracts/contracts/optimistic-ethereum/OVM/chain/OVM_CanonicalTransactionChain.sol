@@ -2703,7 +2703,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         queue().setGlobalMetadataByChainId(_chainId,_globalMetadata);
-        emit SuperAdminOperated(_chainId,1);
+        emit QueueGlobalMetadataSet(msg.sender_chainId,_globalMetadata);
     }
 
     function getQueueGlobalMetadataByChainId(uint256 _chainId)
@@ -2738,7 +2738,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         queue().pushByChainId(_chainId,_object,_globalMetadata);
-        emit SuperAdminOperated(_chainId,2);
+        emit QueuePushed(msg.sender,_chainId,_object,_globalMetadata);
     }
 
     function getQueueByChainId(
@@ -2769,7 +2769,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
             _index,
             _globalMetadata
         );
-        emit SuperAdminOperated(_chainId,3);
+        emit QueueElementDeleted(msg.sender,_chainId,_index,_globalMetadata);
     }
 
     function setBatchGlobalMetadataByChainId(
@@ -2781,7 +2781,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         batches().setGlobalMetadataByChainId(_chainId,_globalMetadata);
-        emit SuperAdminOperated(_chainId,257);
+        emit BatchesGlobalMetadataSet(msg.sender_chainId,_globalMetadata);
     }
 
     function getBatchGlobalMetadataByChainId(uint256 _chainId)
@@ -2816,7 +2816,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         batches().pushByChainId(_chainId,_object,_globalMetadata);
-        emit SuperAdminOperated(_chainId,258);
+        emit BatchPushed(msg.sender,_chainId,_object,_globalMetadata);
     }
 
     function getBatchByChainId(
@@ -2847,6 +2847,6 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
             _index,
             _globalMetadata
         );
-        emit SuperAdminOperated(_chainId,259);
+        emit BatchElementDeleted(msg.sender,_chainId,_index,_globalMetadata);
     }
 }

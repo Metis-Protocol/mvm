@@ -16,9 +16,44 @@ interface iOVM_CanonicalTransactionChain {
     /**********
      * Events *
      **********/
-    event SuperAdminOperated(
+    event QueueGlobalMetadataSet(
+        address _sender,
         uint256 _chainId,
-        uint64  _operateCode
+        bytes27 _globalMetadata
+    );
+    
+    event QueuePushed(
+        address _sender,
+        uint256 _chainId,
+        bytes32 _object,
+        bytes27 _globalMetadata
+    );
+
+    event QueueElementDeleted(
+        address _sender,
+        uint256 _chainId,
+        uint256 _index,
+        bytes27 _globalMetadata
+    );
+
+    event BatchesGlobalMetadataSet(
+        address _sender,
+        uint256 _chainId,
+        bytes27 _globalMetadata
+    );
+    
+    event BatchPushed(
+        address _sender,
+        uint256 _chainId,
+        bytes32 _object,
+        bytes27 _globalMetadata
+    );
+
+    event BatchElementDeleted(
+        address _sender,
+        uint256 _chainId,
+        uint256 _index,
+        bytes27 _globalMetadata
     );
 
     event TransactionEnqueued(
