@@ -97,6 +97,9 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
+
+	// NOTE 20210724, a ticker for fetcher
+	tickerFetcherSync *time.Ticker
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -161,7 +164,8 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	heighter := func() uint64 {
 		return blockchain.CurrentBlock().NumberU64()
 	}
-	inserter := func(blocks types.Blocks) (int, error) {
+	// NOTE 20210724
+	inserter := func(blocks types.Blocks, f interface{}) (int, error) {
 		// If sync hasn't reached the checkpoint yet, deny importing weird blocks.
 		//
 		// Ideally we would also compare the head block's timestamp and similarly reject
@@ -183,7 +187,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		// 	log.Warn("Fast syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 		// 	return 0, nil
 		// }
-		n, err := manager.blockchain.InsertChain(blocks)
+		n, err := manager.blockchain.InsertChainWithFunc(blocks, f)
 		if err == nil {
 			atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		}
@@ -246,6 +250,20 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
+// start a ticker to resolve peer block writter abort by future blocks
+func (pm *ProtocolManager) startFetcherTicker() {
+	// NOTE 20210724
+	pm.tickerFetcherSync = time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-pm.tickerFetcherSync.C:
+			if pm.fetcher != nil {
+				pm.fetcher.EnsureQueueInsert()
+			}
+		}
+	}
+}
+
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
 
@@ -261,10 +279,17 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
+
+	go pm.startFetcherTicker()
 }
 
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Ethereum protocol")
+
+	// NOTE 20210724
+	if pm.tickerFetcherSync != nil {
+		pm.tickerFetcherSync.Stop()
+	}
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
