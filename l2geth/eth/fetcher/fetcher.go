@@ -20,6 +20,7 @@ package fetcher
 import (
 	"errors"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,14 +34,15 @@ const (
 	arriveTimeout = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
 	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
 	fetchTimeout  = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
-	maxUncleDist  = 7                      // Maximum allowed backward distance from the chain head
-	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
-	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit    = 64                     // Maximum number of unique blocks a peer may have delivered
+	maxUncleDist  = 31*380 + 7             // Maximum allowed backward distance from the chain head
+	maxQueueDist  = 32 * 380               // Maximum allowed distance from the chain head to queue
+	hashLimit     = 256 * 380              // Maximum number of unique blocks a peer may have announced
+	blockLimit    = 64 * 380               // Maximum number of unique blocks a peer may have delivered
 )
 
 var (
 	errTerminated = errors.New("terminated")
+	loopMutex     sync.Mutex
 )
 
 // blockRetrievalFn is a callback type for retrieving a block from the local chain.
@@ -62,7 +64,7 @@ type blockBroadcasterFn func(block *types.Block, propagate bool)
 type chainHeightFn func() uint64
 
 // chainInsertFn is a callback type to insert a batch of blocks into the local chain.
-type chainInsertFn func(types.Blocks) (int, error)
+type chainInsertFn func(types.Blocks, interface{}) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type peerDropFn func(id string)
@@ -286,8 +288,11 @@ func (f *Fetcher) loop() {
 				f.forgetHash(hash)
 			}
 		}
+		// Note 20210724
+		loopMutex.Lock()
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
+		queueCount := f.queue.Size()
 		for !f.queue.Empty() {
 			op := f.queue.PopItem().(*inject)
 			hash := op.block.Hash()
@@ -297,6 +302,8 @@ func (f *Fetcher) loop() {
 			// If too high up the chain or phase, continue later
 			number := op.block.NumberU64()
 			if number > height+1 {
+				// Note 20210724
+				log.Debug("Test: number > height + 1", "number", number, "height", height, "queue size", queueCount)
 				f.queue.Push(op, -int64(number))
 				if f.queueChangeHook != nil {
 					f.queueChangeHook(hash, true)
@@ -310,6 +317,8 @@ func (f *Fetcher) loop() {
 			}
 			f.insert(op.origin, op.block)
 		}
+		// Note 20210724
+		loopMutex.Unlock()
 		// Wait for an outside event to occur
 		select {
 		case <-f.quit:
@@ -627,10 +636,10 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
 		//TODO 20210724
-		txs := block.Body().Transactions
-		if len(txs) > 0 {
-			log.Debug("Queued propagated block tx", "meta L1Timestamp", txs[0].GetMeta().L1Timestamp, "L1MessageSender", txs[0].GetMeta().L1MessageSender, "Index", txs[0].GetMeta().Index)
-		}
+		// txs := block.Body().Transactions
+		// if len(txs) > 0 {
+		// 	log.Debug("Queued propagated block tx", "meta L1Timestamp", txs[0].GetMeta().L1Timestamp, "L1MessageSender", txs[0].GetMeta().L1MessageSender, "Index", txs[0].GetMeta().Index)
+		// }
 		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
 	}
 }
@@ -644,7 +653,7 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	// NOTE 20210724
-	log.Debug("Importing propagated block", "meta l1Timestamp", block.Body().Transactions[0].GetMeta().L1Timestamp)
+	// log.Debug("Importing propagated block", "meta l1Timestamp", block.Body().Transactions[0].GetMeta().L1Timestamp)
 	go func() {
 		defer func() { f.done <- hash }()
 
@@ -676,10 +685,11 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 			return
 		}
 		// Run the actual import and log any issues
-		if _, err := f.insertChain(types.Blocks{block}); err != nil {
+		if _, err := f.insertChain(types.Blocks{block}, f.EnsureQueueInsert); err != nil {
 			log.Debug("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 			return
 		}
+
 		// If import succeeded, broadcast the block
 		propAnnounceOutTimer.UpdateSince(block.ReceivedAt)
 		go f.broadcastBlock(block, false)
@@ -743,4 +753,40 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 		}
 		delete(f.queued, hash)
 	}
+}
+
+// need to save block when save delayed
+func (f *Fetcher) EnsureQueueInsert() {
+	// Note 20210724
+	loopMutex.Lock()
+	height := f.chainHeight()
+	queueCount := f.queue.Size()
+	// log.Debug("Test: ensureQueueInsert running", "height", height, "queue size", queueCount)
+	for !f.queue.Empty() {
+		op := f.queue.PopItem().(*inject)
+		hash := op.block.Hash()
+		if f.queueChangeHook != nil {
+			f.queueChangeHook(hash, false)
+		}
+		// If too high up the chain or phase, continue later
+		number := op.block.NumberU64()
+		if number > height+1 {
+			// Note 20210724
+			log.Debug("Test: number > height + 1 ensureQueueInsert", "number", number, "height", height, "queue size", queueCount)
+			f.queue.Push(op, -int64(number))
+			if f.queueChangeHook != nil {
+				f.queueChangeHook(hash, true)
+			}
+			break
+		}
+		// log.Debug("Test: number <= height + 1 ensureQueueInsert", "number", number, "height", height, "queue size", queueCount)
+		// Otherwise if fresh and still unknown, try and import
+		if number+maxUncleDist < height || f.getBlock(hash) != nil {
+			f.forgetBlock(hash)
+			continue
+		}
+		f.insert(op.origin, op.block)
+	}
+	// Note 20210724
+	loopMutex.Unlock()
 }

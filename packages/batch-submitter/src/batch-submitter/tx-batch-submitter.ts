@@ -301,9 +301,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // Verify all of the queue elements are what we expect
     let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
     for (const ele of batch) {
-      this.logger.debug('Verifying batch element', { ele })
+      this.logger.info('Verifying batch element', { ele })
       if (!ele.isSequencerTx) {
-        this.logger.debug('Checking queue equality against L1 queue index', {
+        this.logger.info('Checking queue equality against L1 queue index', {
           nextQueueIndex,
         })
         if (!(await this._doesQueueElementMatchL1(nextQueueIndex, ele))) {
@@ -680,6 +680,11 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
           'Attempted to generate batch context with 0 queued and 0 sequenced txs!'
         )
       }
+      this.logger.warn('Fetched L2 block', 
+      {
+        seqLen:groupedBlock.sequenced.length,
+        queLen:groupedBlock.queued.length
+      })
       contexts.push({
         numSequencedTransactions: groupedBlock.sequenced.length,
         numSubsequentQueueTransactions: groupedBlock.queued.length,
