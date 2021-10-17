@@ -13,9 +13,9 @@ then
 fi
 
 account="950087689901"
-if [ -n "$2" ]
+if [ -n "$3" ]
 then
-    account=$2
+    account=$3
 fi
 
 # --no-cache
