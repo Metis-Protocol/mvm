@@ -28,19 +28,23 @@ def update_chain():
     mount_path = request.args.get("mount_path")
     efs_id = request.args.get("efs_id")
     access_point_id = request.args.get("access_point_id")
-    _kill_pids()
-    the_path = mount_path or '/metis'
-    logging.warning(f'update_chain mount_path:{mount_path}, efs_id:{efs_id}, access_point_id:{access_point_id}')
-    _umount_path(the_path)
-    if efs_id is not None and access_point_id is not None:
-        output=_try_cmd(['mount', '-t', 'efs', '-o', f'tls,accesspoint={access_point_id}',f'{efs_id}:', the_path])
-        logging.warning(f'mount to ap: {efs_id},{access_point_id},{output}')
-        _try_cmd(['mkdir', '-p', f'{the_path}/.ethereum'])
-        _try_cmd(['mount','--bind',f'{the_path}/.ethereum','/root/.ethereum'])
-        logging.warning(f"mount to root ethereum: mount --bind {the_path}/.ethereum /root/.ethereum")
-    if output is None or len(output) <= 0:
-        body=request.get_data(as_text=True)
-        output=_update_chain(json.loads(body))
+    reset = request.args.get("reset")
+    body = request.get_data(as_text=True)
+    if reset is not None:
+        output = _kill_pid(reset, json.loads(body))
+    else:
+        _kill_pids()
+        the_path = mount_path or '/metis'
+        logging.warning(f'update_chain mount_path:{mount_path}, efs_id:{efs_id}, access_point_id:{access_point_id}')
+        _umount_path(the_path)
+        if efs_id is not None and access_point_id is not None:
+            output=_try_cmd(['mount', '-t', 'efs', '-o', f'tls,accesspoint={access_point_id}',f'{efs_id}:', the_path])
+            logging.warning(f'mount to ap: {efs_id},{access_point_id},{output}')
+            _try_cmd(['mkdir', '-p', f'{the_path}/.ethereum'])
+            _try_cmd(['mount','--bind',f'{the_path}/.ethereum','/root/.ethereum'])
+            logging.warning(f"mount to root ethereum: mount --bind {the_path}/.ethereum /root/.ethereum")
+        if output is None or len(output) <= 0:
+            output=_update_chain(json.loads(body))
     return {
         'data': output.decode('utf-8')
     }
@@ -49,6 +53,17 @@ def update_chain():
 def _kill_pids():
     output = _try_cmd_string("/app/process_kill.sh")
     logging.warning(output)
+    
+
+def _kill_pid(name, body):
+    if name not in ["geth","batch-submitter", "message-relayer"]:
+        return f"{name} must be in the ['geth','batch-submitter','message-relayer'] list".encode("utf-8")
+    logging.warning(f'_kill_pid to file:{body}')
+    _save_env(body)
+    output = _try_cmd(["/app/process_kill.sh", name])
+    logging.warning(output)
+    return output
+
 
 def _umount_path(path):
     _try_cmd(['umount', '/root/.ethereum'])
@@ -75,13 +90,8 @@ def _try_cmd_string(cmd):
 
 def _update_chain(body):
     logging.warning(f'update_chain to file:{body}')
-    if body is not None:
-        myEnv = MyEnv('')
-        myEnv.SetEnvFile("/app/env.sh")
-        myEnv.envs=body
-        myEnv.Save()
-    logging.warning(f'update_chain to file2:{myEnv.envs}')
-
+    _save_env(body)
+    
     output = _try_cmd(['cat','/app/env.sh'])
     logging.warning(output)
     
@@ -89,6 +99,17 @@ def _update_chain(body):
     logging.warning(output)
     return output
 
+
+def _save_env(body):
+    if body is None:
+        return False
+    myEnv = MyEnv('')
+    myEnv.SetEnvFile("/app/env.sh")
+    myEnv.envs=body
+    myEnv.Save()
+    logging.warning(f'MyEnv to file:{myEnv.envs}')
+    return True
+    
 
 @app.route('/v1/chain/stop',methods=['POST'])
 def stop_chain():
