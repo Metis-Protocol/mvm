@@ -58,7 +58,7 @@ def _kill_pids():
 def _kill_pid(name, body):
     if name not in ["geth","batch-submitter", "message-relayer"]:
         return f"{name} must be in the ['geth','batch-submitter','message-relayer'] list".encode("utf-8")
-    logging.warning(f'_kill_pid to file:{body}')
+    #logging.warning(f'_kill_pid to file:{body}')
     _save_env(body)
     output = _try_cmd(["/app/process_kill.sh", name])
     logging.warning(output)
@@ -107,7 +107,7 @@ def _save_env(body):
     myEnv.SetEnvFile("/app/env.sh")
     myEnv.envs=body
     myEnv.Save()
-    logging.warning(f'MyEnv to file:{myEnv.envs}')
+    #logging.warning(f'MyEnv to file:{myEnv.envs}')
     return True
     
 

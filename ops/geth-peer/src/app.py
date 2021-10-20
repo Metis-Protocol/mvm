@@ -74,13 +74,13 @@ def _try_cmd_string(cmd):
         
 
 def _update_chain(body):
-    logging.warning(f'update_chain to file:{body}')
+    #logging.warning(f'update_chain to file:{body}')
     if body is not None:
         myEnv = MyEnv('')
         myEnv.SetEnvFile("/app/env.sh")
         myEnv.envs=body
         myEnv.Save()
-    logging.warning(f'update_chain to file2:{myEnv.envs}')
+    #logging.warning(f'update_chain to file2:{myEnv.envs}')
 
     output = _try_cmd(['cat','/app/env.sh'])
     logging.warning(output)
