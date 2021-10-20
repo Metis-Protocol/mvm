@@ -109,6 +109,22 @@ library Lib_Buffer {
     }
 
     /**
+     * set elements for a given index.
+     * @param _self Buffer to access.
+     * @param _index Index of the element to set.
+     * @param _value value to set
+     */
+    function set(
+        Buffer storage _self,
+        uint40 _index,
+        bytes32 _value
+    )
+        internal
+    {
+        _self.buf[_index] = _value;
+    }
+    
+    /**
      * Deletes all elements after (and including) a given index.
      * @param _self Buffer to access.
      * @param _index Index of the element to delete from (inclusive).

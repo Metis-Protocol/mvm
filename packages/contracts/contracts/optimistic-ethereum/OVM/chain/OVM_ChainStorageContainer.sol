@@ -213,7 +213,20 @@ contract OVM_ChainStorageContainer is iOVM_ChainStorageContainer, Lib_AddressRes
     {
         buffers[_chainId].push(_object, _globalMetadata);
     }
-
+    /**
+     * @inheritdoc iOVM_ChainStorageContainer
+     */
+    function setByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes32 _object
+    )
+        override
+        public
+        onlyOwner
+    {
+        buffers[_chainId].set(_index, _object);
+    }
     /**
      * @inheritdoc iOVM_ChainStorageContainer
      */

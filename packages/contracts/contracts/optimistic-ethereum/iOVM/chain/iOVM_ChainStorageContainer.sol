@@ -66,6 +66,20 @@ interface iOVM_ChainStorageContainer {
         external;
 
     /**
+     * Set an object into the container. Function allows setting the global metadata since
+     * we'll need to touch the "length" storage slot anyway, which also contains the global
+     * metadata (it's an optimization).
+     * @param _index position.
+     * @param _object A 32 byte value to insert into the container.
+     */  
+    function setByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes32 _object
+    )
+        external;
+        
+    /**
      * Retrieves an object from the container.
      * @param _index Index of the particular object to access.
      * @return 32 byte object value.

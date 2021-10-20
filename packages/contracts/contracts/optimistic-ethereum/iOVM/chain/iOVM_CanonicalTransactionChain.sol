@@ -29,6 +29,13 @@ interface iOVM_CanonicalTransactionChain {
         bytes27 _globalMetadata
     );
 
+    event QueueSetted(
+        address _sender,
+        uint256 _chainId,
+        uint256 _index,
+        bytes32 _object
+    );
+
     event QueueElementDeleted(
         address _sender,
         uint256 _chainId,
@@ -47,6 +54,13 @@ interface iOVM_CanonicalTransactionChain {
         uint256 _chainId,
         bytes32 _object,
         bytes27 _globalMetadata
+    );
+
+    event BatchSetted(
+        address _sender,
+        uint256 _chainId,
+        uint256 _index,
+        bytes32 _object
     );
 
     event BatchElementDeleted(
@@ -511,7 +525,14 @@ interface iOVM_CanonicalTransactionChain {
         bytes27 _globalMetadata
     )
         external;
-    
+
+    function setQueueByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes32 _object
+    )
+        external;
+
     function getQueueByChainId(
         uint256 _chainId,
         uint256 _index
@@ -556,6 +577,13 @@ interface iOVM_CanonicalTransactionChain {
     )
         external;
     
+    function setBatchByChainId(
+        uint256 _chainId,
+        uint256 _index,
+        bytes32 _object
+    )
+        external;
+        
     function getBatchByChainId(
         uint256 _chainId,
         uint256 _index
