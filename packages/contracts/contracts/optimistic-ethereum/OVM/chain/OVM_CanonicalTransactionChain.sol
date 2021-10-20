@@ -2751,7 +2751,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         public
         onlyManager
     {
-        queue().setQueueByChainId(_chainId,_index,_object);
+        queue().setByChainId(_chainId,_index,_object);
         emit QueueSetted(msg.sender,_chainId,_object);
     }
 
