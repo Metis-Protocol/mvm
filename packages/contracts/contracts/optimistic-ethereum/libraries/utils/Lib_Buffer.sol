@@ -116,7 +116,7 @@ library Lib_Buffer {
      */
     function set(
         Buffer storage _self,
-        uint40 _index,
+        uint256 _index,
         bytes32 _value
     )
         internal
