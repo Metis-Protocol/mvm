@@ -21,7 +21,7 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       nodeEnv: config.str('node-env', 'development'),
       ethNetworkName: config.str('eth-network-name') as ethNetwork,
       release: `data-transport-layer@${process.env.npm_package_version}`,
-      dbPath: config.str('db-path', './db'),
+      dbPath: config.str('db-path', '/data/db'), // Do not modify the value of db-path
       port: config.uint('server-port', 7878),
       hostname: config.str('server-hostname', 'localhost'),
       confirmations: config.uint('confirmations', 35),

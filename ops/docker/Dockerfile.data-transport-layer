@@ -31,5 +31,6 @@ COPY --from=builder /optimism/packages/data-transport-layer/node_modules ./node_
 
 # copy this over in case you want to run alongside other services
 COPY ./ops/scripts/dtl.sh .
+RUN mkdir -p /data/db
 # ENTRYPOINT ["node", "dist/src/services/run.js"]
 ENTRYPOINT ["./dtl.sh"]
