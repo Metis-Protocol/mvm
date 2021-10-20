@@ -2752,7 +2752,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         queue().setByChainId(_chainId,_index,_object);
-        emit QueueSetted(msg.sender,_chainId,_object);
+        emit QueueSetted(msg.sender,_chainId,_index,_object);
     }
 
     function getQueueByChainId(
@@ -2843,7 +2843,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         onlyManager
     {
         batches().setByChainId(_chainId,_index,_object);
-        emit BatchSetted(msg.sender,_chainId,_object);
+        emit BatchSetted(msg.sender,_chainId,_index,_object);
     }
 
     function getBatchByChainId(
