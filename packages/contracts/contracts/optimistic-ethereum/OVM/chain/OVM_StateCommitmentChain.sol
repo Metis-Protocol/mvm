@@ -537,7 +537,7 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
 
         // Proposers must have previously staked at the BondManager
         require(
-            iOVM_BondManager(resolve("OVM_BondManager")).appendStateBatchesByChainId(_chainId,msg.sender),
+            iOVM_BondManager(resolve("OVM_BondManager")).isCollateralizedByChainId(_chainId,msg.sender),
             "Proposer does not have enough collateral posted"
         );
 

@@ -209,7 +209,7 @@ contract OVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
         uint256 _chainId,
         address _who
     ) override public view returns (bool) {
-        return bonds[who].state == State.COLLATERALIZED;
+        return bonds[_who].state == State.COLLATERALIZED;
     }
 
 

@@ -71,7 +71,23 @@ contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
         // Only authenticate sequencer to submit state root batches.
         return _who == resolve("OVM_Proposer");
     }
-
+    
+    function isCollateralizedByChainId(
+        uint256 _chainId,
+        address _who
+    )
+        override
+        public
+        view
+        returns (
+            bool
+        )
+    {
+        // Only authenticate sequencer to submit state root batches.
+        return true;
+        //_who == resolve("OVM_Proposer");
+    }
+    
     function getGasSpent(
         bytes32, // _preStateRoot,
         address // _who
