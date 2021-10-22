@@ -482,14 +482,14 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
         override
         public
     {
-        // Only need check once
-        // Proposers must have previously staked at the BondManager
-        require(
-            iOVM_BondManager(resolve("OVM_BondManager")).isCollateralized(msg.sender),
-            "Proposer does not have enough collateral posted"
-        );
         
         for (uint i = 0; i < _chainIds.length; i++) {
+            // Only need check once
+            // Proposers must have previously staked at the BondManager
+            require(
+                iOVM_BondManager(resolve("OVM_BondManager")).isCollateralizedByChainId(_chainIds[i],msg.sender),
+                "Proposer does not have enough collateral posted"
+            );
             // Fail fast in to make sure our batch roots aren't accidentally made fraudulent by the
             // publication of batches by some other user.
             require(
@@ -537,7 +537,7 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
 
         // Proposers must have previously staked at the BondManager
         require(
-            iOVM_BondManager(resolve("OVM_BondManager")).isCollateralized(msg.sender),
+            iOVM_BondManager(resolve("OVM_BondManager")).appendStateBatchesByChainId(_chainId,msg.sender),
             "Proposer does not have enough collateral posted"
         );
 
