@@ -6,14 +6,17 @@ import { iOVM_BondManager } from "../../iOVM/verification/iOVM_BondManager.sol";
 
 /* Contract Imports */
 import { Lib_AddressResolver } from "../../libraries/resolver/Lib_AddressResolver.sol";
+import { MVM_AddressResolver } from "../../libraries/resolver/MVM_AddressResolver.sol";
 
 /**
  * @title mockOVM_BondManager
  */
-contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
+contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver, MVM_AddressResolver {
     constructor(
+        address _mvmAddressManager,
         address _libAddressManager
     )
+        MVM_AddressResolver(_mvmAddressManager)
         Lib_AddressResolver(_libAddressManager)
     {}
 
@@ -72,7 +75,7 @@ contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
         return _who == resolve("OVM_Proposer");
     }
     
-    function makeChainProp(uint256 i) internal returns (string memory c) {
+    function makeChainProp(uint256 i) internal view returns (string memory c) {
         if (i == 0) return "0";
         uint j = i;
         uint length;
