@@ -207,8 +207,10 @@ contract OVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
     
     function isCollateralizedByChainId(
         uint256 _chainId,
-        address _who
+        address _who,
+        address _prop
     ) override public view returns (bool) {
+        require(_who==_prop,"sender must the proposer!");
         return bonds[_who].state == State.COLLATERALIZED;
     }
 

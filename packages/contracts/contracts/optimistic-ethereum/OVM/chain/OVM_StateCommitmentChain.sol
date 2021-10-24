@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 /* Library Imports */
 import { Lib_OVMCodec } from "../../libraries/codec/Lib_OVMCodec.sol";
 import { Lib_AddressResolver } from "../../libraries/resolver/Lib_AddressResolver.sol";
+import { MVM_AddressResolver } from "../../libraries/resolver/MVM_AddressResolver.sol";
 import { Lib_MerkleTree } from "../../libraries/utils/Lib_MerkleTree.sol";
 
 /* Interface Imports */
@@ -28,7 +29,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
  * Compiler used: solc
  * Runtime target: EVM
  */
-contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResolver {
+contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResolver, MVM_AddressResolver {
 
     /*************
      * Constants *
@@ -49,10 +50,12 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
      * @param _libAddressManager Address of the Address Manager.
      */
     constructor(
+        address _mvmAddressManager,
         address _libAddressManager,
         uint256 _fraudProofWindow,
         uint256 _sequencerPublishWindow
     )
+        MVM_AddressResolver(_mvmAddressManager)
         Lib_AddressResolver(_libAddressManager)
     {
         FRAUD_PROOF_WINDOW = _fraudProofWindow;
@@ -487,7 +490,7 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
             // Only need check once
             // Proposers must have previously staked at the BondManager
             require(
-                iOVM_BondManager(resolve("OVM_BondManager")).isCollateralizedByChainId(_chainIds[i],msg.sender),
+                iOVM_BondManager(resolve("OVM_BondManager")).isCollateralizedByChainId(_chainIds[i],msg.sender,msg.sender),
                 "Proposer does not have enough collateral posted"
             );
             // Fail fast in to make sure our batch roots aren't accidentally made fraudulent by the
@@ -522,8 +525,9 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
      */
     function appendStateBatchByChainId(
         uint256 _chainId,
-        bytes32[] memory _batch,
-        uint256 _shouldStartAtElement
+        bytes32[] calldata _batch,
+        uint256 _shouldStartAtElement,
+        string calldata proposer
     )
         override
         public
@@ -537,7 +541,7 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
 
         // Proposers must have previously staked at the BondManager
         require(
-            iOVM_BondManager(resolve("OVM_BondManager")).isCollateralizedByChainId(_chainId,msg.sender),
+            iOVM_BondManager(resolve("OVM_BondManager")).isCollateralizedByChainId(_chainId,msg.sender,resolveFromMvm(proposer)),
             "Proposer does not have enough collateral posted"
         );
 

@@ -106,7 +106,8 @@ interface iOVM_BondManager {
 
     function isCollateralizedByChainId(
         uint256 _chainId,
-        address _who
+        address _who,
+        address _prop
     ) external view returns (bool);
 
     function getGasSpent(

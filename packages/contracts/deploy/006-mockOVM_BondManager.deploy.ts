@@ -15,19 +15,10 @@ const deployFn: DeployFunction = async (hre) => {
       signerOrProvider: deployer,
     }
   )
-  const MVM_AddressManager = await getDeployedContract(
-    hre,
-    'MVM_AddressManager',
-    {
-      signerOrProvider: deployer,
-    }
-  )
 
-  console.log(MVM_AddressManager.address,Lib_AddressManager.address)
-  
   const result = await deploy('mockOVM_BondManager', {
     from: deployer,
-    args: [MVM_AddressManager.address,Lib_AddressManager.address],
+    args: [Lib_AddressManager.address],
     log: true,
   })
 

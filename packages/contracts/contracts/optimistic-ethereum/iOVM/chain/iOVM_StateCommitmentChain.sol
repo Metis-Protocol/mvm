@@ -182,7 +182,8 @@ interface iOVM_StateCommitmentChain {
     function appendStateBatchByChainId(
         uint256 _chainId,
         bytes32[] calldata _batch,
-        uint256 _shouldStartAtElement
+        uint256 _shouldStartAtElement,
+        string calldata proposer
     )
         external;
 

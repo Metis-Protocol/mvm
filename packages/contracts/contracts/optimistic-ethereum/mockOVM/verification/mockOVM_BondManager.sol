@@ -6,17 +6,14 @@ import { iOVM_BondManager } from "../../iOVM/verification/iOVM_BondManager.sol";
 
 /* Contract Imports */
 import { Lib_AddressResolver } from "../../libraries/resolver/Lib_AddressResolver.sol";
-import { MVM_AddressResolver } from "../../libraries/resolver/MVM_AddressResolver.sol";
 
 /**
  * @title mockOVM_BondManager
  */
-contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver, MVM_AddressResolver {
+contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
     constructor(
-        address _mvmAddressManager,
         address _libAddressManager
     )
-        MVM_AddressResolver(_mvmAddressManager)
         Lib_AddressResolver(_libAddressManager)
     {}
 
@@ -75,32 +72,10 @@ contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver, MVM_Addre
         return _who == resolve("OVM_Proposer");
     }
     
-    function makeChainProp(uint256 i) internal view returns (string memory c) {
-        if (i == 0) return "0";
-        uint j = i;
-        uint length;
-
-        while (j != 0){
-            length++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(length+14);
-        uint k = length - 1;
-        while (i != 0){
-            bstr[k--] = byte(uint8(48 + i % 10));
-            i /= 10;
-        }
-        string memory s="_MVM_Proposer";
-        bytes memory _bb=bytes(s);
-        k = length;
-        for (i = 0; i < 14; i++)
-            bstr[k++] = _bb[i];
-        c = string(bstr);
-    }
-
     function isCollateralizedByChainId(
         uint256 _chainId,
-        address _who
+        address _who,
+        address _prop
     )
         override
         public
@@ -109,9 +84,7 @@ contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver, MVM_Addre
             bool
         )
     {
-        // Only authenticate sequencer to submit state root batches.
-        string memory ch = makeChainProp(_chainId);
-        return _who == resolveFromMvm(ch);
+        return _who == _prop;
     }
     
     function getGasSpent(
