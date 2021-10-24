@@ -72,6 +72,29 @@ contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
         return _who == resolve("OVM_Proposer");
     }
     
+    function makeChainProp(uint256 i) internal returns (string memory c) {
+        if (i == 0) return "0";
+        uint j = i;
+        uint length;
+
+        while (j != 0){
+            length++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(length+14);
+        uint k = length - 1;
+        while (i != 0){
+            bstr[k--] = byte(uint8(48 + i % 10));
+            i /= 10;
+        }
+        string memory s="_MVM_Proposer";
+        bytes memory _bb=bytes(s);
+        k = length;
+        for (i = 0; i < 14; i++)
+            bstr[k++] = _bb[i];
+        c = string(bstr);
+    }
+
     function isCollateralizedByChainId(
         uint256 _chainId,
         address _who
@@ -84,8 +107,8 @@ contract mockOVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
         )
     {
         // Only authenticate sequencer to submit state root batches.
-        return true;
-        //_who == resolve("OVM_Proposer");
+        string memory ch = makeChainProp(_chainId);
+        return _who == resolveFromMvm(ch);
     }
     
     function getGasSpent(
