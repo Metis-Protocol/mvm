@@ -9,6 +9,7 @@ import { Lib_AddressManager } from "../../../libraries/resolver/Lib_AddressManag
 import { Lib_SecureMerkleTrie } from "../../../libraries/trie/Lib_SecureMerkleTrie.sol";
 import { Lib_PredeployAddresses } from "../../../libraries/constants/Lib_PredeployAddresses.sol";
 import { Lib_CrossDomainUtils } from "../../../libraries/bridge/Lib_CrossDomainUtils.sol";
+import { iMVM_DiscountOracle } from "../../../MVM/iMVM_DiscountOracle.sol";
 
 /* Interface Imports */
 import { iOVM_L1CrossDomainMessenger } from
@@ -72,6 +73,7 @@ contract OVM_L1CrossDomainMessenger is
     mapping (bytes32 => bool) public successfulMessages;
 
     address internal xDomainMsgSender = DEFAULT_XDOMAIN_SENDER;
+    uint256 constant DEFAULT_CHAINID = 1088;
 
     /***************
      * Constructor *
@@ -195,8 +197,15 @@ contract OVM_L1CrossDomainMessenger is
         uint32 _gasLimit
     )
         override
+        payable
         public
     {
+    
+        iMVM_DiscountOracle oracle = iMVM_DiscountOracle(resolve('MVM_DiscountOracle'));
+        
+        // this function will check against the whitelist and take the fee
+        oracle.processL2SeqGas{value:msg.value}(msg.sender, DEFAULT_CHAINID);
+        
         address ovmCanonicalTransactionChain = resolve("OVM_CanonicalTransactionChain");
         // Use the CTC queue length as nonce
         uint40 nonce =
@@ -233,10 +242,17 @@ contract OVM_L1CrossDomainMessenger is
         uint32 _gasLimit
     )
         override
+        payable
         public
     {
-
+    
+        iMVM_DiscountOracle oracle = iMVM_DiscountOracle(resolve('MVM_DiscountOracle'));
+        
+        // this function will check against the whitelist and take the fee
+        oracle.processL2SeqGas{value:msg.value}(msg.sender, _chainId);
+        
         address ovmCanonicalTransactionChain = resolve("OVM_CanonicalTransactionChain");
+        
         // Use the CTC queue length as nonce
         uint40 nonce = iOVM_CanonicalTransactionChain(ovmCanonicalTransactionChain).getQueueLengthByChainId(_chainId);
 
@@ -495,6 +511,7 @@ contract OVM_L1CrossDomainMessenger is
     )
         override
         public
+        payable
     {
 
         // Verify that the message is in the queue:
@@ -744,6 +761,12 @@ contract OVM_L1CrossDomainMessenger is
             bool
         )
     {
+        iMVM_DiscountOracle oracle = iMVM_DiscountOracle(resolve('MVM_DiscountOracle'));
+        
+        if (oracle.isTrustedRelayer(_chainId, msg.sender)) {
+            return true;
+        }
+        
         bytes32 storageKey = keccak256(
             abi.encodePacked(
                 keccak256(
@@ -803,5 +826,28 @@ contract OVM_L1CrossDomainMessenger is
             _gasLimit,
             _message
         );
+    }
+    
+    function makeChainSeq(uint256 i) pure internal returns (string memory c) {
+        if (i == 0) return "0";
+        uint j = i;
+        uint length;
+
+        while (j != 0){
+            length++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(length+14);
+        uint k = length - 1;
+        while (i != 0){
+            bstr[k--] = byte(uint8(48 + i % 10));
+            i /= 10;
+        }
+        string memory s="_MVM_Sequencer";
+        bytes memory _bb=bytes(s);
+        k = length;
+        for (i = 0; i < 14; i++)
+            bstr[k++] = _bb[i];
+        c = string(bstr);
     }
 }

@@ -49,6 +49,9 @@ contract OVM_SequencerFeeVault {
         l1FeeWallet = _l1FeeWallet;
     }
 
+    fallback() external payable {
+        
+    }
 
     /********************
      * Public Functions *
@@ -56,6 +59,7 @@ contract OVM_SequencerFeeVault {
 
     function withdraw()
         public
+        payable
     {
         uint256 balance = MVM_Coinbase(Lib_PredeployAddresses.MVM_COINBASE).balanceOf(address(this));
 
@@ -65,7 +69,7 @@ contract OVM_SequencerFeeVault {
             "OVM_SequencerFeeVault: withdrawal amount must be greater than minimum withdrawal amount"
         );
 
-        OVM_L2StandardBridge(Lib_PredeployAddresses.L2_STANDARD_BRIDGE).withdrawTo(
+        OVM_L2StandardBridge(Lib_PredeployAddresses.L2_STANDARD_BRIDGE).withdrawTo{value:msg.value}(
             Lib_PredeployAddresses.MVM_COINBASE,
             l1FeeWallet,
             balance,

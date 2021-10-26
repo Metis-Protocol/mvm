@@ -93,11 +93,12 @@ contract OVM_CrossDomainEnabled {
     function sendCrossDomainMessage(
         address _crossDomainTarget,
         uint32 _gasLimit,
-        bytes memory _message
+        bytes memory _message,
+        uint256 fee
     )
         internal
     {
-        getCrossDomainMessenger().sendMessage(_crossDomainTarget, _message, _gasLimit);
+        getCrossDomainMessenger().sendMessage{value:fee}(_crossDomainTarget, _message, _gasLimit);
     }
 
     /**
@@ -111,8 +112,9 @@ contract OVM_CrossDomainEnabled {
         uint256 _chainId,
         address _crossDomainTarget,
         uint32 _gasLimit,
-        bytes memory _message
+        bytes memory _message,
+        uint256 fee
     ) internal {
-        getCrossDomainMessenger().sendMessageViaChainId(_chainId, _crossDomainTarget, _message, _gasLimit);
+        getCrossDomainMessenger().sendMessageViaChainId{value:fee}(_chainId, _crossDomainTarget, _message, _gasLimit);
     }
 }

@@ -37,7 +37,7 @@ interface iOVM_CrossDomainMessenger {
         address _target,
         bytes calldata _message,
         uint32 _gasLimit
-    ) external;
+    ) external payable;
 
 
     /**
@@ -52,6 +52,6 @@ interface iOVM_CrossDomainMessenger {
         address _target,
         bytes calldata _message,
         uint32 _gasLimit
-    ) external;
+    ) external payable;
 
 }

@@ -64,7 +64,7 @@ interface iOVM_L2ERC20Bridge {
         uint32 _l1Gas,
         bytes calldata _data
     )
-        external;
+        external payable;
 
     /**
      * @dev initiate a withdraw of some token to a recipient's account on L1.
@@ -83,7 +83,7 @@ interface iOVM_L2ERC20Bridge {
         uint32 _l1Gas,
         bytes calldata _data
     )
-        external;
+        external payable;
 
     /*************************
      * Cross-chain Functions *

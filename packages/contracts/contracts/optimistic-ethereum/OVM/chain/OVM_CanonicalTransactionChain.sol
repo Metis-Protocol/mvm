@@ -7,7 +7,7 @@ pragma experimental ABIEncoderV2;
 import { Lib_OVMCodec } from "../../libraries/codec/Lib_OVMCodec.sol";
 import { Lib_AddressResolver } from "../../libraries/resolver/Lib_AddressResolver.sol";
 import { MVM_AddressResolver } from "../../libraries/resolver/MVM_AddressResolver.sol";
-import { MVM_DiscountOracle } from "../../MVM/MVM_DiscountOracle.sol";
+
 import { Lib_MerkleTree } from "../../libraries/utils/Lib_MerkleTree.sol";
 
 /* Interface Imports */
@@ -46,7 +46,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
     //uint256 constant public L2_GAS_DISCOUNT_DIVISOR = 32;
 
     //default l2 chain id
-    uint256 constant public DEFAULT_CHAINID = 420;
+    uint256 constant public DEFAULT_CHAINID = 1088;
 
     // Encoding-related (all in bytes)
     uint256 constant internal BATCH_CONTEXT_SIZE = 16;
@@ -270,74 +270,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         override
         public
     {
-        require(
-            _data.length <= MAX_ROLLUP_TX_SIZE,
-            "Transaction data size exceeds maximum for rollup transaction."
-        );
-
-        require(
-            _gasLimit <= maxTransactionGasLimit,
-            "Transaction gas limit exceeds maximum for rollup transaction."
-        );
-
-        require(
-            _gasLimit >= MIN_ROLLUP_TX_GAS,
-            "Transaction gas limit too low to enqueue."
-        );
-
-        // We need to consume some amount of L1 gas in order to rate limit transactions going into
-        // L2. However, L2 is cheaper than L1 so we only need to burn some small proportion of the
-        // provided L1 gas.
-        uint256 gasToConsume = _gasLimit/MVM_DiscountOracle(resolve('MVM_DiscountOracle')).discount();
-        uint256 startingGas = gasleft();
-
-        // Although this check is not necessary (burn below will run out of gas if not true), it
-        // gives the user an explicit reason as to why the enqueue attempt failed.
-        require(
-            startingGas > gasToConsume,
-            "Insufficient gas for L2 rate limiting burn."
-        );
-
-        // Here we do some "dumb" work in order to burn gas, although we should probably replace
-        // this with something like minting gas token later on.
-        uint256 i;
-        while(startingGas - gasleft() < gasToConsume) {
-            i++;
-        }
-
-        bytes32 transactionHash = keccak256(
-            abi.encode(
-                msg.sender,
-                _target,
-                _gasLimit,
-                _data
-            )
-        );
-
-        bytes32 timestampAndBlockNumber;
-        assembly {
-            timestampAndBlockNumber := timestamp()
-            timestampAndBlockNumber := or(timestampAndBlockNumber, shl(40, number()))
-        }
-
-        iOVM_ChainStorageContainer queueRef = queue();
-
-        queueRef.push(transactionHash);
-        queueRef.push(timestampAndBlockNumber);
-
-        // The underlying queue data structure stores 2 elements
-        // per insertion, so to get the real queue length we need
-        // to divide by 2 and subtract 1.
-        uint256 queueIndex = queueRef.length() / 2 - 1;
-        emit TransactionEnqueued(
-            DEFAULT_CHAINID,
-            msg.sender,
-            _target,
-            _gasLimit,
-            _data,
-            queueIndex,
-            block.timestamp
-        );
+        enqueueByChainId(DEFAULT_CHAINID, _target, _gasLimit, _data);
     }
 
     /**
@@ -1428,6 +1361,9 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         override
         public
     {
+        require(msg.sender == resolve("Proxy__OVM_L1CrossDomainMessenger"),
+                "only the cross domain messenger can enqueue");
+                
         require(
             _data.length <= MAX_ROLLUP_TX_SIZE,
             "Transaction data size exceeds maximum for rollup transaction."
@@ -1443,25 +1379,6 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
             "Transaction gas limit too low to enqueue."
         );
 
-        // We need to consume some amount of L1 gas in order to rate limit transactions going into
-        // L2. However, L2 is cheaper than L1 so we only need to burn some small proportion of the
-        // provided L1 gas.
-        uint256 gasToConsume = _gasLimit/MVM_DiscountOracle(resolve('MVM_DiscountOracle')).discount();
-        uint256 startingGas = gasleft();
-
-        // Although this check is not necessary (burn below will run out of gas if not true), it
-        // gives the user an explicit reason as to why the enqueue attempt failed.
-        require(
-            startingGas > gasToConsume,
-            "Insufficient gas for L2 rate limiting burn."
-        );
-
-        // Here we do some "dumb" work in order to burn gas, although we should probably replace
-        // this with something like minting gas token later on.
-        uint256 i;
-        while(startingGas - gasleft() < gasToConsume) {
-            i++;
-        }
         bytes32 transactionHash = keccak256(
             abi.encode(
                 msg.sender,
@@ -1576,7 +1493,7 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
         public
     {
         uint256 ptrStart = 0;
-
+        uint256 prevChainId = 0;
         while(ptrStart < msg.data.length){
             uint256 _chainId;
             uint40 shouldStartAtElement;
@@ -1588,12 +1505,20 @@ contract OVM_CanonicalTransactionChain is iOVM_CanonicalTransactionChain, Lib_Ad
                 totalElementsToAppend := shr(232, calldataload(add(ptrStart, 41)))
                 numContexts           := shr(232, calldataload(add(ptrStart, 44)))
             }
-
-            string memory ch = makeChainSeq(_chainId);
+            
             require(
-                msg.sender == resolveFromMvm(ch),
-                "Function can only be called by the Sequencer for resolveFromMvm2."
+                _chainId != 0,
+                "unexpected chainId (0)"
             );
+            
+            if (_chainId != prevChainId) {
+                string memory ch = makeChainSeq(_chainId);
+                require(
+                    msg.sender == resolveFromMvm(ch),
+                    "Function can only be called by the MVM Sequencer."
+                );
+                prevChainId = _chainId;
+            }
 
             require(
                 shouldStartAtElement == getTotalElementsByChainId(_chainId),

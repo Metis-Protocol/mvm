@@ -39,7 +39,7 @@ contract OVM_StateCommitmentChain is iOVM_StateCommitmentChain, Lib_AddressResol
     uint256 public SEQUENCER_PUBLISH_WINDOW;
     
     
-    uint256 public DEFAULT_CHAINID = 420;
+    uint256 public DEFAULT_CHAINID = 1088;
 
 
     /***************
