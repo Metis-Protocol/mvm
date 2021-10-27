@@ -247,7 +247,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
             this.state.nextUnfinalizedTxHeight -
             this.state.lastFinalizedTxHeight
 
-          if (numTransactionsToProcess > 1000) {
+          if (numTransactionsToProcess > 100) {
             break
           }
         }
