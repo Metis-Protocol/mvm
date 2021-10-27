@@ -117,7 +117,8 @@ const main = async () => {
     getLogsInterval: GET_LOGS_INTERVAL,
     logger,
     useChainStore: USE_CHAIN_STORE,
-    storeDbUrl: STORE_DB_URL
+    storeDbUrl: STORE_DB_URL,
+    relayNumber: RELAY_NUMBER
   })
 
   await service.start()
