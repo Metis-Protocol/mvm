@@ -91,6 +91,10 @@ func (ctx *ServiceContext) ExtRPCEnabled() bool {
 	return ctx.config.ExtRPCEnabled()
 }
 
+func (ctx *ServiceContext) HTTPModules() []string {
+	return ctx.config.HTTPModules
+}
+
 // ServiceConstructor is the function signature of the constructors needed to be
 // registered for service instantiation.
 type ServiceConstructor func(ctx *ServiceContext) (Service, error)
