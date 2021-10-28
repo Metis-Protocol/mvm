@@ -49,6 +49,9 @@ import (
 type LightEthereum struct {
 	lesCommons
 
+	// Node config for check if rollup on
+	nodeRpcModules []string
+
 	reqDist    *requestDistributor
 	retriever  *retrieveManager
 	odr        *LesOdr
@@ -82,6 +85,7 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 
 	peers := newPeerSet()
 	leth := &LightEthereum{
+		nodeRpcModules: ctx.HTTPModules(),
 		lesCommons: lesCommons{
 			genesis:     genesisHash,
 			config:      config,

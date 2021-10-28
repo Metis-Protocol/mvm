@@ -96,6 +96,9 @@ type Backend interface {
 	SuggestL2GasPrice(context.Context) (*big.Int, error)
 	SetL2GasPrice(context.Context, *big.Int) error
 	IngestTransactions([]*types.Transaction) error
+
+	// Metis-specific API
+	NodeHTTPModules() []string
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
