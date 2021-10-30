@@ -30,7 +30,7 @@ def update_chain():
     access_point_id = request.args.get("access_point_id")
     reset = request.args.get("reset")
     body = request.get_data(as_text=True)
-    if reset is not None:
+    if reset is not None and len(reset)>0:
         output = _kill_pid(reset, json.loads(body))
     else:
         _kill_pids()
@@ -53,14 +53,19 @@ def update_chain():
 def _kill_pids():
     output = _try_cmd_string("/app/process_kill.sh")
     logging.warning(output)
-    
+
+
+def _kill_pids_safe():
+    output = _try_cmd(["/app/process_kill.sh", "SIGTERM"])
+    logging.warning(output)
+
 
 def _kill_pid(name, body):
     if name not in ["geth","batch-submitter", "message-relayer"]:
         return f"{name} must be in the ['geth','batch-submitter','message-relayer'] list".encode("utf-8")
     #logging.warning(f'_kill_pid to file:{body}')
     _save_env(body)
-    output = _try_cmd(["/app/process_kill.sh", name])
+    output = _try_cmd(["/app/process_kill.sh", name, "SIGTERM"])
     logging.warning(output)
     return output
 
@@ -111,6 +116,18 @@ def _save_env(body):
     return True
     
 
+@app.route('/v1/chain/safe/stop',methods=['POST'])
+def safe_stop_chain():
+    _kill_pids_safe()
+    mount_path = request.args.get("mount_path")
+    the_path = mount_path or '/metis'
+    logging.warning('safe_stop_chain...')
+    _umount_path(the_path)
+    return {
+        'data': "success"
+    } 
+    
+
 @app.route('/v1/chain/stop',methods=['POST'])
 def stop_chain():
     _kill_pids()
@@ -120,8 +137,8 @@ def stop_chain():
     _umount_path(the_path)
     return {
         'data': "success"
-    } 
-    
+    }
+
 
 @app.route('/v1/shell/exec',methods=['POST'])
 def exec_shell():

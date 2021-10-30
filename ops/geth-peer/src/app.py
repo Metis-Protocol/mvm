@@ -49,6 +49,12 @@ def update_chain():
 def _kill_pids():
     output = _try_cmd_string("/app/process_kill.sh")
     logging.warning(output)
+    
+
+def _kill_pids_safe():
+    output = _try_cmd(["/app/process_kill.sh", "SIGTERM"])
+    logging.warning(output)
+    
 
 def _umount_path(path):
     _try_cmd(['umount', '/root/.ethereum'])
@@ -89,6 +95,18 @@ def _update_chain(body):
     logging.warning(output)
     return output
 
+
+@app.route('/v1/chain/safe/stop',methods=['POST'])
+def safe_stop_chain():
+    _kill_pids_safe()
+    mount_path = request.args.get("mount_path")
+    the_path = mount_path or '/metis'
+    logging.warning('safe_stop_chain...')
+    _umount_path(the_path)
+    return {
+        'data': "success"
+    }
+    
 
 @app.route('/v1/chain/stop',methods=['POST'])
 def stop_chain():
