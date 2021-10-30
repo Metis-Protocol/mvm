@@ -153,10 +153,11 @@ export class StateBatchSubmitter extends BatchSubmitter {
     startBlock: number,
     endBlock: number
   ): Promise<TransactionReceipt> {
+    const proposer = parseInt(this.l2ChainId.toString())+"_MVM_Proposer"
     const batch = await this._generateStateCommitmentBatch(startBlock, endBlock)
     const calldata = this.chainContract.interface.encodeFunctionData(
       'appendStateBatchByChainId',
-      [this.l2ChainId, batch, startBlock]
+      [this.l2ChainId, batch, startBlock, proposer]
     )
     const batchSizeInBytes = remove0x(calldata).length / 2
     this.logger.debug('State batch generated', {
@@ -177,8 +178,11 @@ export class StateBatchSubmitter extends BatchSubmitter {
       this.l2ChainId,
       batch,
       offsetStartsAtIndex,
+      proposer,
       { nonce }
     )
+    
+    this.logger.info('Submitting batch.', { chainId:this.l2ChainId,proposer:proposer })
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(
         tx,
@@ -223,9 +227,10 @@ export class StateBatchSubmitter extends BatchSubmitter {
       { concurrency: 100 }
     )
 
+    const proposer = parseInt(this.l2ChainId.toString())+"_MVM_Proposer"
     let tx = this.chainContract.interface.encodeFunctionData(
       'appendStateBatchByChainId',
-      [this.l2ChainId, batch, startBlock]
+      [this.l2ChainId, batch, startBlock, proposer]
     )
     while (remove0x(tx).length / 2 > this.maxTxSize) {
       batch.splice(Math.ceil((batch.length * 2) / 3)) // Delete 1/3rd of all of the batch elements
@@ -236,6 +241,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
         this.l2ChainId,
         batch,
         startBlock,
+        proposer,
       ])
     }
 

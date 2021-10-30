@@ -152,6 +152,7 @@ services:
         GET_LOGS_INTERVAL: 500
         USE_CHAIN_STORE: "false"
         STORE_DB_URL: ""
+        RELAY_NUMBER: 50
 
   batch_submitter:
     depends_on:

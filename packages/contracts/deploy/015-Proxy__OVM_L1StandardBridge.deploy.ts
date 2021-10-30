@@ -89,7 +89,7 @@ const deployFn: DeployFunction = async (hre) => {
     )
   }
   
-  // Set Slot 1 to the L2 Standard Bridge Address
+  // Set Slot 2 to the Metis Token Address
   await Proxy__WithChugSplashInterface.setStorage(
     hre.ethers.utils.hexZeroPad('0x02', 32),
     hre.ethers.utils.hexZeroPad((hre as any).deployConfig.mvmMetisAddress, 32)
@@ -102,6 +102,22 @@ const deployFn: DeployFunction = async (hre) => {
   if (metis !== (hre as any).deployConfig.mvmMetisAddress) {
     throw new Error(
       'metis address was not correctly set, check the key value used in setStorage'
+    )
+  }
+  
+  // Set Slot 3 to the Metis Token Address
+  await Proxy__WithChugSplashInterface.setStorage(
+    hre.ethers.utils.hexZeroPad('0x03', 32),
+    hre.ethers.utils.hexZeroPad(Lib_AddressManager.address, 32)
+  )
+  
+  // Verify that the slot was set correctly
+  const addrmgr =
+    await Proxy__WithBridgeInterface.callStatic.addressmgr()
+  console.log('addrmgr:', addrmgr)
+  if (addrmgr !== Lib_AddressManager.address) {
+    throw new Error(
+      'addrmgr address was not correctly set, check the key value used in setStorage'
     )
   }
 

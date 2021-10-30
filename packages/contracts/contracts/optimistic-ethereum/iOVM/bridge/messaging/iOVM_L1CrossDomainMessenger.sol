@@ -96,6 +96,6 @@ interface iOVM_L1CrossDomainMessenger is iOVM_CrossDomainMessenger {
         bytes memory _message,
         uint256 _queueIndex,
         uint32 _gasLimit
-    ) external;
+    ) external payable;
 
 }

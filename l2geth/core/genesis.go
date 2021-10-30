@@ -320,10 +320,10 @@ func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDo
 	MVM_GasOracle, ok := stateDump.Accounts["MVM_GasOracle"]
 	if ok {
 		log.Info("Setting MVM_GasOracle", "price", gasOraclePrice.Uint64(), "address", gasOracleAddress.Hex())
-		l1Slot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+		l1Slot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
 		l1Value := common.BytesToHash(gasOraclePrice.Bytes())
 		statedb.SetState(MVM_GasOracle.Address, l1Slot, l1Value)
-		l2Slot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
+		l2Slot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 		l2Value := common.BytesToHash(gasOracleAddress.Bytes())
 		statedb.SetState(MVM_GasOracle.Address, l2Slot, l2Value)
 	}

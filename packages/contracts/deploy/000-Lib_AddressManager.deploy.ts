@@ -58,14 +58,30 @@ const deployFn: DeployFunction = async (hre) => {
   
   await registerAddressToMvm({
     hre,
-    name: '429_MVM_Sequencer',
+    name: '666_MVM_Sequencer',
     address: (hre as any).deployConfig.ovmSequencerAddress,
   })
   await registerAddressToMvm({
     hre,
-    name: '488_MVM_Sequencer',
-    address: (hre as any).deployConfig.ovmSequencerAddress,
+    name: '429_MVM_Proposer',
+    address: (hre as any).deployConfig.ovmProposerAddress,
   })
+  await registerAddressToMvm({
+    hre,
+    name: '488_MVM_Proposer',
+    address: (hre as any).deployConfig.ovmProposerAddress,
+  })
+  await registerAddressToMvm({
+    hre,
+    name: '666_MVM_Proposer',
+    address: (hre as any).deployConfig.ovmProposerAddress,
+  })
+  await registerAddressToMvm({
+    hre,
+    name: '666_MVM_RELAYER',
+    address: (hre as any).deployConfig.ovmRelayerAddress,
+  })
+  
   
 }
 

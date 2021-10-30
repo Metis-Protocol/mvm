@@ -16,14 +16,16 @@ interface iOVM_L1StandardBridge is iOVM_L1ERC20Bridge {
         address indexed _from,
         address indexed _to,
         uint256 _amount,
-        bytes _data
+        bytes _data,
+        uint256 _chainid
     );
 
     event ETHWithdrawalFinalized (
         address indexed _from,
         address indexed _to,
         uint256 _amount,
-        bytes _data
+        bytes _data,
+        uint256 _chainid
     );
 
     /********************
@@ -93,6 +95,15 @@ interface iOVM_L1StandardBridge is iOVM_L1ERC20Bridge {
      *        length, these contracts provide no guarantees about its content.
      */
     function finalizeETHWithdrawal (
+        address _from,
+        address _to,
+        uint _amount,
+        bytes calldata _data
+    )
+        external;
+        
+    function finalizeETHWithdrawalByChainId (
+        uint256 _chainId,
         address _from,
         address _to,
         uint _amount,

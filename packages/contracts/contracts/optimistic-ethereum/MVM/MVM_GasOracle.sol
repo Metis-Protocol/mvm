@@ -4,10 +4,11 @@ pragma solidity >0.5.0 <0.8.0;
 /* External Imports */
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { MVM_Coinbase } from "./MVM_Coinbase.sol";
+import { Lib_PredeployAddresses } from "../libraries/constants/Lib_PredeployAddresses.sol";
 contract MVM_GasOracle is Ownable{
     // Current l2 gas price
     uint256 public gasPrice;
-    MVM_Coinbase constant coinbase = MVM_Coinbase(0x4200000000000000000000000000000000000006);
+    uint256 public minL1GasLimit;
 
     constructor(
       address _owner,
@@ -27,6 +28,16 @@ contract MVM_GasOracle is Ownable{
     {
         gasPrice = _gasPrice;
     }
+    
+    
+    function setMinL1GasLimit(
+        uint256 gas
+    )
+        public
+        onlyOwner
+    {
+        minL1GasLimit = gas;
+    }
 
     //for compatibility
     function setPrice(uint256 _gasPrice) public onlyOwner{
@@ -40,7 +51,7 @@ contract MVM_GasOracle is Ownable{
     function transferTo(address target, uint256 amount) public onlyOwner{
         // Transfer fee to relayer.
         require(
-            coinbase.transfer(
+            MVM_Coinbase(Lib_PredeployAddresses.MVM_COINBASE).transfer(
                 target,
                 amount
             ),

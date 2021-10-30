@@ -100,24 +100,27 @@ type ProtocolManager struct {
 
 	// NOTE 20210724, a ticker for fetcher
 	tickerFetcherSync *time.Ticker
+	// Node config for check if rollup on
+	nodeHTTPModules []string
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		txpool:      txpool,
-		blockchain:  blockchain,
-		peers:       newPeerSet(),
-		whitelist:   whitelist,
-		newPeerCh:   make(chan *peer),
-		noMorePeers: make(chan struct{}),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
+		networkID:       networkID,
+		forkFilter:      forkid.NewFilter(blockchain),
+		eventMux:        mux,
+		txpool:          txpool,
+		blockchain:      blockchain,
+		peers:           newPeerSet(),
+		whitelist:       whitelist,
+		newPeerCh:       make(chan *peer),
+		noMorePeers:     make(chan struct{}),
+		txsyncCh:        make(chan *txsync),
+		quitSync:        make(chan struct{}),
+		nodeHTTPModules: nodeHTTPModules,
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -401,6 +404,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
+
+	// rollup node disable write msg
+	if pm.HasRPCModule("rollup") {
+		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
+			return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
+		}
+	}
+
 	defer msg.Discard()
 
 	// Handle the message depending on its contents
@@ -881,4 +892,17 @@ func (pm *ProtocolManager) NodeInfo() *NodeInfo {
 		Config:     pm.blockchain.Config(),
 		Head:       currentBlock.Hash(),
 	}
+}
+
+func (pm *ProtocolManager) HasRPCModule(rpcName string) bool {
+	if pm.nodeHTTPModules == nil || len(pm.nodeHTTPModules) == 0 {
+		return false
+	}
+
+	for _, httpModule := range pm.nodeHTTPModules {
+		if httpModule == rpcName {
+			return true
+		}
+	}
+	return false
 }

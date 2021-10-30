@@ -18,6 +18,10 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 /* External Imports */
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import { Lib_PredeployAddresses } from "../../../libraries/constants/Lib_PredeployAddresses.sol";
+import { OVM_DeployerWhitelist } from "../../predeploys/OVM_DeployerWhitelist.sol";
+import { MVM_Coinbase } from "../../../MVM/MVM_Coinbase.sol";
+
 /**
  * @title OVM_L2CrossDomainMessenger
  * @dev The L2 Cross Domain Messenger contract sends messages from L2 to L1, and is the entry point
@@ -51,6 +55,20 @@ contract OVM_L2CrossDomainMessenger is
     uint256 public messageNonce;
     address internal xDomainMsgSender = DEFAULT_XDOMAIN_SENDER;
 
+    /**********************
+     * Function Modifiers *
+     **********************/
+
+    modifier onlyWhitelisted() {
+        require(
+            OVM_DeployerWhitelist(Lib_PredeployAddresses.DEPLOYER_WHITELIST)
+               .isXDomainSenderAllowed(msg.sender),
+            // solhint-disable-next-line max-line-length
+            "L2 to L1 messages are restricted to whitelisted senders."
+        );
+        _;
+    }
+    
     /***************
      * Constructor *
      ***************/
@@ -92,6 +110,8 @@ contract OVM_L2CrossDomainMessenger is
     )
         override
         public
+        payable
+        onlyWhitelisted
     {
         bytes memory xDomainCalldata = Lib_CrossDomainUtils.encodeXDomainCalldata(
             _target,
@@ -205,14 +225,16 @@ contract OVM_L2CrossDomainMessenger is
      */
     function _sendXDomainMessage(
         bytes memory _message,
-        uint256 // _gasLimit
+        uint256 //_gasLimit
     )
         internal
     {
+        MVM_Coinbase(Lib_PredeployAddresses.MVM_COINBASE).transfer(
+                Lib_PredeployAddresses.SEQUENCER_FEE_WALLET,
+                msg.value);
+        
         iOVM_L2ToL1MessagePasser(resolve("OVM_L2ToL1MessagePasser")).passMessageToL1(_message);
     }
-
-
 
     /**
      * Deprecated
@@ -230,6 +252,7 @@ contract OVM_L2CrossDomainMessenger is
     )
         override
         public
+        payable
     {
     }
 }

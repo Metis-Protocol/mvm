@@ -69,6 +69,9 @@ type LesServer interface {
 type Ethereum struct {
 	config *Config
 
+	// Node config for check if rollup on
+	nodeRpcModules []string
+
 	// Channel for shutting down the service
 	shutdownChan chan bool
 
@@ -147,6 +150,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 
 	eth := &Ethereum{
 		config:         config,
+		nodeRpcModules: ctx.HTTPModules(),
 		chainDb:        chainDb,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
@@ -217,7 +221,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, eth.nodeRpcModules); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)

@@ -204,6 +204,17 @@ contract OVM_BondManager is iOVM_BondManager, Lib_AddressResolver {
         return bonds[who].state == State.COLLATERALIZED;
     }
 
+    
+    function isCollateralizedByChainId(
+        uint256 _chainId,
+        address _who,
+        address _prop
+    ) override public view returns (bool) {
+        require(_who==_prop,"sender must the proposer!");
+        return bonds[_who].state == State.COLLATERALIZED;
+    }
+
+
     /// Gets how many witnesses the user has provided for the state root
     function getGasSpent(bytes32 preStateRoot, address who) override public view returns (uint256) {
         return witnessProviders[preStateRoot].gasSpent[who];
