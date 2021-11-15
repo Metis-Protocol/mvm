@@ -1,5 +1,6 @@
 /* Imports: External */
 import { BigNumber, ethers, constants } from 'ethers'
+import { Logger } from '@eth-optimism/common-ts'
 import { getContractFactory } from '@metis.io/contracts'
 import {
   fromHexString,
@@ -36,15 +37,15 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     // TODO: We need to update our events so that we actually have enough information to parse this
     // batch without having to pull out this extra event. For the meantime, we need to find this
     // "TransactonBatchAppended" event to get the rest of the data.
-    const OVM_CanonicalTransactionChain = getContractFactory(
-      'OVM_CanonicalTransactionChain'
+    const CanonicalTransactionChain = getContractFactory(
+      'CanonicalTransactionChain'
     )
       .attach(event.address)
       .connect(l1RpcProvider)
 
     const batchSubmissionEvent = (
-      await OVM_CanonicalTransactionChain.queryFilter(
-        OVM_CanonicalTransactionChain.filters.TransactionBatchAppended(),
+      await CanonicalTransactionChain.queryFilter(
+        CanonicalTransactionChain.filters.TransactionBatchAppended(),
         eventBlock.number,
         eventBlock.number
       )
@@ -84,18 +85,19 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     // It's easier to deal with this data if it's a Buffer.
     const calldata = fromHexString(extraData.l1TransactionData)
 
-    if (calldata.length < 12) {
+    // chainid + 32, so not [12, 15]
+    if (calldata.length < 44) {
       throw new Error(
         `Block ${extraData.blockNumber} transaction data is invalid for decoding: ${extraData.l1TransactionData} , ` +
-          `converted buffer length is < 12.`
+          `converted buffer length is < 44.`
       )
     }
-    const numContexts = BigNumber.from(calldata.slice(12, 15)).toNumber()
+    const numContexts = BigNumber.from(calldata.slice(44, 47)).toNumber()
     let transactionIndex = 0
     let enqueuedCount = 0
-    let nextTxPointer = 15 + 16 * numContexts
+    let nextTxPointer = 47 + 16 * numContexts
     for (let i = 0; i < numContexts; i++) {
-      const contextPointer = 15 + 16 * i
+      const contextPointer = 47 + 16 * i
       const context = parseSequencerBatchContext(calldata, contextPointer)
 
       for (let j = 0; j < context.numSequencedTransactions; j++) {
@@ -104,7 +106,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           nextTxPointer
         )
 
-        const decoded = maybeDecodeSequencerBatchTransaction(
+        const decoded = decodeSequencerBatchTransaction(
           sequencerTransaction,
           event.args._chainId
         )
@@ -116,12 +118,12 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           batchIndex: extraData.batchIndex.toNumber(),
           blockNumber: BigNumber.from(context.blockNumber).toNumber(),
           timestamp: BigNumber.from(context.timestamp).toNumber(),
-          gasLimit: BigNumber.from(extraData.gasLimit).toString(),
-          target: SEQUENCER_ENTRYPOINT_ADDRESS,
+          gasLimit: BigNumber.from(0).toString(),
+          target: constants.AddressZero,
           origin: null,
           data: toHexString(sequencerTransaction),
           queueOrigin: 'sequencer',
-          value: decoded ? decoded.value : '0x0',
+          value: decoded.value,
           queueIndex: null,
           decoded,
           confirmed: true,
@@ -249,27 +251,23 @@ const parseSequencerBatchTransaction = (
   return calldata.slice(offset + 3, offset + 3 + transactionLength)
 }
 
-const maybeDecodeSequencerBatchTransaction = (
+const decodeSequencerBatchTransaction = (
   transaction: Buffer,
   l2ChainId: number
-): DecodedSequencerBatchTransaction | null => {
-  try {
-    const decodedTx = ethers.utils.parseTransaction(transaction)
+): DecodedSequencerBatchTransaction => {
+  const decodedTx = ethers.utils.parseTransaction(transaction)
 
-    return {
-      nonce: BigNumber.from(decodedTx.nonce).toString(),
-      gasPrice: BigNumber.from(decodedTx.gasPrice).toString(),
-      gasLimit: BigNumber.from(decodedTx.gasLimit).toString(),
-      value: toRpcHexString(decodedTx.value),
-      target: toHexString(decodedTx.to), // Maybe null this out for creations?
-      data: toHexString(decodedTx.data),
-      sig: {
-        v: parseSignatureVParam(decodedTx.v, l2ChainId),
-        r: toHexString(decodedTx.r),
-        s: toHexString(decodedTx.s),
-      },
-    }
-  } catch (err) {
-    return null
+  return {
+    nonce: BigNumber.from(decodedTx.nonce).toString(),
+    gasPrice: BigNumber.from(decodedTx.gasPrice).toString(),
+    gasLimit: BigNumber.from(decodedTx.gasLimit).toString(),
+    value: toRpcHexString(decodedTx.value),
+    target: decodedTx.to ? toHexString(decodedTx.to) : null,
+    data: toHexString(decodedTx.data),
+    sig: {
+      v: parseSignatureVParam(decodedTx.v, l2ChainId),
+      r: toHexString(decodedTx.r),
+      s: toHexString(decodedTx.s),
+    },
   }
 }

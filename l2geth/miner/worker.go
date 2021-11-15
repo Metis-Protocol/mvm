@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup/rcfg"
 )
 
 const (
@@ -506,7 +507,7 @@ func (w *worker) mainLoop() {
 				}
 				w.pendingMu.Unlock()
 			} else {
-				log.Debug("Problem committing transaction: %w", err)
+				log.Debug("Problem committing transaction", "msg", err)
 			}
 
 		case ev := <-w.txsCh:
@@ -857,7 +858,11 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
 			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
-			txs.Shift()
+			if rcfg.UsingOVM {
+				txs.Pop()
+			} else {
+				txs.Shift()
+			}
 		}
 	}
 

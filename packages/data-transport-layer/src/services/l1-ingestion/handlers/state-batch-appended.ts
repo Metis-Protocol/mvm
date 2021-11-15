@@ -33,11 +33,11 @@ export const handleEventsStateBatchAppended: EventHandlerSet<
   },
   parseEvent: (event, extraData) => {
     const stateRoots = getContractFactory(
-      'OVM_StateCommitmentChain'
+      'StateCommitmentChain'
     ).interface.decodeFunctionData(
       'appendStateBatchByChainId',
       extraData.l1TransactionData
-    )[0]
+    )[1]
 
     const stateRootEntries: StateRootEntry[] = []
     for (let i = 0; i < stateRoots.length; i++) {

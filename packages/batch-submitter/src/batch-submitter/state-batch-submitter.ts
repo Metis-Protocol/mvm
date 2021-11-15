@@ -13,7 +13,7 @@ import { Logger, Metrics } from '@eth-optimism/common-ts'
 
 /* Internal Imports */
 import { BlockRange, BatchSubmitter } from '.'
-import { TransactionSubmitter } from '../utils/'
+import { TransactionSubmitter } from '../utils'
 
 export class StateBatchSubmitter extends BatchSubmitter {
   // TODO: Change this so that we calculate start = scc.totalElements() and end = ctc.totalElements()!
@@ -94,10 +94,10 @@ export class StateBatchSubmitter extends BatchSubmitter {
     }
 
     this.chainContract = (
-      await getContractFactory('OVM_StateCommitmentChain', this.signer)
+      await getContractFactory('StateCommitmentChain', this.signer)
     ).attach(sccAddress)
     this.ctcContract = (
-      await getContractFactory('OVM_CanonicalTransactionChain', this.signer)
+      await getContractFactory('CanonicalTransactionChain', this.signer)
     ).attach(ctcAddress)
 
     this.logger.info('Connected Optimism contracts', {
@@ -174,6 +174,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
 
     // Generate the transaction we will repeatedly submit
     const nonce = await this.signer.getTransactionCount()
+    
     const tx = await this.chainContract.populateTransaction.appendStateBatchByChainId(
       this.l2ChainId,
       batch,

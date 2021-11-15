@@ -10,15 +10,15 @@ import {
 const deployFn: DeployFunction = async (hre) => {
 
   const { deployer } = await hre.getNamedAccounts()
-  const MVM_AddressManager = await getDeployedContract(
+  const Lib_AddressManager = await getDeployedContract(
     hre,
-    'MVM_AddressManager'
+    'Lib_AddressManager'
   )
 
   await deployAndRegister({
     hre,
     name: 'MVM_DiscountOracle',
-    args: [MVM_AddressManager.address, '320'],
+    args: [Lib_AddressManager.address, '1000000000'],
   })
   
   const MVM_DiscountOracle = await getDeployedContract(

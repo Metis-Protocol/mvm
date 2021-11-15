@@ -44,17 +44,12 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rollup/fees"
+	"github.com/ethereum/go-ethereum/rollup/rcfg"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/tyler-smith/go-bip39"
 )
 
-const (
-	defaultGasPrice = params.Wei * fees.TxGasPrice
-)
-
 var errOVMUnsupported = errors.New("OVM: Unsupported RPC Method")
-var bigDefaultGasPrice = new(big.Int).SetUint64(defaultGasPrice)
 
 // PublicEthereumAPI provides an API to access Ethereum related information.
 // It offers only methods that operate on public data that is freely available to anyone.
@@ -67,9 +62,13 @@ func NewPublicEthereumAPI(b Backend) *PublicEthereumAPI {
 	return &PublicEthereumAPI{b}
 }
 
-// GasPrice always returns 1 gwei. See `DoEstimateGas` below for context.
+// GasPrice returns the L2 gas price in the OVM_GasPriceOracle
 func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
-	return (*hexutil.Big)(bigDefaultGasPrice), nil
+	gasPrice, err := s.b.SuggestL2GasPrice(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return (*hexutil.Big)(gasPrice), nil
 }
 
 // ProtocolVersion returns the current Ethereum protocol version this node supports
@@ -539,7 +538,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
-	return (*hexutil.Big)(state.GetOVMBalance(address)), state.Error()
+	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
 }
 
 // Result structs for GetProof
@@ -845,7 +844,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 		log.Warn("Caller gas above allowance, capping", "requested", gas, "cap", globalGasCap)
 		gas = globalGasCap.Uint64()
 	}
-	gasPrice := new(big.Int).SetUint64(defaultGasPrice)
+	gasPrice := new(big.Int)
 	if args.GasPrice != nil {
 		gasPrice = args.GasPrice.ToInt()
 	}
@@ -860,20 +859,17 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 		data = []byte(*args.Data)
 	}
 
+	// Currently, the blocknumber and timestamp actually refer to the L1BlockNumber and L1Timestamp
+	// attached to each transaction. We need to modify the blocknumber and timestamp to reflect this,
+	// or else the result of `eth_call` will not be correct.
 	blockNumber := header.Number
-	timestamp := new(big.Int).SetUint64(header.Time)
-
-	// Create new call message
-	var msg core.Message
-	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer)
-	if vm.UsingOVM {
-		cfg := b.ChainConfig()
-		executionManager := cfg.StateDump.Accounts["OVM_ExecutionManager"]
-		stateManager := cfg.StateDump.Accounts["OVM_StateManager"]
+	timestamp := header.Time
+	if rcfg.UsingOVM {
 		block, err := b.BlockByNumber(ctx, rpc.BlockNumber(header.Number.Uint64()))
 		if err != nil {
 			return nil, 0, false, err
 		}
+
 		if block != nil {
 			txs := block.Transactions()
 			if header.Number.Uint64() != 0 {
@@ -881,16 +877,20 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 					return nil, 0, false, fmt.Errorf("block %d has more than 1 transaction", header.Number.Uint64())
 				}
 				tx := txs[0]
-				blockNumber = tx.L1BlockNumber()
-				timestamp = new(big.Int).SetUint64(tx.L1Timestamp())
+				if v := ctx.Value("IsEstimate"); v != nil {
+					blockNumber = new(big.Int).Add(tx.L1BlockNumber(), big.NewInt(1))
+					timestamp = tx.L1Timestamp() + 10
+				} else {
+					blockNumber = tx.L1BlockNumber()
+					timestamp = tx.L1Timestamp()
+				}
 			}
 		}
-		log.Debug("Test: before EncodeSimulatedMessage")
-		msg, err = core.EncodeSimulatedMessage(msg, timestamp, blockNumber, executionManager, stateManager)
-		if err != nil {
-			return nil, 0, false, err
-		}
+
 	}
+
+	// Create new call message
+	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, blockNumber, timestamp, types.QueueOriginSequencer)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -919,12 +919,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
-	if vm.UsingOVM {
-		evm.Context.EthCallSender = &addr
-		evm.Context.BlockNumber = blockNumber
-		evm.Context.Time = timestamp
-	}
-	log.Debug("Test: before ApplyMessage")
+
 	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
@@ -968,37 +963,6 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 // fees can compensate for the additional costs the sequencer pays for publishing the
 // transaction calldata
 func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap *big.Int) (hexutil.Uint64, error) {
-	// 1. get the gas that would be used by the transaction
-	gasUsed, err := legacyDoEstimateGas(ctx, b, args, blockNrOrHash, gasCap)
-	if err != nil {
-		return 0, err
-	}
-	// 2a. fetch the data price, depends on how the sequencer has chosen to update their values based on the
-	// l1 gas prices
-	l1GasPrice, err := b.SuggestL1GasPrice(ctx)
-	if err != nil {
-		return 0, err
-	}
-	// 2b. fetch the execution gas price, by the typical mempool dynamics
-	l2GasPrice, err := b.SuggestL2GasPrice(ctx)
-	if err != nil {
-		return 0, err
-	}
-	data := []byte{}
-	if args.Data != nil {
-		data = *args.Data
-	}
-	// 3. calculate the fee using just the calldata. The additional overhead of
-	// RLP encoding is covered inside of EncodeL2GasLimit
-	l2GasLimit := new(big.Int).SetUint64(uint64(gasUsed))
-	fee := fees.EncodeTxGasLimit(data, l1GasPrice, l2GasLimit, l2GasPrice)
-	if !fee.IsUint64() {
-		return 0, fmt.Errorf("estimate gas overflow: %s", fee)
-	}
-	return (hexutil.Uint64)(fee.Uint64()), nil
-}
-
-func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap *big.Int) (hexutil.Uint64, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo  uint64 = params.TxGas - 1
@@ -1008,6 +972,7 @@ func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrO
 
 	// NOTE 20211022 test gas
 	log.Debug("Test: EstimateGas", "args gas", args.Gas, "tx gas", params.TxGas, "gas cap", gasCap)
+	ctx = context.WithValue(ctx, "IsEstimate", true)
 
 	if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
 		hi = uint64(*args.Gas)
@@ -1026,36 +991,34 @@ func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrO
 	}
 	cap = hi
 
-	// Set sender address or use a default if none specified
-	if args.From == nil {
-		if wallets := b.AccountManager().Wallets(); len(wallets) > 0 {
-			if accounts := wallets[0].Accounts(); len(accounts) > 0 {
-				args.From = &accounts[0].Address
-			}
-		}
-	}
 	// Use zero-address if none other is available
 	if args.From == nil {
 		args.From = &common.Address{}
 	}
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) (bool, []byte) {
+	executable := func(gas uint64) (bool, []byte, error) {
 		args.Gas = (*hexutil.Uint64)(&gas)
 
 		res, _, failed, err := DoCall(ctx, b, args, blockNrOrHash, nil, vm.Config{}, 0, gasCap)
 		if err != nil || failed {
-			return false, res
+			if err == vm.ErrOutOfGas {
+				return false, res, nil
+			}
+			return false, res, err
 		}
-		return true, res
+		return true, res, err
 	}
 	// ti := 0
 	// Execute the binary search and hone in on an executable gas limit
 	for lo+1 < hi {
 		mid := (hi + lo) / 2
-		ok, _ := executable(mid)
-		// ti++
-		// log.Debug("Test: executable", "times", ti, "lo", lo, "hi", hi, "mid", mid, "ok", ok)
-
+		ok, _, err := executable(mid)
+		// If the error is not nil(consensus error), it means the provided message
+		// call or transaction will never be accepted no matter how much gas it is
+		// assigned. Return the error directly, don't struggle any more.
+		if err != nil {
+			return 0, err
+		}
 		if !ok {
 			lo = mid
 		} else {
@@ -1064,7 +1027,7 @@ func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrO
 	}
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
-		ok, res := executable(hi)
+		ok, res, _ := executable(hi)
 		if !ok {
 			if len(res) >= 4 && bytes.Equal(res[:4], abi.RevertSelector) {
 				reason, errUnpack := abi.UnpackRevert(res)
@@ -1077,6 +1040,8 @@ func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrO
 			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
 		}
 	}
+
+	log.Debug("gas estimate", "gas", hi)
 	return hexutil.Uint64(hi), nil
 }
 
@@ -1086,21 +1051,6 @@ func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrO
 func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
 	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	return DoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
-}
-
-// EstimateExecutionGas returns an estimate of the amount of gas needed to execute the
-// given transaction against the current pending block.
-func (s *PublicBlockChainAPI) EstimateExecutionGas(ctx context.Context, args CallArgs, round *bool) (hexutil.Uint64, error) {
-	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
-	estimate, err := legacyDoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
-	if err != nil {
-		return estimate, err
-	}
-	if round != nil && *round {
-		rounded := fees.Ceilmod(new(big.Int).SetUint64(uint64(estimate)), fees.BigTenThousand)
-		estimate = (hexutil.Uint64)(rounded.Uint64())
-	}
-	return estimate, nil
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
@@ -1261,7 +1211,6 @@ type RPCTransaction struct {
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
 	QueueOrigin      string          `json:"queueOrigin"`
-	TxType           string          `json:"txType"`
 	L1TxOrigin       *common.Address `json:"l1TxOrigin"`
 	L1BlockNumber    *hexutil.Big    `json:"l1BlockNumber"`
 	L1Timestamp      hexutil.Uint64  `json:"l1Timestamp"`
@@ -1505,6 +1454,11 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 		"contractAddress":   nil,
 		"logs":              receipt.Logs,
 		"logsBloom":         receipt.Bloom,
+		// UsingOVM
+		"l1GasPrice":  (*hexutil.Big)(receipt.L1GasPrice),
+		"l1GasUsed":   (*hexutil.Big)(receipt.L1GasUsed),
+		"l1Fee":       (*hexutil.Big)(receipt.L1Fee),
+		"l1FeeScalar": receipt.FeeScalar.String(),
 	}
 
 	// Assign receipt status or post state.
@@ -1623,7 +1577,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		tx := types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 		raw, _ := rlp.EncodeToBytes(tx)
-		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, &common.Address{}, types.QueueOriginSequencer, nil, nil, raw)
+		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.QueueOriginSequencer, nil, nil, raw)
 		tx.SetTransactionMeta(txMeta)
 		return tx
 	}
@@ -1675,7 +1629,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-	if vm.UsingOVM {
+	if rcfg.UsingOVM {
 		return common.Hash{}, errOVMUnsupported
 	}
 	// Look up the wallet containing the requested signer
@@ -1710,7 +1664,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 // FillTransaction fills the defaults (nonce, gas, gasPrice) on a given unsigned transaction,
 // and returns it to the caller for further processing (signing + broadcast)
 func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args SendTxArgs) (*SignTransactionResult, error) {
-	if vm.UsingOVM {
+	if rcfg.UsingOVM {
 		return nil, errOVMUnsupported
 	}
 	// Set some sanity defaults and terminate on failure
@@ -1743,7 +1697,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	// L1Timestamp and L1BlockNumber will be set right before execution
-	txMeta := types.NewTransactionMeta(big.NewInt(0), 0, &common.Address{}, types.QueueOriginSequencer, nil, nil, encodedTx)
+	txMeta := types.NewTransactionMeta(nil, 0, nil, types.QueueOriginSequencer, nil, nil, encodedTx)
 	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1758,7 +1712,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_sign
 func (s *PublicTransactionPoolAPI) Sign(addr common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
-	if vm.UsingOVM {
+	if rcfg.UsingOVM {
 		return nil, errOVMUnsupported
 	}
 	// Look up the wallet containing the requested signer
@@ -1786,7 +1740,7 @@ type SignTransactionResult struct {
 // The node needs to have the private key of the account corresponding with
 // the given from address and it needs to be unlocked.
 func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args SendTxArgs) (*SignTransactionResult, error) {
-	if vm.UsingOVM {
+	if rcfg.UsingOVM {
 		return nil, errOVMUnsupported
 	}
 	if args.Gas == nil {
@@ -2106,51 +2060,6 @@ func (api *PrivateDebugAPI) ChaindbCompact() error {
 // SetHead rewinds the head of the blockchain to a previous block.
 func (api *PrivateDebugAPI) SetHead(number hexutil.Uint64) {
 	api.b.SetHead(uint64(number))
-}
-
-func (api *PrivateDebugAPI) IngestTransactions(txs []*RPCTransaction) error {
-	transactions := make([]*types.Transaction, len(txs))
-
-	for i, tx := range txs {
-		nonce := uint64(tx.Nonce)
-		value := tx.Value.ToInt()
-		gasLimit := uint64(tx.Gas)
-		gasPrice := tx.GasPrice.ToInt()
-		data := tx.Input
-		l1BlockNumber := tx.L1BlockNumber.ToInt()
-		l1Timestamp := uint64(tx.L1Timestamp)
-		rawTransaction := tx.RawTransaction
-
-		var queueOrigin types.QueueOrigin
-		switch tx.QueueOrigin {
-		case "sequencer":
-			queueOrigin = types.QueueOriginSequencer
-		case "l1":
-			queueOrigin = types.QueueOriginL1ToL2
-		default:
-			return fmt.Errorf("Transaction with unknown queue origin: %s", tx.TxType)
-		}
-
-		var transaction *types.Transaction
-		if tx.To == nil {
-			transaction = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data)
-		} else {
-			transaction = types.NewTransaction(nonce, *tx.To, value, gasLimit, gasPrice, data)
-		}
-
-		meta := types.TransactionMeta{
-			L1BlockNumber:   l1BlockNumber,
-			L1Timestamp:     l1Timestamp,
-			L1MessageSender: tx.L1TxOrigin,
-			QueueOrigin:     queueOrigin,
-			Index:           (*uint64)(tx.Index),
-			QueueIndex:      (*uint64)(tx.QueueIndex),
-			RawTransaction:  rawTransaction,
-		}
-		transaction.SetTransactionMeta(&meta)
-		transactions[i] = transaction
-	}
-	return api.b.IngestTransactions(transactions)
 }
 
 // PublicNetAPI offers network related RPC methods

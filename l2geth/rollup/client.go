@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -131,7 +130,7 @@ type RollupClient interface {
 	GetLatestTransactionBatchIndex() (*uint64, error)
 	GetTransactionBatch(uint64) (*Batch, []*types.Transaction, error)
 	SyncStatus(Backend) (*SyncStatus, error)
-	GetL1GasPrice() (*big.Int, error)
+	GetStateRoot(index uint64) (common.Hash, error)
 }
 
 // Client is an HTTP based RollupClient
@@ -153,6 +152,20 @@ type TransactionResponse struct {
 type TransactionBatchResponse struct {
 	Batch        *Batch         `json:"batch"`
 	Transactions []*transaction `json:"transactions"`
+}
+
+type stateRoot struct {
+	Index      uint64      `json:"index"`
+	BatchIndex uint64      `json:"batchIndex"`
+	Value      common.Hash `json:"value"`
+	Confirmed  bool        `json:"confirmed"`
+}
+
+// StateRootResponse represents the response from the remote server
+// when querying stateRoot
+type StateRootResponse struct {
+	Batch     *Batch     `json:"batch"`
+	StateRoot *stateRoot `json:"stateRoot"`
 }
 
 // NewClient create a new Client given a remote HTTP url and a chain id
@@ -625,55 +638,26 @@ func parseTransactionBatchResponse(txBatch *TransactionBatchResponse, signer *ty
 	return batch, txs, nil
 }
 
-// GetL1GasPrice will return the current gas price on L1
-func (c *Client) GetL1GasPrice() (*big.Int, error) {
+// GetStateRoot will return the stateroot by batch index
+func (c *Client) GetStateRoot(index uint64) (common.Hash, error) {
+	str := strconv.FormatUint(index, 10)
 	response, err := c.client.R().
-		SetResult(&L1GasPrice{}).
-		Get("/eth/gasprice")
+		SetResult(&StateRootResponse{}).
+		SetPathParams(map[string]string{
+			"index":   str,
+			"chainId": c.chainID,
+		}).
+		Get("/stateroot/index/{index}/{chainId}")
 
 	if err != nil {
-		return nil, fmt.Errorf("Cannot fetch L1 gas price: %w", err)
+		return common.Hash{}, fmt.Errorf("Cannot get stateroot %d: %w", index, err)
 	}
-
-	gasPriceResp, ok := response.Result().(*L1GasPrice)
+	stateRootResp, ok := response.Result().(*StateRootResponse)
 	if !ok {
-		return nil, fmt.Errorf("Cannot parse L1 gas price response")
+		return common.Hash{}, fmt.Errorf("Cannot parse stateroot response")
 	}
-
-	gasPrice, ok := new(big.Int).SetString(gasPriceResp.GasPrice, 10)
-	if !ok {
-		return nil, fmt.Errorf("Cannot parse response as big number")
+	if stateRootResp.StateRoot == nil {
+		return common.Hash{}, nil
 	}
-
-	price_str := "1"
-	price_resp, err := c.client.R().Get("http://tokenapi.metis.io/priceeth")
-	if err == nil && price_resp.StatusCode() == 200 {
-		price_str = price_resp.String()
-	} else {
-		return nil, fmt.Errorf("Cannot get ratio for metis io")
-	}
-
-	arr := strings.Split(price_str, ".")
-	pointCount := 0
-	if len(arr) == 2 {
-		pointCount = len([]rune(arr[1]))
-		price_str = arr[0] + arr[1]
-	}
-
-	price_eth, ok := new(big.Int).SetString(price_str, 10)
-	if !ok {
-		return nil, fmt.Errorf("Cannot get price eth format for metis io %s", price_str)
-	}
-
-	price_eth = new(big.Int).Mul(price_eth, gasPrice)
-	if pointCount > 0 {
-		pointCountStr := "1"
-		for i := 0; i < pointCount; i++ {
-			pointCountStr += "0"
-		}
-		bigPointCount, _ := new(big.Int).SetString(pointCountStr, 10)
-		price_eth = new(big.Int).Div(price_eth, bigPointCount)
-	}
-
-	return price_eth, nil
+	return stateRootResp.StateRoot.Value, nil
 }
