@@ -137,7 +137,7 @@ func CalculateL1MsgFee(msg Message, state StateDB, gpo *common.Address) (*big.In
 
 // CalculateL1MsgFee computes the L1 portion of the fee given
 // a Message and a StateDB
-func CalculateL1MsgFeeInL2(msg Message, state StateDB, gpo *common.Address) (uint64, error) {
+func CalculateL1MsgFeeInL2(msg Message, state StateDB, gpo *common.Address, isEstimate bool) (uint64, error) {
 	tx := asTransaction(msg)
 	raw, err := rlpEncode(tx)
 	var l1FeeInL2 uint64
@@ -154,11 +154,15 @@ func CalculateL1MsgFeeInL2(msg Message, state StateDB, gpo *common.Address) (uin
 	l1GasPrice, overhead, scalar := readGPOStorageSlots(*gpo, state)
 	l1Fee := CalculateL1Fee(raw, overhead, l1GasPrice, scalar)
 
-	if msg.GasPrice().Cmp(common.Big0) != 0 {
-		l1FeeInL2 = new(big.Int).Div(l1Fee, msg.GasPrice()).Uint64()
-	} else {
+	extra := new(big.Int)
+	if isEstimate == true {
 		// add the missing gas when estimateGas. the missing l1gas is to cover gaslimit and gasprice values
-		l1FeeInL2 = new(big.Int).Div(new(big.Int).Add(l1Fee, mulByFloat(new(big.Int).Mul(EstimateGasOverhead(), l1GasPrice), scalar)),
+		extra = mulByFloat(new(big.Int).Mul(EstimateGasOverhead(), l1GasPrice), scalar)
+	}
+	if msg.GasPrice().Cmp(common.Big0) != 0 {
+		l1FeeInL2 = new(big.Int).Div(new(big.Int).Add(l1Fee, extra), msg.GasPrice()).Uint64()
+	} else {
+		l1FeeInL2 = new(big.Int).Div(new(big.Int).Add(l1Fee, extra),
 			state.GetState(rcfg.L2GasPriceOracleAddress, rcfg.L2GasPriceSlot).Big()).Uint64()
 	}
 

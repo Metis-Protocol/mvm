@@ -131,7 +131,7 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 		if msg.QueueOrigin() == types.QueueOriginSequencer {
 			// Compute the L1 fee before the state transition
 			// so it only has to be read from state one time.
-			l1FeeInL2, _ = fees.CalculateL1MsgFeeInL2(msg, evm.StateDB, nil)
+			l1FeeInL2, _ = fees.CalculateL1MsgFeeInL2(msg, evm.StateDB, nil, msg.CheckNonce() == false)
 			log.Debug("Current L1FeeInL2", "fee", l1FeeInL2)
 		}
 	}

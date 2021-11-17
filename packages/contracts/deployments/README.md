@@ -33,21 +33,18 @@ Network : __rinkeby (chain id: 4)__
 
 |Contract|Address|
 |--|--|
-|BondManager|[0xB83ABFFFf2CF471D7800d83949fB4c25AAF417c8](https://rinkeby.etherscan.io/address/0xB83ABFFFf2CF471D7800d83949fB4c25AAF417c8)|
-|CanonicalTransactionChain|[0x91AD1A3B89a2Ba71d5A0CbCa95cA69212B3D0D26](https://rinkeby.etherscan.io/address/0x91AD1A3B89a2Ba71d5A0CbCa95cA69212B3D0D26)|
-|ChainStorageContainer-CTC-batches|[0xf29874E7963e98D15Cf1de1884a8Cd2fb38F80A0](https://rinkeby.etherscan.io/address/0xf29874E7963e98D15Cf1de1884a8Cd2fb38F80A0)|
-|ChainStorageContainer-CTC-queue|[0x2E5D661bee7Db3B70D12652786D20d1e416C8233](https://rinkeby.etherscan.io/address/0x2E5D661bee7Db3B70D12652786D20d1e416C8233)|
-|ChainStorageContainer-SCC-batches|[0xD74DB63e76c6f7B8267321d41AfbD2901A3868C2](https://rinkeby.etherscan.io/address/0xD74DB63e76c6f7B8267321d41AfbD2901A3868C2)|
-|L1StandardBridge_for_verification_only|[0x1B37aD392a53Efe90DD838A8B60D61bD78089dDe](https://rinkeby.etherscan.io/address/0x1B37aD392a53Efe90DD838A8B60D61bD78089dDe)|
-|Lib_AddressManager|[0x493C031A103A91801B1D1eb2e1D809840ce918ba](https://rinkeby.etherscan.io/address/0x493C031A103A91801B1D1eb2e1D809840ce918ba)|
-|MVM_DiscountOracle|[0xB548ad7E98046c92bCd5f3a9fF6a40C3047de3de](https://rinkeby.etherscan.io/address/0xB548ad7E98046c92bCd5f3a9fF6a40C3047de3de)|
-|MVM_L2ChainManagerOnL1_for_verification_only|[0xdF8D8B78d9736A7BdcdFd289aB3430c27e83be6E](https://rinkeby.etherscan.io/address/0xdF8D8B78d9736A7BdcdFd289aB3430c27e83be6E)|
-|MVM_Verifier|[0xb5B9f9A26fb2A9Ca72B1A54Cd7Aa416B85a09Dc3](https://rinkeby.etherscan.io/address/0xb5B9f9A26fb2A9Ca72B1A54Cd7Aa416B85a09Dc3)|
-|OVM_L1CrossDomainMessenger|[0x2A990a65f810c6DeE782DabDC6AB7F4Cfa1B2f4E](https://rinkeby.etherscan.io/address/0x2A990a65f810c6DeE782DabDC6AB7F4Cfa1B2f4E)|
-|Proxy__MVM_ChainManager|[0x52B47D2819f66d7e8B81287c060d9f76c7576eD5](https://rinkeby.etherscan.io/address/0x52B47D2819f66d7e8B81287c060d9f76c7576eD5)|
-|Proxy__OVM_L1CrossDomainMessenger|[0xaAf4465a0FDd7aDB98F9d9E08bcB8e0aeD666245](https://rinkeby.etherscan.io/address/0xaAf4465a0FDd7aDB98F9d9E08bcB8e0aeD666245)|
-|Proxy__OVM_L1StandardBridge|[0x3616D89770ed103Cd9995ff2d25Ece8A95633DB9](https://rinkeby.etherscan.io/address/0x3616D89770ed103Cd9995ff2d25Ece8A95633DB9)|
-|StateCommitmentChain|[0x7cF8F3C1C18587311BB8D6D4863B919a7c77225B](https://rinkeby.etherscan.io/address/0x7cF8F3C1C18587311BB8D6D4863B919a7c77225B)|
+|BondManager|[0xB620aa2207b31074f7222A9D74677AA8C15CFA3c](https://rinkeby.etherscan.io/address/0xB620aa2207b31074f7222A9D74677AA8C15CFA3c)|
+|CanonicalTransactionChain|[0xcc9634D1bA6340Fecd1DFb45544533B61622989F](https://rinkeby.etherscan.io/address/0xcc9634D1bA6340Fecd1DFb45544533B61622989F)|
+|ChainStorageContainer-CTC-batches|[0xAe31E27Af67559e830E0D0b0CE3D55b499Bdb18b](https://rinkeby.etherscan.io/address/0xAe31E27Af67559e830E0D0b0CE3D55b499Bdb18b)|
+|ChainStorageContainer-CTC-queue|[0x5475F91F29acfCDa0c17F891b453A854B499251E](https://rinkeby.etherscan.io/address/0x5475F91F29acfCDa0c17F891b453A854B499251E)|
+|ChainStorageContainer-SCC-batches|[0x07ea1ce6E1593243ae60bbD315209a3B79b2A376](https://rinkeby.etherscan.io/address/0x07ea1ce6E1593243ae60bbD315209a3B79b2A376)|
+|Lib_AddressManager|[0x4816F334Ec321D209FAd525Fc189b42f22ea37a7](https://rinkeby.etherscan.io/address/0x4816F334Ec321D209FAd525Fc189b42f22ea37a7)|
+|MVM_Verifier_for_verification_only|[0x7CEC095D26C671353539927e5d24D781759033C2](https://rinkeby.etherscan.io/address/0x7CEC095D26C671353539927e5d24D781759033C2)|
+|OVM_L1CrossDomainMessenger|[0xE74F1C47858D76b75777f0bA9f53e4e8A85377c5](https://rinkeby.etherscan.io/address/0xE74F1C47858D76b75777f0bA9f53e4e8A85377c5)|
+|Proxy__MVM_Verifier|[0xA2E66C16FB311A5d04228A96877Bb83859afbb86](https://rinkeby.etherscan.io/address/0xA2E66C16FB311A5d04228A96877Bb83859afbb86)|
+|Proxy__OVM_L1CrossDomainMessenger|[0xb3dcCd71465cb9a75B5750182Cf673410E78ad03](https://rinkeby.etherscan.io/address/0xb3dcCd71465cb9a75B5750182Cf673410E78ad03)|
+|Proxy__OVM_L1StandardBridge|[0x6fe722e6324b5717aE41336E69EDbc639F150444](https://rinkeby.etherscan.io/address/0x6fe722e6324b5717aE41336E69EDbc639F150444)|
+|StateCommitmentChain|[0x813eF4b2b510cd764a37728691EAC27396fB3C5d](https://rinkeby.etherscan.io/address/0x813eF4b2b510cd764a37728691EAC27396fB3C5d)|
 <!--
 Implementation addresses. DO NOT use these addresses directly.
 Use their proxied counterparts seen above.
@@ -75,6 +72,33 @@ Network : __rinkeby (chain id: 4)__
 |Proxy__OVM_L1CrossDomainMessenger|[0xBa6f1aAF3F909F208b224F3985eCda745FA9101A](https://rinkeby.etherscan.io/address/0xBa6f1aAF3F909F208b224F3985eCda745FA9101A)|
 |Proxy__OVM_L1StandardBridge|[0x325049462E30472E7d27Fc53DF7d5a49210cBC70](https://rinkeby.etherscan.io/address/0x325049462E30472E7d27Fc53DF7d5a49210cBC70)|
 |StateCommitmentChain|[0xc4139869E2e988ac71c65f8b68F02fD8A0C50B49](https://rinkeby.etherscan.io/address/0xc4139869E2e988ac71c65f8b68F02fD8A0C50B49)|
+<!--
+Implementation addresses. DO NOT use these addresses directly.
+Use their proxied counterparts seen above.
+
+-->
+---
+## ANDROMEDA
+
+Network : __mainnet (chain id: 1)__
+
+|Contract|Address|
+|--|--|
+|BondManager|[0xf51B9C9a1c12e7E48BEC15DC358D0C1f0d7Eb3be](https://etherscan.io/address/0xf51B9C9a1c12e7E48BEC15DC358D0C1f0d7Eb3be)|
+|CanonicalTransactionChain|[0x56a76bcC92361f6DF8D75476feD8843EdC70e1C9](https://etherscan.io/address/0x56a76bcC92361f6DF8D75476feD8843EdC70e1C9)|
+|ChainStorageContainer-CTC-batches|[0x38473Feb3A6366757A249dB2cA4fBB2C663416B7](https://etherscan.io/address/0x38473Feb3A6366757A249dB2cA4fBB2C663416B7)|
+|ChainStorageContainer-CTC-queue|[0xA91Ea6F5d1EDA8e6686639d6C88b309cF35D2E57](https://etherscan.io/address/0xA91Ea6F5d1EDA8e6686639d6C88b309cF35D2E57)|
+|ChainStorageContainer-SCC-batches|[0x10739F09f6e62689c0aA8A1878816de9e166d6f9](https://etherscan.io/address/0x10739F09f6e62689c0aA8A1878816de9e166d6f9)|
+|L1StandardBridge_for_verification_only|[0x101500214981e7A5Ad2334D8404eaF365C2c3113](https://etherscan.io/address/0x101500214981e7A5Ad2334D8404eaF365C2c3113)|
+|Lib_AddressManager|[0x918778e825747a892b17C66fe7D24C618262867d](https://etherscan.io/address/0x918778e825747a892b17C66fe7D24C618262867d)|
+|MVM_DiscountOracle|[0xC8953ca384b4AdC8B1b11B030Afe2F05471664b0](https://etherscan.io/address/0xC8953ca384b4AdC8B1b11B030Afe2F05471664b0)|
+|MVM_L2ChainManagerOnL1_for_verification_only|[0x9E2E3be85df5Ca63DE7674BA64ffD564075f3B48](https://etherscan.io/address/0x9E2E3be85df5Ca63DE7674BA64ffD564075f3B48)|
+|MVM_Verifier|[0x9Ed4739afd706122591E75F215208ecF522C0Fd3](https://etherscan.io/address/0x9Ed4739afd706122591E75F215208ecF522C0Fd3)|
+|OVM_L1CrossDomainMessenger|[0x8bF439ef7167023F009E24b21719Ca5f768Ecb36](https://etherscan.io/address/0x8bF439ef7167023F009E24b21719Ca5f768Ecb36)|
+|Proxy__MVM_ChainManager|[0xf3d58D1794f2634d6649a978f2dc093898FEEBc0](https://etherscan.io/address/0xf3d58D1794f2634d6649a978f2dc093898FEEBc0)|
+|Proxy__OVM_L1CrossDomainMessenger|[0x081D1101855bD523bA69A9794e0217F0DB6323ff](https://etherscan.io/address/0x081D1101855bD523bA69A9794e0217F0DB6323ff)|
+|Proxy__OVM_L1StandardBridge|[0x3980c9ed79d2c191A89E02Fa3529C60eD6e9c04b](https://etherscan.io/address/0x3980c9ed79d2c191A89E02Fa3529C60eD6e9c04b)|
+|StateCommitmentChain|[0xf209815E595Cdf3ed0aAF9665b1772e608AB9380](https://etherscan.io/address/0xf209815E595Cdf3ed0aAF9665b1772e608AB9380)|
 <!--
 Implementation addresses. DO NOT use these addresses directly.
 Use their proxied counterparts seen above.

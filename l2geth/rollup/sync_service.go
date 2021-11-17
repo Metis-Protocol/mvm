@@ -868,6 +868,21 @@ func (s *SyncService) verifyFee(tx *types.Transaction) error {
 	//	return fmt.Errorf("invalid transaction: %w", core.ErrInsufficientFunds)
 	//}
 
+	//MVM: cache the owner again if the sender is coming from the supposed owner
+	//in case the owner has been modified by the l2manager
+	owner := s.GasPriceOracleOwnerAddress()
+	if owner != nil && from == *owner {
+		var statedb *state.StateDB
+		var err error
+		statedb, err = s.bc.State()
+		if err != nil {
+			return err
+		}
+		if err := s.cacheGasPriceOracleOwner(statedb); err != nil {
+			return err
+		}
+	}
+
 	if tx.GasPrice().Cmp(common.Big0) == 0 {
 		// Allow 0 gas price transactions only if it is the owner of the gas
 		// price oracle

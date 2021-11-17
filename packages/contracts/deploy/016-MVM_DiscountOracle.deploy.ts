@@ -51,7 +51,6 @@ const deployFn: DeployFunction = async (hre) => {
   console.log('chainmgr.address access:', accessStored2)
 }
 
-deployFn.dependencies = ['Lib_AddressManager']
-deployFn.tags = ['OVM_L1DiscountOracle']
+deployFn.tags = ['MVM_DiscountOracle']
 
 export default deployFn

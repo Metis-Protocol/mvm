@@ -30,7 +30,7 @@ npx hardhat deploy \
   --mvm-metis-address 0xe552Fb52a4F19e44ef5A967632DBc320B0820639 \
   --mvm-metis-manager 0x67bE001A254B81Dc44EaB9F5a7C66889a5c009AE \
   --l2chainid 666 \
-  --tags MVM_ChainManager
+  "$@"
   
 yarn autogen:markdown
 yarn build:dumpaddr
