@@ -14,7 +14,7 @@ if [[ -z "$CONTRACTS_RPC_URL" ]]; then
 fi
 
 export CONTRACTS_TARGET_NETWORK=trial
- 
+
 npx hardhat deploy \
   --ctc-max-transaction-gas-limit 1100000000 \
   --ctc-enqueue-gas-cost 60000 \
@@ -31,7 +31,7 @@ npx hardhat deploy \
   --mvm-metis-manager 0x67bE001A254B81Dc44EaB9F5a7C66889a5c009AE \
   --l2chainid 666 \
   "$@"
-  
+
 yarn autogen:markdown
 yarn build:dumpaddr
 

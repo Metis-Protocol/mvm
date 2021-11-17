@@ -1,7 +1,7 @@
 #!/bin/bash
 URL=https://metis-us-east-2-mainnet-json.s3.us-east-2.amazonaws.com/addresses.json
 ADDRESSES=$(curl --fail --show-error --silent --retry-connrefused --retry 2 --retry-delay 5 $URL)
-   
+
 function envSet() {
     VAR=$1
     export $VAR=$(echo $ADDRESSES | jq -r ".$2")

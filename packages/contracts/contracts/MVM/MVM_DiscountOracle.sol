@@ -13,7 +13,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     mapping (address => bool) public xDomainWL;
     bool allowAllXDomainSenders;
     string constant public CONFIG_OWNER_KEY = "METIS_MANAGER";
-    
+
     /**********************
      * Function Modifiers *
      **********************/
@@ -25,8 +25,8 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
         );
         _;
     }
-    
-    
+
+
     constructor(
       address _addressManager,
       uint256 _initialDiscount
@@ -37,16 +37,16 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
       minL2Gas = 200_000;
       allowAllXDomainSenders = false;
     }
-    
-    
+
+
     function getMinL2Gas() view public override returns (uint256){
       return minL2Gas;
     }
-    
+
     function getDiscount() view public override returns (uint256){
       return discount;
     }
-    
+
     function setDiscount(
         uint256 _discount
     )
@@ -56,7 +56,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     {
         discount = _discount;
     }
-    
+
     function setMinL2Gas(
         uint256 _minL2Gas
     )
@@ -66,7 +66,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     {
         minL2Gas = _minL2Gas;
     }
-    
+
     function setWhitelistedXDomainSender(
         address _sender,
         bool _isWhitelisted
@@ -77,7 +77,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     {
         xDomainWL[_sender] = _isWhitelisted;
     }
-    
+
     function isXDomainSenderAllowed(
         address _sender
     )
@@ -93,7 +93,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
             || xDomainWL[_sender]
         );
     }
-    
+
     function setAllowAllXDomainSenders(
         bool _allowAllXDomainSenders
     )
@@ -103,20 +103,20 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     {
         allowAllXDomainSenders = _allowAllXDomainSenders;
     }
-    
-    function processL2SeqGas(address sender, uint256 _chainId) 
+
+    function processL2SeqGas(address sender, uint256 _chainId)
     public payable override {
         require(isXDomainSenderAllowed(sender), "sender is not whitelisted");
         string memory ch = string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer"));
-        
+
         address sequencer = resolve(ch);
         require (sequencer != address(0), string(abi.encodePacked("sequencer address not available: ", ch)));
-        
+
         //take the fee
         (bool sent, ) = sequencer.call{value: msg.value}("");
         require(sent, "Failed to send Ether");
     }
-    
+
 
     function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
         if (_i == 0) {

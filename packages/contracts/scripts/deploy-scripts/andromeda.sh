@@ -13,7 +13,7 @@ if [[ -z "$CONTRACTS_RPC_URL" ]]; then
   exit 1
 fi
 
-export CONTRACTS_TARGET_NETWORK=andromeda 
+export CONTRACTS_TARGET_NETWORK=andromeda
 
 npx hardhat deploy \
   --ctc-max-transaction-gas-limit 1100000000 \
@@ -31,7 +31,7 @@ npx hardhat deploy \
   --mvm-metis-manager 0x48fE1f85ff8Ad9D088863A42Af54d06a1328cF21 \
   --l2chainid 1088 \
   "$@"
-  
+
 yarn autogen:markdown
 yarn build:dumpaddr
 
