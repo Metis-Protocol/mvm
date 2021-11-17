@@ -10,6 +10,8 @@ import { Lib_OVMCodec } from "../libraries/codec/Lib_OVMCodec.sol";
 import { IStateCommitmentChain } from "../L1/rollup/IStateCommitmentChain.sol";
 
 contract MVM_Verifier is Lib_AddressResolver{
+    // second slot
+    address public metis;
     
     enum SETTLEMENT {NOT_ENOUGH_VERIFIER, SAME_ROOT, AGREE, DISAGREE, PASS}
     
@@ -64,10 +66,8 @@ contract MVM_Verifier is Lib_AddressResolver{
     uint public verifyWindow = 3600 * 24; // 24 hours of window to complete the each verify phase
     uint public activeChallenges;
 
-    address public metis;
-
     uint256 public minStake;
-    bool public seqStaked;
+    uint256 public seqStake;
     
     uint256 public numQualifiedVerifiers;
     
@@ -155,12 +155,12 @@ contract MVM_Verifier is Lib_AddressResolver{
        // house keeping
        challenge_hashes[cIndex][msg.sender] = proposedHash;
        challenge_key_hashes[cIndex][msg.sender] = keyhash;
-       challenges[cIndex].numVerifiers++;
+       challenges[cIndex].numVerifiers++; // the challenger
        
        // this will prevent stake change
        activeChallenges++;
        
-       chain_under_challenge[chainID] = cIndex + 1;
+       chain_under_challenge[chainID] = cIndex + 1; // +1 because 0 means no in-progress challenge 
        emit NewChallenge(cIndex, chainID, header, block.timestamp);
     }
 
@@ -287,8 +287,8 @@ contract MVM_Verifier is Lib_AddressResolver{
                     stateChain.deleteStateBatchByChainId(challenge.chainID, challenge.header);
                
                     // temporary for the p1 of the decentralization roadmap
-                    if (seqStaked) {
-                        reward += 200 ether;
+                    if (seqStake > 0) {
+                        reward += seqStake;
                
                         for (uint i = 0; i < numDisagrees; i++) {
                             consensus_strikes[disagrees[i]] += 2;
@@ -305,14 +305,12 @@ contract MVM_Verifier is Lib_AddressResolver{
                 }
             }
         } else {
-            //wasteful challenge, add consensus_strikes
-            for (uint i = 0; i < numAgrees; i++) {
-                consensus_strikes[agrees[i]] += 2;
-                if (consensus_strikes[agrees[i]] > FAIL_THRESHOLD) {
-                    reward += penalize(agrees[i]);
-                }
+            //wasteful challenge, add consensus_strikes to the challenger
+            consensus_strikes[challenge.challenger] += 2;
+            if (consensus_strikes[challenge.challenger] > FAIL_THRESHOLD) {
+                reward += penalize(challenge.challenger);
             }
-            distributeReward(reward, disagrees, disagrees.length);
+            distributeReward(reward, challenge.verifiers, challenge.verifiers.length - 1);
             emit Finalize(cIndex, msg.sender, SETTLEMENT.SAME_ROOT);
         }
         
@@ -321,18 +319,19 @@ contract MVM_Verifier is Lib_AddressResolver{
         chain_under_challenge[challenge.chainID] = 0;
     }
     
-    function depositSeqStake() public onlyManager {
-        require(seqStaked == false, "already staked");
-        seqStaked = true;
-        require(IERC20(metis).transferFrom(msg.sender, address(this), 200 ether), "transfer metis failed");
-        emit Stake(msg.sender, 200 ether);
+    function depositSeqStake(uint256 amount) public onlyManager {
+        require(IERC20(metis).transferFrom(msg.sender, address(this), amount), "transfer metis failed");
+        seqStake += amount;
+        emit Stake(msg.sender, amount);
     }
     
     function withdrawSeqStake(address to) public onlyManager {
-        require(seqStaked == true, "no stake");
-        seqStaked = false;
-        require(IERC20(metis).transfer(to, 200 ether), "transfer metis failed");
-        emit Withdraw(msg.sender, 200 ether);
+        require(seqStake > 0, "no stake");
+        emit Withdraw(msg.sender, seqStake);
+        uint256 amount = seqStake;
+        seqStake = 0;
+        
+        require(IERC20(metis).transfer(to, amount), "transfer metis failed");
     }
     
     function claim() public {
@@ -436,7 +435,7 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
     
     // helper fucntion to decrypt the data
-    function decrypt(bytes memory data, bytes memory key) pure internal returns (bytes memory) {
+    function decrypt(bytes memory data, bytes memory key) pure public returns (bytes memory) {
       bytes memory decryptedData = data;
       uint j = 0;
       

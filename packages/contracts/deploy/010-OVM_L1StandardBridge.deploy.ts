@@ -147,7 +147,7 @@ const deployFn: DeployFunction = async (hre) => {
     )
   })
   
-  console.log(`Setting addressmgr address to ${Lib_AddressManager.address}...`)
+  //console.log(`Setting addressmgr address to ${Lib_AddressManager.address}...`)
   // Set Slot 3 to the Address Manager Address
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x03', 32),
@@ -164,11 +164,14 @@ const deployFn: DeployFunction = async (hre) => {
 
 
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
-  const owner = (hre as any).deployConfig.ovmAddressManagerOwner
+  const owner = (hre as any).deployConfig.mvmMetisManager
   console.log(`Setting owner address to ${owner}...`)
   await proxy.setOwner(owner)
 
   console.log(`Confirming that owner address was correctly set...`)
+  console.log(await proxy.connect(proxy.signer.provider).callStatic.getOwner({
+        from: ethers.constants.AddressZero,
+      }))
   await waitUntilTrue(async () => {
     return hexStringEquals(
       await proxy.connect(proxy.signer.provider).callStatic.getOwner({
