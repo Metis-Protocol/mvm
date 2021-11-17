@@ -1069,41 +1069,47 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 				return fmt.Errorf("cannot apply batched transaction: %w", err)
 			}
 			// verifier stateroot
-			if err := s.verifyStateRoot(tx); err != nil {
+			txIndex, stateRoot, verifierRoot, err := s.verifyStateRoot(tx)
+			if err != nil {
+				// report to dtl success=true
+				s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, false)
 				return err
 			}
+			// report to dtl success=false
+			s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, false)
 		}
 		s.SetLatestBatchIndex(&i)
 	}
 	return nil
 }
 
-func (s *SyncService) verifyStateRoot(tx *types.Transaction) error {
+func (s *SyncService) verifyStateRoot(tx *types.Transaction) (uint64, string, string, error) {
 	localStateRoot := s.bc.CurrentBlock().Root()
 	// log.Debug("Test: local stateroot", "stateroot", localStateRoot)
 
 	emptyHash := common.Hash{}
+	txIndex := *(tx.GetMeta().Index)
 	// retry 10 hours
 	for i := 0; i < 36000; i++ {
 		// log.Debug("Test: Fetching stateroot", "i", i, "index", *(tx.GetMeta().Index))
-		stateRootHash, err := s.client.GetStateRoot(*(tx.GetMeta().Index))
+		stateRootHash, err := s.client.GetStateRoot(txIndex)
 		// log.Debug("Test: Fetched stateroot", "i", i, "index", *(tx.GetMeta().Index), "hash", stateRootHash)
 		if err != nil {
-			return fmt.Errorf("Fetch stateroot failed: %w", err)
+			return txIndex, "", localStateRoot.Hex(), fmt.Errorf("Fetch stateroot failed: %w", err)
 		}
 		if stateRootHash == emptyHash {
-			log.Info("Fetch stateroot nil, retry in 1000ms", "i", i, "index", *(tx.GetMeta().Index))
+			log.Info("Fetch stateroot nil, retry in 1000ms", "i", i, "index", txIndex)
 			// delay 1000ms
 			time.Sleep(time.Duration(1000) * time.Millisecond)
 			continue
 		}
 		if stateRootHash != localStateRoot {
-			return fmt.Errorf("The remote stateroot is not equal to the local: remote %w, local %w", stateRootHash, localStateRoot)
+			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: remote %w, local %w", stateRootHash.Hex(), localStateRoot.Hex())
 		}
-		log.Debug("Verified tx with stateroot ok", "i", i, "index", *(tx.GetMeta().Index))
-		return nil
+		log.Debug("Verified tx with stateroot ok", "i", i, "index", txIndex)
+		return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), nil
 	}
-	return fmt.Errorf("Fetch stateroot failed: index %w", *(tx.GetMeta().Index))
+	return txIndex, "", "", fmt.Errorf("Fetch stateroot failed: index %w", txIndex)
 }
 
 // syncQueue will sync from the local tip to the known tip of the remote

@@ -4,6 +4,7 @@ import {
   StateRootEntry,
   TransactionBatchEntry,
   TransactionEntry,
+  VerifierResultEntry,
 } from './database-types'
 
 export type EnqueueResponse = EnqueueEntry & {
@@ -38,6 +39,12 @@ export interface ContextResponse {
 
 export interface GasPriceResponse {
   gasPrice: string
+}
+
+export interface VerifierResultResponse {
+  verify: VerifierResultEntry,
+  batch: StateRootBatchEntry,
+  success: boolean
 }
 
 export type SyncingResponse =

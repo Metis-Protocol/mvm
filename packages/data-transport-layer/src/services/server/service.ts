@@ -21,6 +21,8 @@ import {
   SyncingResponse,
   TransactionBatchResponse,
   TransactionResponse,
+  VerifierResultResponse,
+  VerifierResultEntry,
 } from '../../types'
 import { validators } from '../../utils'
 import { L1DataTransportServiceOptions } from '../main/service'
@@ -724,6 +726,66 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         return {
           batch,
           stateRoots,
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/verifier/get/:success/:chainId',
+      async (req): Promise<VerifierResultResponse> => {
+        const chainId=BigNumber.from(req.params.chainId).toNumber()
+        const success=req.params.success === 'true' || req.params.success === '1'
+        const db=await this._getDb(chainId)
+        const result = await db.getLastVerifierEntry(
+          success
+        )
+
+        if (result === null) {
+          return {
+            verify: null,
+            batch: null,
+            success
+          }
+        }
+
+        const resp:VerifierResultResponse = {
+          verify: result,
+          batch: null,
+          success,
+        }
+
+        const stateRoot = await db.getStateRootByIndex(result.index)
+        if (stateRoot) {
+          resp.batch = await db.getStateRootBatchByIndex(stateRoot.batchIndex)
+        }
+
+        return resp
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/verifier/set/:success/:chainId/:index/:stateRoot/:verifierRoot',
+      async (req): Promise<VerifierResultResponse> => {
+        const chainId=BigNumber.from(req.params.chainId).toNumber()
+        const success=req.params.success === 'true' || req.params.success === '1'
+        const entry : VerifierResultEntry = {
+          index: BigNumber.from(req.params.index).toNumber(),
+          stateRoot: req.params.stateRoot,
+          verifierRoot: req.params.verifierRoot,
+          timestamp: new Date().getTime()
+        }
+        const db=await this._getDb(chainId)
+        await db.putLastVerifierEntry(
+          success,
+          entry
+        )
+
+        return {
+          verify: entry,
+          batch: null,
+          success,
         }
       }
     )

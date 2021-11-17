@@ -131,22 +131,22 @@ components:
     StateRootEntry:
       type: object
       properties:
-      index:
-        type: number
-      batchIndex:
-        type: number
-      value:
-        type: string
+        index:
+          type: number
+        batchIndex:
+          type: number
+        value:
+          type: string
 
     StateRootResponse:
       type: object
       properties:
-      batch:
-        type: object
-        $ref: '#/components/schemas/BatchEntry'
-      stateRoot:
-        type: object
-        $ref: '#/components/schemas/StateRootEntry'
+        batch:
+          type: object
+          $ref: '#/components/schemas/BatchEntry'
+        stateRoot:
+          type: object
+          $ref: '#/components/schemas/StateRootEntry'
 
     StateRootBatchResponse:
       type: object
@@ -159,6 +159,30 @@ components:
           items:
             type: object
             $ref: '#/components/schemas/StateRootEntry'
+
+    VerifierResultEntry:
+      type: object
+      properties:
+        index:
+          type: number
+        stateRoot:
+          type: string
+        verifierRoot:
+          type: string
+        timestamp:
+          type: number
+
+    VerifierResultResponse:
+      type: object
+      properties:
+        verify:
+          type: object
+          $ref: '#/components/schemas/VerifierResultEntry'
+        batch:
+          type: object
+          $ref: '#/components/schemas/BatchEntry'
+        success:
+          type: boolean
 
 paths:
   /eth/syncing:
@@ -343,3 +367,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StateRootBatchResponse'
+
+  /verifier/get/{success}/{chainId}:
+    get:
+      summary: Returns the latest verifier result
+      description: |
+        This returns the latest verifier result by status
+      responses:
+        '200':
+          description: An object representing the latest verifier result by status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifierResultResponse'
