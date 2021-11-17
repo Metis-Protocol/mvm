@@ -19,19 +19,19 @@ const deployFn: DeployFunction = async (hre) => {
 
   // OVM_Sequencer is the address allowed to submit "Sequencer" blocks to the
   // CanonicalTransactionChain.
-  await registerAddress({
-    hre,
-    name: 'OVM_Sequencer',
-    address: (hre as any).deployConfig.ovmSequencerAddress,
-  })
+  //await registerAddress({
+  //  hre,
+  //  name: 'OVM_Sequencer',
+  //  address: (hre as any).deployConfig.ovmSequencerAddress,
+  //})
 
   // OVM_Proposer is the address allowed to submit state roots (transaction results) to the
   // StateCommitmentChain.
-  await registerAddress({
-    hre,
-    name: 'OVM_Proposer',
-    address: (hre as any).deployConfig.ovmProposerAddress,
-  })
+  //await registerAddress({
+  //  hre,
+  //  name: 'OVM_Proposer',
+  //  address: (hre as any).deployConfig.ovmProposerAddress,
+  //})
   
   await registerAddress({
     hre,
