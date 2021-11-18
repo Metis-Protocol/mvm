@@ -1075,7 +1075,7 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 	log.Info("Syncing transaction batch range", "start", start, "end", end)
 	for i := start; i <= end; i++ {
 		log.Debug("Fetching transaction batch", "index", i)
-		_, txs, err := s.client.GetTransactionBatch(i)
+		batch, txs, err := s.client.GetTransactionBatch(i)
 		if err != nil {
 			return fmt.Errorf("Cannot get transaction batch: %w", err)
 		}
@@ -1084,21 +1084,21 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 				return fmt.Errorf("cannot apply batched transaction: %w", err)
 			}
 			// verifier stateroot
-			txIndex, stateRoot, verifierRoot, err := s.verifyStateRoot(tx)
+			txIndex, stateRoot, verifierRoot, err := s.verifyStateRoot(tx, batch.Batch.Root)
 			if err != nil {
-				// report to dtl success=true
+				// report to dtl success=false
 				s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, false)
 				return err
 			}
-			// report to dtl success=false
-			s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, false)
+			// report to dtl success=true
+			s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, true)
 		}
 		s.SetLatestBatchIndex(&i)
 	}
 	return nil
 }
 
-func (s *SyncService) verifyStateRoot(tx *types.Transaction) (uint64, string, string, error) {
+func (s *SyncService) verifyStateRoot(tx *types.Transaction, batchRoot common.Hash) (uint64, string, string, error) {
 	localStateRoot := s.bc.CurrentBlock().Root()
 	// log.Debug("Test: local stateroot", "stateroot", localStateRoot)
 
@@ -1121,7 +1121,7 @@ func (s *SyncService) verifyStateRoot(tx *types.Transaction) (uint64, string, st
 		if stateRootHash != localStateRoot {
 			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: remote %w, local %w", stateRootHash.Hex(), localStateRoot.Hex())
 		}
-		log.Debug("Verified tx with stateroot ok", "i", i, "index", txIndex)
+		log.Info("Verified tx with stateroot ok", "i", i, "index", txIndex)
 		return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), nil
 	}
 	return txIndex, "", "", fmt.Errorf("Fetch stateroot failed: index %w", txIndex)
