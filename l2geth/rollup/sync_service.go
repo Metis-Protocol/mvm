@@ -1084,7 +1084,7 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 				return fmt.Errorf("cannot apply batched transaction: %w", err)
 			}
 			// verifier stateroot
-			txIndex, stateRoot, verifierRoot, err := s.verifyStateRoot(tx, batch.Batch.Root)
+			txIndex, stateRoot, verifierRoot, err := s.verifyStateRoot(tx, batch.Root)
 			if err != nil {
 				// report to dtl success=false
 				s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, false)
@@ -1119,9 +1119,9 @@ func (s *SyncService) verifyStateRoot(tx *types.Transaction, batchRoot common.Ha
 			continue
 		}
 		if stateRootHash != localStateRoot {
-			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: remote %w, local %w", stateRootHash.Hex(), localStateRoot.Hex())
+			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: remote %w, local %w, batch-root %w", stateRootHash.Hex(), localStateRoot.Hex(), batchRoot.Hex())
 		}
-		log.Info("Verified tx with stateroot ok", "i", i, "index", txIndex)
+		log.Info("Verified tx with stateroot ok", "i", i, "index", txIndex, "batch-root", batchRoot.Hex())
 		return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), nil
 	}
 	return txIndex, "", "", fmt.Errorf("Fetch stateroot failed: index %w", txIndex)
