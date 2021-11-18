@@ -1,5 +1,6 @@
 /* Imports: External */
 import { DeployFunction } from 'hardhat-deploy/dist/types'
+import { registerAddress } from '../src/hardhat-deploy-ethers'
 
 /* Imports: Internal */
 import {
@@ -39,6 +40,11 @@ const deployFn: DeployFunction = async (hre) => {
       hre,
       'Proxy__MVM_ChainManager'
   )
+  await registerAddress({
+    hre,
+    name: 'METIS_MANAGER',
+    address: deployer,
+  })
   
   await MVM_DiscountOracle.setWhitelistedXDomainSender(l1bridge.address, true);
   const accessStored =
