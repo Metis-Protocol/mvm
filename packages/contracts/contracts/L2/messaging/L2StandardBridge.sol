@@ -14,6 +14,7 @@ import { Lib_PredeployAddresses } from "../../libraries/constants/Lib_PredeployA
 /* Contract Imports */
 import { IL2StandardERC20 } from "../../standards/IL2StandardERC20.sol";
 import { OVM_GasPriceOracle } from "../predeploys/OVM_GasPriceOracle.sol";
+import { iOVM_SequencerFeeVault } from "../predeploys/iOVM_SequencerFeeVault.sol";
 
 /**
  * @title L2StandardBridge
@@ -121,7 +122,9 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
     ) internal {
         uint256 minL1Gas = OVM_GasPriceOracle(Lib_PredeployAddresses.OVM_GASPRICE_ORACLE).minErc20BridgeCost();
         
-        require (msg.value >= minL1Gas, 
+        // require minimum gas unless, the metis manager is the sender
+        require (msg.value >= minL1Gas ||
+                    _from == iOVM_SequencerFeeVault(Lib_PredeployAddresses.SEQUENCER_FEE_WALLET).getL2Manager(), 
                  string(abi.encodePacked("insufficient withdrawal fee supplied. need at least ", uint2str(minL1Gas))));
         
         // When a withdrawal is initiated, we burn the withdrawer's funds to prevent subsequent L2
