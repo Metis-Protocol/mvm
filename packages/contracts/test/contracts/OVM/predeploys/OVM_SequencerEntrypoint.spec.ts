@@ -36,7 +36,7 @@ describe('OVM_SequencerEntrypoint', () => {
       address: predeploys.OVM_ExecutionManagerWrapper,
     })
 
-    Mock__OVM_ExecutionManager.smocked.ovmCHAINID.will.return.with(420)
+    Mock__OVM_ExecutionManager.smocked.ovmCHAINID.will.return.with(1088)
     Mock__OVM_ExecutionManager.smocked.ovmCREATEEOA.will.return()
   })
 
