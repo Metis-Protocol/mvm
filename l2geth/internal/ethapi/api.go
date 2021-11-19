@@ -970,8 +970,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		cap uint64
 	)
 
-	// NOTE 20211022 test gas
-	log.Debug("Test: EstimateGas", "args gas", args.Gas, "tx gas", params.TxGas, "gas cap", gasCap)
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
 	if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
@@ -983,7 +981,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 			return 0, err
 		}
 		hi = block.GasLimit()
-		log.Debug("Test: EstimateGas, hi set to block gas limit", "hi", hi)
 	}
 	if gasCap != nil && hi > gasCap.Uint64() {
 		log.Warn("Caller gas above allowance, capping", "requested", hi, "cap", gasCap)
