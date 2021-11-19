@@ -12,6 +12,7 @@ cache
 
 l2geth/build/bin
 packages/contracts/deployments/custom
+packages/contracts/deployments/trial
 packages/contracts/coverage*
 packages/contracts/@ens*
 packages/contracts/@openzeppelin*

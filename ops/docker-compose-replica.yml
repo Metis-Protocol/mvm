@@ -20,7 +20,7 @@ services:
         # connect to the 2 layers
         DATA_TRANSPORT_LAYER__L1_RPC_ENDPOINT: https://rinkeby.infura.io/v3/YOUR_RINKEBY_TOKEN # replace YOUR_RINKEBY_TOKEN to your rinkeby token
         DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: https://stardust.metis.io/?owner=588
-        DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
+        DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'true'
         DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 588
     ports:
       - ${DTL_PORT:-7878}:7878

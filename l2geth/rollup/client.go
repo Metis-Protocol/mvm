@@ -131,6 +131,7 @@ type RollupClient interface {
 	GetTransactionBatch(uint64) (*Batch, []*types.Transaction, error)
 	SyncStatus(Backend) (*SyncStatus, error)
 	GetStateRoot(index uint64) (common.Hash, error)
+	SetLastVerifier(index uint64, stateRoot string, verifierRoot string, success bool) error
 }
 
 // Client is an HTTP based RollupClient
@@ -660,4 +661,24 @@ func (c *Client) GetStateRoot(index uint64) (common.Hash, error) {
 		return common.Hash{}, nil
 	}
 	return stateRootResp.StateRoot.Value, nil
+}
+
+// GetStateRoot will return the stateroot by batch index
+func (c *Client) SetLastVerifier(index uint64, stateRoot string, verifierRoot string, success bool) error {
+	str := strconv.FormatUint(index, 10)
+	_, err := c.client.R().
+		SetResult(&StateRootResponse{}).
+		SetPathParams(map[string]string{
+			"index":        str,
+			"chainId":      c.chainID,
+			"success":      strconv.FormatBool(success),
+			"stateRoot":    stateRoot,
+			"verifierRoot": verifierRoot,
+		}).
+		Get("/verifier/set/{success}/{chainId}/{index}/{stateRoot}/{verifierRoot}")
+
+	if err != nil {
+		return fmt.Errorf("Cannot set last verifier %d: %w", index, err)
+	}
+	return nil
 }

@@ -10,6 +10,7 @@ import {
   StateRootEntry,
   TransactionBatchEntry,
   TransactionEntry,
+  VerifierResultEntry,
 } from '../types/database-types'
 import { SimpleDB } from './simple-db'
 
@@ -26,6 +27,8 @@ const TRANSPORT_DB_KEYS = {
   STARTING_L1_BLOCK: `l1:starting`,
   HIGHEST_L2_BLOCK: `l2:highest`,
   HIGHEST_SYNCED_BLOCK: `synced:highest`,
+  VERIFIER_FAILED: `verifier:failed`,
+  VERIFIER_SUCCESSFUL: `verifier:successful`
 }
 
 interface Indexed {
@@ -42,7 +45,7 @@ export class TransportDBMapHolder {
     this.dbPath = dbPath
     this.dbs={}
   }
-  
+
   public async getTransportDbByChainId(chainId):Promise<TransportDB>{
     var db=this.dbs[chainId]
     if (!db) {
@@ -111,6 +114,27 @@ export class TransportDB {
         value: index,
       },
     ])
+  }
+
+  public async putLastVerifierEntry(
+    success: boolean,
+    entry: VerifierResultEntry
+  ): Promise<void> {
+    const key = success ? TRANSPORT_DB_KEYS.VERIFIER_SUCCESSFUL : TRANSPORT_DB_KEYS.VERIFIER_FAILED
+    await this.db.put<VerifierResultEntry>([
+      {
+        key: `${key}:latest`,
+        index: 0,
+        value: entry,
+      },
+    ])
+  }
+
+  public async getLastVerifierEntry(
+    success: boolean
+  ): Promise<VerifierResultEntry> {
+    const key = success ? TRANSPORT_DB_KEYS.VERIFIER_SUCCESSFUL : TRANSPORT_DB_KEYS.VERIFIER_FAILED
+    return this.db.get<VerifierResultEntry>(`${key}:latest`, 0)
   }
 
   public async getTransactionIndexByQueueIndex(index: number): Promise<number> {

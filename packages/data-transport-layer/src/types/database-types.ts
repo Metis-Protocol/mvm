@@ -59,3 +59,10 @@ export interface StateRootEntry {
   value: string
   confirmed: boolean
 }
+
+export interface VerifierResultEntry {
+  index: number, // match StateRootEntry's index
+  stateRoot: string,
+  verifierRoot: string,
+  timestamp: number
+}

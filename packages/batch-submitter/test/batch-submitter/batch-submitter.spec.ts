@@ -495,7 +495,7 @@ describe('BatchSubmitter', () => {
 describe('Batch Submitter with Ganache', () => {
   let signer
   const server = ganache.server({
-    default_balance_ether: 420,
+    default_balance_ether: 1088,
     blockTime: 2_000,
   })
   const provider = new Web3Provider(ganache.provider())
