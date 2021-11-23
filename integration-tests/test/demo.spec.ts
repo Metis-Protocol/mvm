@@ -18,7 +18,7 @@ export const getEnvironment = async (): Promise<{
     l1Provider = new JsonRpcProvider("http://localhost:9545")
     l2Provider = new JsonRpcProvider("http://localhost:8545")
     l2PeerProvider = new JsonRpcProvider("http://localhost:10545")
-    
+
     l1Wallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", l1Provider)
     l2Wallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", l2Provider)
     l2PeerWallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", l2PeerProvider)
@@ -98,11 +98,6 @@ describe('Fee Payment Integration Tests', async () => {
     const addressManagerAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
     const addressManagerInterface = getContractInterface('Lib_AddressManager')
     AddressManager = new Contract(addressManagerAddress, addressManagerInterface, l1Provider)
-    const mvmAddressManagerAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-    const mvmAddressManagerInterface = getContractInterface('MVM_AddressManager')
-    const MvmAddressManager = new Contract(mvmAddressManagerAddress, mvmAddressManagerInterface, l1Provider)
-    
-    
     OVM_ETH = new Contract(
       OVM_ETH_Address,
       getContractInterface('OVM_ETH'),
@@ -122,7 +117,7 @@ describe('Fee Payment Integration Tests', async () => {
       await l1Wallet.address,
       await l2Wallet.address,
       await AddressManager.getAddress('MVM_AddressManager'),
-      await MvmAddressManager.getAddress('429_MVM_Sequencer'),
+      await AddressManager.getAddress('1088_MVM_Sequencer'),
       await AddressManager.getAddress('Proxy__OVM_L1StandardBridge'),
       await AddressManager.getAddress('OVM_L2BatchMessageRelayer'))
     const l1StandardBridgeInterface = getContractInterface('IL1StandardBridge')
@@ -137,21 +132,14 @@ describe('Fee Payment Integration Tests', async () => {
       getContractInterface('L2StandardBridge'),
       l2Wallet
     )
-    
+
     depositAmount = utils.parseEther('100')
-    console.log("test:"+depositAmount)
-    // let postBalances = await getBalances()
-    // console.log(postBalances.l1UserBalance + "," + postBalances.l2UserBalance + "," + postBalances.l1GatewayBalance + "," + postBalances.sequencerBalance)
-
-
+    console.log("test deposit gwei: " + depositAmount)
   })
-  
+
 
   beforeEach(async () => {
-    
-    console.log("input balance:"+await l1Wallet.getBalance()+","+depositAmount);
-    // postBalances = await getBalances()
-    // console.log(postBalances.l1UserBalance + "," + postBalances.l2UserBalance + "," + postBalances.l1GatewayBalance + "," + postBalances.sequencerBalance)
+    console.log("input balance: " + await l1Wallet.getBalance() + ", " + depositAmount)
   })
 
   it('abi',async()=>{
@@ -178,62 +166,36 @@ describe('Fee Payment Integration Tests', async () => {
     // const postBalances = await getBalances()
     // console.log("l1 wallet balance:" + postBalances.l1UserBalance + ",l2 wallet balance" + postBalances.l2UserBalance + ",l1gateway balance" + postBalances.l1GatewayBalance + ",seq balance" + postBalances.sequencerBalance)
     const tx2 = await OVM_L1ETHGateway.depositETHByChainId(
-      1088, 
+      1088,
       FINALIZATION_GAS,
       '0xFFFF',
       {
-      value: depositAmount
+        value: depositAmount
       }
     )
     const res = await tx2.wait()
-    //console.log("test",res)
+    // await 2s for peer
+    console.log('waiting peer')
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     const taxBalance = await MVM_Coinbase.balanceOf(l2Wallet.address)
-    const taxBalancePeer = await OVM_ETH.balanceOf(l2PeerWallet.address)
-    
-    console.log("test")
-    console.log("tax balance:"+taxBalance+","+taxBalancePeer)
-    // res = await MVM_Coinbase.withdraw(
-    //   1000,
-    //   {
-    //     gasPrice,
-    //     gasLimit
-    //   }
-    // )
-    // await res.wait()
-    // var postBalances = await getBalances()
-    // console.log("l1 wallet balance:"+postBalances.l1UserBalance+",l2 wallet balance"+postBalances.l2UserBalance+",l1gateway balance"+postBalances.l1GatewayBalance+",seq balance"+postBalances.sequencerBalance)
+    const taxBalancePeer = await MVM_CoinbasePeer.balanceOf(l2PeerWallet.address)
 
-    // // make sure stored and served correctly by geth
-    // expect(res.gasPrice.eq(gasPrice)).to.be.true
-    // expect(res.gasLimit.eq(gasLimit)).to.be.true
-
-    // postBalances = await getBalances()
-    // const feePaid = preBalances.l2UserBalance.sub(
-    //   postBalances.l2UserBalance
-    // )
-
-    // expect(
-    //   feePaid.
-    //     eq(
-    //       gasLimit.mul(gasPrice)
-    //     )
-    // ).to.be.true
+    console.log("tax balance: " + taxBalance + ", " +taxBalancePeer)
   })
   it.skip('withdraw', async () => {
     await OVM_L2CrossDomainMessenger.withdraw(
       predeploys.MVM_Coinbase,
-      100, 
+      100,
       0,
       '0xFFFF',
-      { gasPrice: 0,gasLimit:1000000 }
+      { gasPrice: 0, gasLimit:1000000 }
     )
     const taxBalance = await MVM_Coinbase.balanceOf(l2Wallet.address)
     const taxBalancePeer = await MVM_CoinbasePeer.balanceOf(l2PeerWallet.address)
-    
-    console.log("test")
-    console.log("tax balance:"+taxBalance+","+taxBalancePeer)
+
+    console.log("tax balance: " + taxBalance + ", " + taxBalancePeer)
   })
-  
+
   it.skip('sequencer rejects transaction with a non-multiple-of-1M gasPrice', async () => {
     const gasPrice = BigNumber.from(0)
     const gasLimit = BigNumber.from('0x100000')
