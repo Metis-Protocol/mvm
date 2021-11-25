@@ -27,7 +27,7 @@ export class BaseService<T> {
   protected metrics: Metrics
   protected initialized = false
   protected running = false
-  protected done = false
+  protected waitForShutdown = false
 
   constructor(
     name: string,
@@ -70,8 +70,8 @@ export class BaseService<T> {
     // set the service to running
     this.running = true
     await this._start()
-    this.done = true
-    this.logger.info(`Service ${this.name} is done...`)
+    this.waitForShutdown = true
+    this.logger.info(`Service ${this.name} can stop now`)
   }
 
   /**
@@ -85,7 +85,7 @@ export class BaseService<T> {
     this.logger.info(`Service ${this.name} is stopping...`)
     this.running = false
     await this._stop()
-    while (!this.done) {
+    while (!this.waitForShutdown) {
       await sleep(100)
     }
     this.logger.info(`Service ${this.name} has stopped`)
