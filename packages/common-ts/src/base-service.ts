@@ -71,6 +71,7 @@ export class BaseService<T> {
     this.running = true
     await this._start()
     this.done = true
+    this.logger.info('Service is done...')
   }
 
   /**
