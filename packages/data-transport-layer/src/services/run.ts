@@ -52,6 +52,12 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       sentryTraceRate: config.ufloat('sentry-trace-rate', 0.05),
     })
 
+    for (const sig of ['SIGINT', 'SIGTERM']) {
+      process.on(sig, () => {
+        console.log('stopping..')
+        service.stop().catch(console.log)
+      })
+    }
     await service.start()
   } catch (err) {
     console.error(
