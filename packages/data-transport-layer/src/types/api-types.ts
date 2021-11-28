@@ -44,6 +44,7 @@ export interface GasPriceResponse {
 export interface VerifierResultResponse {
   verify: VerifierResultEntry,
   batch: StateRootBatchEntry,
+  stateRoots: string[],
   success: boolean
 }
 

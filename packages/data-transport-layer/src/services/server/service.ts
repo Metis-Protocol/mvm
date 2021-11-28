@@ -745,6 +745,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
           return {
             verify: null,
             batch: null,
+            stateRoots: [],
             success
           }
         }
@@ -752,12 +753,30 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         const resp:VerifierResultResponse = {
           verify: result,
           batch: null,
+          stateRoots: [],
           success,
         }
 
         const stateRoot = await db.getStateRootByIndex(result.index)
         if (stateRoot) {
-          resp.batch = await db.getStateRootBatchByIndex(stateRoot.batchIndex)
+          const batch = await db.getStateRootBatchByIndex(stateRoot.batchIndex)
+          resp.batch = batch
+          const stateRoots = await db.getStateRootsByIndexRange(
+            BigNumber.from(batch.prevTotalElements).toNumber(),
+            BigNumber.from(batch.prevTotalElements).toNumber() +
+              BigNumber.from(batch.size).toNumber()
+          )
+          const rootsArray:string[] = []
+          if (stateRoots && stateRoots.length > 0) {
+            stateRoots.forEach((stateRoot) => {
+              if (stateRoot.index === result.index) {
+                rootsArray.push(result.verifierRoot)
+              } else {
+                rootsArray.push(stateRoot.value)
+              }
+            })
+          }
+          resp.stateRoots = rootsArray
         }
 
         return resp
@@ -785,6 +804,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         return {
           verify: entry,
           batch: null,
+          stateRoots: [],
           success,
         }
       }
