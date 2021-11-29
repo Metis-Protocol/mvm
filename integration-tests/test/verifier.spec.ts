@@ -37,37 +37,48 @@ describe('Fraud proof verifier Tests', async () => {
       gasPrice,
       gasLimit
     })
+    await sleep(2000)
     env.mvmVerifer.setWhiteList(env.l1Wallet2.address, true, {
       gasPrice,
       gasLimit
     })
+    await sleep(2000)
   })
 
-  it.skip(`should in whitelist`, async () => {
-    await expect(env.mvmVerifer.isWhiteListed(env.l1Wallet.address)).to.equal(true)
+  it(`should in whitelist`, async () => {
+    const result = await env.mvmVerifer.isWhiteListed(env.l1Wallet.address)
+    console.log(`${env.l1Wallet.address} whitelist status ${result}`)
+    expect(result).to.equal(true)
   })
 
   it(`should not in whitelist`, async () => {
-    await expect(env.mvmVerifer.isWhiteListed(env.l2Messenger.address)).to.equal(false)
+    const result = await env.mvmVerifer.isWhiteListed(env.l2Messenger.address)
+    console.log(`${env.l2Messenger.address} whitelist status ${result}`)
+    expect(result).to.equal(false)
   })
 
   it(`should be sufficiently staked`, async () => {
     let result = await env.mvmVerifer.isSufficientlyStaked(env.l1Wallet.address)
+    console.log(`${env.l1Wallet.address} stake status ${result}`)
     if (!result) {
       console.log(`${env.l1Wallet.address} has not staked yet, starting stake`)
       const balance = await env.l1Wallet.getBalance()
       console.log(`${env.l1Wallet.address} balance is ${balance}`)
-      await env.mvmVerifer.verifierStake(
+      const tx = await env.mvmVerifer.verifierStake(
         ethers.utils.parseEther("200"),
         {
           gasPrice,
           gasLimit
         })
+      console.log(`${env.l1Wallet.address} verifier stake tx ${tx}`)
       await sleep(2000)
+      result = await env.mvmVerifer.isSufficientlyStaked(env.l1Wallet.address)
+      console.log(`${env.l1Wallet.address} stake status ${result}`)
     }
 
     // ensure wallet2 staked
     result = await env.mvmVerifer.isSufficientlyStaked(env.l1Wallet2.address)
+    console.log(`${env.l1Wallet2.address} stake status ${result}`)
     if (!result) {
       console.log(`${env.l1Wallet2.address} has not staked yet, starting stake`)
       const balance = await env.l1Wallet2.getBalance()
@@ -76,19 +87,22 @@ describe('Fraud proof verifier Tests', async () => {
         const tx = await env.l1Wallet.sendTransaction({
           to: env.l1Wallet2.address,
           value: ethers.utils.parseEther("200"),
-          gasPrice: env.l1Wallet.provider.getGasPrice(),
-          gasLimit: 21000,
+          gasPrice,
+          gasLimit,
         })
         console.log('transfer tx', tx)
       }
       await sleep(2000)
-      await env.mvmVerifer.connect(env.l1Wallet2).verifierStake(
+      const tx = await env.mvmVerifer.connect(env.l1Wallet2).verifierStake(
         ethers.utils.parseEther("200"),
         {
           gasPrice,
           gasLimit
         })
+      console.log(`${env.l1Wallet2.address} verifier stake tx ${tx}`)
       await sleep(2000)
+      result = await env.mvmVerifer.isSufficientlyStaked(env.l1Wallet2.address)
+      console.log(`${env.l1Wallet2.address} stake status ${result}`)
     }
     expect(result).to.equal(true)
   })
