@@ -249,6 +249,9 @@ services:
     restart: on-failure
 
   gas_oracle:
+    depends_on:
+      - l1_chain
+      - l2geth
     image: ethereumoptimism/gas-oracle
     # deploy:
     #    replicas: 0
