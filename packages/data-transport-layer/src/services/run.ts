@@ -47,10 +47,20 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       ),
       defaultBackend: config.str('default-backend', 'l1'),
       l1GasPriceBackend: config.str('l1-gas-price-backend', 'l1'),
+      l1StartHeight: config.uint('l1-start-height'),
       useSentry: config.bool('use-sentry', false),
       sentryDsn: config.str('sentry-dsn'),
       sentryTraceRate: config.ufloat('sentry-trace-rate', 0.05),
     })
+
+    const stop = async (signal) => {
+      console.log(`"{"msg": "${signal} - Stopping data-transport layer"}"`)
+      await service.stop()
+      process.exit()
+    }
+
+    process.on('SIGTERM', stop)
+    process.on('SIGINT', stop)
 
     await service.start()
   } catch (err) {
