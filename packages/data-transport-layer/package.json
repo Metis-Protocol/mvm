@@ -1,12 +1,13 @@
 {
+  "private": true,
   "name": "@eth-optimism/data-transport-layer",
   "version": "0.4.8",
-  "private": true,
+  "description": "Service for shuttling data from L1 into L2",
   "main": "dist/index",
+  "types": "dist/index",
   "files": [
     "dist/index"
   ],
-  "types": "dist/index",
   "author": "Metis.io",
   "license": "MIT",
   "scripts": {

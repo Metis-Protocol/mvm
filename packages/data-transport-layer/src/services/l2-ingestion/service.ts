@@ -73,6 +73,7 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
 
   private state: {
     db: TransportDB
+    dbs: TransportDBMap
     l2RpcProvider: StaticJsonRpcProvider
   } = {} as any
 
@@ -86,6 +87,7 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
     this.l2IngestionMetrics = registerMetrics(this.metrics)
 
     this.state.db = new TransportDB(this.options.db)
+    this.state.dbs = {}
 
     this.state.l2RpcProvider =
       typeof this.options.l2RpcProvider === 'string'
@@ -119,7 +121,7 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
         }
 
         this.logger.info(
-          'Synchronizing unconfirmed transactions from Layer 2 (Optimistic Ethereum)',
+          'Synchronizing unconfirmed transactions from Layer 2 (Metis)',
           {
             fromBlock: highestSyncedL2BlockNumber,
             toBlock: targetL2Block,
@@ -230,7 +232,11 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
         block,
         this.options.l2ChainId
       )
-      await handleSequencerBlock.storeBlock(entry, this.state.db)
+      var db = this.state.db
+      if (this.options.l2ChainId && this.options.l2ChainId >0){
+          db = await this.options.dbs.getTransportDbByChainId(this.options.l2ChainId)
+      }
+      await handleSequencerBlock.storeBlock(entry, db)
     }
   }
 }

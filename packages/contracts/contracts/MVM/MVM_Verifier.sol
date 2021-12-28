@@ -7,6 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { iMVM_DiscountOracle } from "./iMVM_DiscountOracle.sol";
 import { Lib_AddressResolver } from "../libraries/resolver/Lib_AddressResolver.sol";
 import { Lib_OVMCodec } from "../libraries/codec/Lib_OVMCodec.sol";
+import { Lib_MerkleTree } from "../libraries/utils/Lib_MerkleTree.sol";
 import { IStateCommitmentChain } from "../L1/rollup/IStateCommitmentChain.sol";
 
 contract MVM_Verifier is Lib_AddressResolver{
@@ -406,6 +407,10 @@ contract MVM_Verifier is Lib_AddressResolver{
     function setThreshold(uint absence_threshold, uint fail_threshold) public onlyManager {
         ABSENCE_THRESHOLD = absence_threshold;
         FAIL_THRESHOLD = fail_threshold;
+    }
+
+    function getMerkleRoot(bytes32[] calldata elements) pure public returns (bytes32) {
+        return Lib_MerkleTree.getMerkleRoot(elements);
     }
 
     //helper fucntion to encrypt data

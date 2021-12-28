@@ -75,4 +75,6 @@ nohup geth \
   --unlock $BLOCK_SIGNER_ADDRESS \
   --mine \
   --miner.etherbase $BLOCK_SIGNER_ADDRESS \
+  --syncmode full \
+  --gcmode archive \
   "$@" >> /app/log/t_geth.log &

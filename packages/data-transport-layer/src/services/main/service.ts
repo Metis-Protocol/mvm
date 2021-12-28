@@ -36,6 +36,7 @@ export interface L1DataTransportServiceOptions {
   sentryTraceRate?: number
   defaultBackend: string
   l1GasPriceBackend: string
+  l1StartHeight?: number
 }
 
 const optionSettings = {
@@ -71,7 +72,7 @@ export class L1DataTransportService extends BaseService<L1DataTransportServiceOp
     this.state.db = level(this.options.dbPath)
     await this.state.db.open()
     this.state.dbs = new TransportDBMapHolder(this.options.dbPath)
-    
+
     this.state.metrics = new Metrics({
       labels: {
         environment: this.options.nodeEnv,
