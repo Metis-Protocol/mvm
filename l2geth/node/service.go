@@ -95,6 +95,19 @@ func (ctx *ServiceContext) HTTPModules() []string {
 	return ctx.config.HTTPModules
 }
 
+func (ctx *ServiceContext) IsRollupNode() bool {
+	for _, httpModule := range ctx.config.HTTPModules {
+		if httpModule == "rollup" {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *ServiceContext) L2Url() string {
+	return ctx.config.L2Url
+}
+
 // ServiceConstructor is the function signature of the constructors needed to be
 // registered for service instantiation.
 type ServiceConstructor func(ctx *ServiceContext) (Service, error)

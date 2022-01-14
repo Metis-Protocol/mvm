@@ -1600,6 +1600,17 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		}
 	}
 	if !canSubmit {
+		// check RPC proxy and do proxy
+		if b.IsRpcProxySupport() {
+			tx.SetL2Tx(2)
+			errRpc := b.ProxyTransaction(ctx, tx)
+			tx.SetL2Tx(1)
+			if errRpc == nil {
+				return tx.Hash(), nil
+			}
+			return common.Hash{}, errRpc
+		}
+
 		return common.Hash{}, errors.New("Not support submit transaction")
 	}
 

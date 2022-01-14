@@ -81,7 +81,7 @@ services:
       # connect to the 2 layers
       DATA_TRANSPORT_LAYER__L1_RPC_ENDPOINT: http://l1_chain:8545
       DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: http://l2geth:8545
-      DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
+      DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'true'
       DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 1088
     ports:
       - ${DTL_PORT:-7878}:7878
@@ -120,6 +120,8 @@ services:
     depends_on:
       - l2geth
     image: ethereumoptimism/l2geth-peer
+    # deploy:
+    #   replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth.peer
@@ -198,8 +200,8 @@ services:
       - deployer
       - dtl
     image: ethereumoptimism/l2geth
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth
@@ -225,14 +227,14 @@ services:
     depends_on:
       - dtl
     image: ethereumoptimism/l2geth
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth
     entrypoint: sh ./geth.sh
     env_file:
-      - ./envs/geth.env
+      - ./envs/geth-replica.env
     environment:
       ETH1_HTTP: http://l1_chain:8545
       ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json

@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
@@ -71,6 +72,8 @@ type Ethereum struct {
 
 	// Node config for check if rollup on
 	nodeRpcModules []string
+
+	rpcClient *ethclient.Client
 
 	// Channel for shutting down the service
 	shutdownChan chan bool
@@ -238,6 +241,17 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	rollupGpo := gasprice.NewRollupOracle()
 	eth.APIBackend.rollupGpo = rollupGpo
 	eth.syncService.RollupGpo = rollupGpo
+
+	// create ethclient
+	l2Url := ctx.L2Url()
+	if l2Url != "" && !ctx.IsRollupNode() {
+		eth.rpcClient, err = ethclient.Dial(l2Url)
+		if err != nil {
+			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
+		}
+		log.Info("Dial to a new proxy rpc client", "url", l2Url)
+	}
+
 	return eth, nil
 }
 
@@ -568,6 +582,11 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
+
+	// stop rpc
+	if s.rpcClient != nil {
+		s.rpcClient.Close()
+	}
 
 	s.bloomIndexer.Close()
 	s.blockchain.Stop()

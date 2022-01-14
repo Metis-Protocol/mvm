@@ -329,3 +329,14 @@ func (b *LesApiBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 func (b *LesApiBackend) NodeHTTPModules() []string {
 	return b.eth.nodeRpcModules
 }
+
+func (b *LesApiBackend) IsRpcProxySupport() bool {
+	return b.eth.rpcClient != nil
+}
+
+func (b *LesApiBackend) ProxyTransaction(ctx context.Context, tx *types.Transaction) error {
+	if !b.IsRpcProxySupport() {
+		return nil
+	}
+	return b.eth.rpcClient.SendTransaction(ctx, tx)
+}

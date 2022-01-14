@@ -426,3 +426,14 @@ func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 func (b *EthAPIBackend) NodeHTTPModules() []string {
 	return b.eth.nodeRpcModules
 }
+
+func (b *EthAPIBackend) IsRpcProxySupport() bool {
+	return b.eth.rpcClient != nil
+}
+
+func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transaction) error {
+	if !b.IsRpcProxySupport() {
+		return nil
+	}
+	return b.eth.rpcClient.SendTransaction(ctx, tx)
+}
