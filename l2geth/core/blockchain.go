@@ -1479,7 +1479,7 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
 		// NOTE 20210724
-		log.Debug("Test: BlockChain.InsertChain, len chain = 0")
+		// log.Debug("Test: BlockChain.InsertChain, len chain = 0")
 		return 0, nil
 	}
 
@@ -1551,7 +1551,7 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 	// Fire a single chain head event if we've progressed the chain
 	defer func() {
 		// NOTE 20210724
-		fmt.Println("Test: defer 1 in insertChain", "lastCanon", lastCanon != nil, "block hash", bc.CurrentBlock().Hash())
+		// fmt.Println("Test: defer 1 in insertChain", "lastCanon", lastCanon != nil, "func", f, "block hash", bc.CurrentBlock().Hash())
 		if verifySeals {
 			bc.chainmu.Unlock()
 			bc.wg.Done()
@@ -1587,7 +1587,7 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 	block, err := it.next()
 
 	// NOTE 20210724
-	log.Debug("Test: it.next before insert chain", block, err)
+	// log.Debug("Test: it.next before insert chain", block, err)
 
 	// Left-trim all the known blocks
 	if err == ErrKnownBlock {

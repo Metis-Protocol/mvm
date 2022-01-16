@@ -30,9 +30,11 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/forkid"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
+	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -40,6 +42,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/rcfg"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -101,7 +104,12 @@ type ProtocolManager struct {
 	// NOTE 20210724, a ticker for fetcher
 	tickerFetcherSync *time.Ticker
 	// Node config for check if rollup on
-	nodeHTTPModules []string
+	nodeHTTPModules                []string
+	rollupGpo                      *gasprice.RollupOracle
+	gasPriceOracleOwnerAddress     common.Address
+	gasPriceOracleOwnerAddressLock *sync.RWMutex
+	gasInitialized                 bool
+	signer                         types.Signer
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -109,18 +117,21 @@ type ProtocolManager struct {
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:       networkID,
-		forkFilter:      forkid.NewFilter(blockchain),
-		eventMux:        mux,
-		txpool:          txpool,
-		blockchain:      blockchain,
-		peers:           newPeerSet(),
-		whitelist:       whitelist,
-		newPeerCh:       make(chan *peer),
-		noMorePeers:     make(chan struct{}),
-		txsyncCh:        make(chan *txsync),
-		quitSync:        make(chan struct{}),
-		nodeHTTPModules: nodeHTTPModules,
+		networkID:                      networkID,
+		forkFilter:                     forkid.NewFilter(blockchain),
+		eventMux:                       mux,
+		txpool:                         txpool,
+		blockchain:                     blockchain,
+		peers:                          newPeerSet(),
+		whitelist:                      whitelist,
+		newPeerCh:                      make(chan *peer),
+		noMorePeers:                    make(chan struct{}),
+		txsyncCh:                       make(chan *txsync),
+		quitSync:                       make(chan struct{}),
+		nodeHTTPModules:                nodeHTTPModules,
+		gasInitialized:                 false,
+		signer:                         types.NewEIP155Signer(config.ChainID),
+		gasPriceOracleOwnerAddressLock: new(sync.RWMutex),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -158,7 +169,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	if atomic.LoadUint32(&manager.fastSync) == 1 {
 		stateBloom = trie.NewSyncBloom(uint64(cacheLimit), chaindb)
 	}
-	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, stateBloom, manager.eventMux, blockchain, nil, manager.removePeer)
+	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, stateBloom, manager.eventMux, blockchain, nil, manager.removePeer, manager.updateGasPrice)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -193,6 +204,9 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		n, err := manager.blockchain.InsertChainWithFunc(blocks, f)
 		if err == nil {
 			atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+
+			// update gas
+			manager.updateGasPrice(blocks)
 		}
 		return n, err
 	}
@@ -905,4 +919,135 @@ func (pm *ProtocolManager) HasRPCModule(rpcName string) bool {
 		}
 	}
 	return false
+}
+
+func (pm *ProtocolManager) GasPriceOracleOwnerAddress() *common.Address {
+	pm.gasPriceOracleOwnerAddressLock.RLock()
+	defer pm.gasPriceOracleOwnerAddressLock.RUnlock()
+	return &pm.gasPriceOracleOwnerAddress
+}
+
+func (pm *ProtocolManager) readGPOStorageSlot(statedb *state.StateDB, hash common.Hash) (*big.Int, error) {
+	if statedb == nil {
+		var err error
+		statedb, err = pm.blockchain.State()
+		if err != nil {
+			return nil, err
+		}
+	}
+	result := statedb.GetState(rcfg.L2GasPriceOracleAddress, hash)
+	return result.Big(), nil
+}
+
+func (pm *ProtocolManager) updateL1GasPrice(statedb *state.StateDB) error {
+	value, err := pm.readGPOStorageSlot(statedb, rcfg.L1GasPriceSlot)
+	if err != nil {
+		return err
+	}
+	return pm.rollupGpo.SetL1GasPrice(value)
+}
+
+func (pm *ProtocolManager) updateL2GasPrice(statedb *state.StateDB) error {
+	value, err := pm.readGPOStorageSlot(statedb, rcfg.L2GasPriceSlot)
+	if err != nil {
+		return err
+	}
+	return pm.rollupGpo.SetL2GasPrice(value)
+}
+
+// updateOverhead will update the overhead value from the OVM_GasPriceOracle
+// in the local cache
+func (pm *ProtocolManager) updateOverhead(statedb *state.StateDB) error {
+	value, err := pm.readGPOStorageSlot(statedb, rcfg.OverheadSlot)
+	if err != nil {
+		return err
+	}
+	return pm.rollupGpo.SetOverhead(value)
+}
+
+// updateScalar will update the scalar value from the OVM_GasPriceOracle
+// in the local cache
+func (pm *ProtocolManager) updateScalar(statedb *state.StateDB) error {
+	scalar, err := pm.readGPOStorageSlot(statedb, rcfg.ScalarSlot)
+	if err != nil {
+		return err
+	}
+	decimals, err := pm.readGPOStorageSlot(statedb, rcfg.DecimalsSlot)
+	if err != nil {
+		return err
+	}
+	return pm.rollupGpo.SetScalar(scalar, decimals)
+}
+
+func (pm *ProtocolManager) cacheGasPriceOracleOwner(statedb *state.StateDB) error {
+	pm.gasPriceOracleOwnerAddressLock.Lock()
+	defer pm.gasPriceOracleOwnerAddressLock.Unlock()
+
+	value, err := pm.readGPOStorageSlot(statedb, rcfg.L2GasPriceOracleOwnerSlot)
+	if err != nil {
+		return err
+	}
+	pm.gasPriceOracleOwnerAddress = common.BigToAddress(value)
+	return nil
+}
+
+func (pm *ProtocolManager) updateGasPriceOracleCache(hash *common.Hash) error {
+	if pm.rollupGpo == nil {
+		return nil
+	}
+	var statedb *state.StateDB
+	var err error
+	if hash != nil {
+		statedb, err = pm.blockchain.StateAt(*hash)
+	} else {
+		statedb, err = pm.blockchain.State()
+	}
+	if err != nil {
+		return err
+	}
+	if err := pm.cacheGasPriceOracleOwner(statedb); err != nil {
+		return err
+	}
+	if err := pm.updateL2GasPrice(statedb); err != nil {
+		return err
+	}
+	if err := pm.updateL1GasPrice(statedb); err != nil {
+		return err
+	}
+	if err := pm.updateOverhead(statedb); err != nil {
+		return err
+	}
+	if err := pm.updateScalar(statedb); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pm *ProtocolManager) updateGasPrice(blocks types.Blocks) {
+	// update gas in peer (without rollup both main node & verifier)
+	if !pm.HasRPCModule("rollup") && len(blocks) > 0 {
+		hasGasOralceTx := false
+		for _, block := range blocks {
+			txs := block.Transactions()
+			for _, tx := range txs {
+				// chainConfig.ChainID
+				sender, _ := types.Sender(pm.signer, tx)
+				owner := pm.GasPriceOracleOwnerAddress()
+				if owner != nil && sender == *owner {
+					hasGasOralceTx = true
+					break
+				}
+			}
+			if hasGasOralceTx {
+				break
+			}
+		}
+
+		if hasGasOralceTx || !pm.gasInitialized {
+			pm.updateGasPriceOracleCache(nil)
+			if !pm.gasInitialized {
+				pm.gasInitialized = true
+			}
+		}
+	}
 }

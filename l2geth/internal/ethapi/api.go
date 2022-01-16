@@ -957,6 +957,26 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 	return (hexutil.Bytes)(result), err
 }
 
+func toCallArg(args CallArgs) interface{} {
+	arg := map[string]interface{}{
+		"from": args.From,
+		"to":   args.To,
+	}
+	if args.Data != nil {
+		arg["data"] = args.Data
+	}
+	if args.Value != nil {
+		arg["value"] = args.Value
+	}
+	// if args.Gas != 0 {
+	// 	arg["gas"] = args.Gas
+	// }
+	if args.GasPrice != nil {
+		arg["gasPrice"] = args.GasPrice
+	}
+	return arg
+}
+
 // Optimism note: The gasPrice in Optimism is modified to always return 1 gwei. We
 // use the gasLimit field to communicate the entire user fee. This is done for
 // for compatibility reasons with the existing Ethereum toolchain, so that the user
@@ -970,18 +990,33 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		cap uint64
 	)
 
+	// rpc proxy check
+	// if b.IsRpcProxySupport() {
+	// 	callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
+
+	// 	gasLimit, err := b.ProxyEstimateGas(ctx, toCallArg(callArgs))
+	// 	if err != nil {
+	// 		return 0, err
+	// 	}
+	// 	// threshold if has Gas arg
+	// 	// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
+	// 	// 	gasLimit = uint64(*args.Gas)
+	// 	// }
+	// 	return hexutil.Uint64(gasLimit), nil
+	// }
+
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
-	if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
-		hi = uint64(*args.Gas)
-	} else {
-		// Retrieve the block to act as the gas ceiling
-		block, err := b.BlockByNumberOrHash(ctx, blockNrOrHash)
-		if err != nil {
-			return 0, err
-		}
-		hi = block.GasLimit()
+	// if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
+	// 	hi = uint64(*args.Gas)
+	// } else {
+	// Retrieve the block to act as the gas ceiling
+	block, err := b.BlockByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return 0, err
 	}
+	hi = block.GasLimit()
+	// }
 	if gasCap != nil && hi > gasCap.Uint64() {
 		log.Warn("Caller gas above allowance, capping", "requested", hi, "cap", gasCap)
 		hi = gasCap.Uint64()
@@ -1037,6 +1072,11 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
 		}
 	}
+
+	// threshold if has Gas arg
+	// if args.Gas != nil && uint64(*args.Gas) < hi {
+	// 	hi = uint64(*args.Gas)
+	// }
 
 	log.Debug("gas estimate", "gas", hi)
 	return hexutil.Uint64(hi), nil

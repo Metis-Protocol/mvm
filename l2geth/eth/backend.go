@@ -241,6 +241,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	rollupGpo := gasprice.NewRollupOracle()
 	eth.APIBackend.rollupGpo = rollupGpo
 	eth.syncService.RollupGpo = rollupGpo
+	// add rollupGpo for protocolManager
+	eth.protocolManager.rollupGpo = rollupGpo
+	eth.protocolManager.gasPriceOracleOwnerAddress = config.Rollup.GasPriceOracleOwnerAddress
 
 	// create ethclient
 	l2Url := ctx.L2Url()
