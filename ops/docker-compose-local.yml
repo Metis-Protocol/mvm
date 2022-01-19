@@ -137,6 +137,7 @@ services:
       # connecting to the DTL
       ROLLUP_CLIENT_HTTP: http://dtl:7878
       L2_URL: http://l2geth:8545
+      L2_MAIN_IP: 
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
       RETRIES: 60
       # ROLLUP_POLL_INTERVAL_FLAG: 30000ms

@@ -1475,16 +1475,15 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // After insertion is done, all accumulated events will be fired.
 func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (int, error) {
 	// NOTE 20210724
-	// log.Debug("Test: BlockChain.InsertChain")
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
 		// NOTE 20210724
-		// log.Debug("Test: BlockChain.InsertChain, len chain = 0")
 		return 0, nil
 	}
 
 	bc.blockProcFeed.Send(true)
-	defer bc.blockProcFeed.Send(false)
+	// NOTE: 20210724
+	// defer bc.blockProcFeed.Send(false)
 
 	// Remove already known canon-blocks
 	var (
@@ -1507,10 +1506,34 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
 	// NOTE 20210724
-	// n, err := bc.insertChain(chain, true)
-	n, err := bc.insertChainWithFunc(chain, true, f)
-	// NOTE 20210724
-	// log.Debug("Test: after insert chain", "err", err)
+	// n, err := bc.insertChainWithFunc(chain, true, func() {
+	// 	bc.chainmu.Unlock()
+	// 	bc.wg.Done()
+
+	// 	if f != nil {
+	// 		f.(func())()
+	// 	}
+
+	// 	bc.blockProcFeed.Send(false)
+	// })
+
+	// resolve call function hang without return response
+	chn := make(chan int)
+	cherr := make(chan error)
+
+	go bc.insertChainWithFuncAndCh(chain, true, chn, cherr, func() {
+		bc.chainmu.Unlock()
+		bc.wg.Done()
+
+		if f != nil {
+			f.(func())()
+		}
+		bc.blockProcFeed.Send(false)
+	})
+
+	n := <-chn
+	err := <-cherr
+
 	// bc.chainmu.Unlock()
 	// bc.wg.Done()
 
@@ -1530,14 +1553,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
 func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, f interface{}) (int, error) {
-	// NOTE 20210724
-	// log.Debug("Test: BlockChain.insertChain", "seals", verifySeals)
 	// If the chain is terminating, don't even bother starting up
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		// NOTE 20210724
-		if verifySeals {
-			bc.chainmu.Unlock()
-			bc.wg.Done()
+		// if verifySeals {
+		// 	bc.chainmu.Unlock()
+		// 	bc.wg.Done()
+		// }
+		if f != nil {
+			f.(func())()
 		}
 		return 0, nil
 	}
@@ -1551,11 +1575,10 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 	// Fire a single chain head event if we've progressed the chain
 	defer func() {
 		// NOTE 20210724
-		// fmt.Println("Test: defer 1 in insertChain", "lastCanon", lastCanon != nil, "func", f, "block hash", bc.CurrentBlock().Hash())
-		if verifySeals {
-			bc.chainmu.Unlock()
-			bc.wg.Done()
-		}
+		// if verifySeals {
+		// 	bc.chainmu.Unlock()
+		// 	bc.wg.Done()
+		// }
 
 		// NOTE 20210724
 		if f != nil {
@@ -1576,18 +1599,12 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 
-	// NOTE 20210724
-	// fmt.Println("Test: VerifyHeaders before insert chain", abort, results)
-
 	defer close(abort)
 
 	// Peek the error for the first block to decide the directing import logic
 	it := newInsertIterator(chain, results, bc.validator)
 
 	block, err := it.next()
-
-	// NOTE 20210724
-	// log.Debug("Test: it.next before insert chain", block, err)
 
 	// Left-trim all the known blocks
 	if err == ErrKnownBlock {
@@ -1680,7 +1697,6 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		}
 		// If the header is a banned one, straight out abort
 		if BadHashes[block.Hash()] {
-			log.Debug("Test: BadHashes", block.Hash())
 			bc.reportBlock(block, nil, ErrBlacklistedHash)
 			return it.index, ErrBlacklistedHash
 		}
@@ -1824,8 +1840,6 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		dirty, _ := bc.stateCache.TrieDB().Size()
 		stats.report(chain, it.index, dirty)
 	}
-	// NOTE 20210724
-	// log.Debug("Test: insert chain done updated 1", "block", block != nil, "err", err)
 	// Any blocks remaining here? The only ones we care about are the future ones
 	if block != nil && err == consensus.ErrFutureBlock {
 		if err := bc.addFutureBlock(block); err != nil {
@@ -1842,9 +1856,342 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 	}
 	stats.ignored += it.remaining()
 
-	// NOTE 20210724
-	// log.Debug("Test: insert chain done updated 2", "index", it.index, "remaining", it.remaining(), "err", err)
+	return it.index, err
+}
 
+func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals bool, chn chan int, cherr chan error, f interface{}) (int, error) {
+	// If the chain is terminating, don't even bother starting up
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		// NOTE 20210724
+		// if verifySeals {
+		// 	bc.chainmu.Unlock()
+		// 	bc.wg.Done()
+		// }
+		if f != nil {
+			f.(func())()
+		}
+		chn <- 0
+		cherr <- nil
+		return 0, nil
+	}
+	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
+	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
+
+	var (
+		stats     = insertStats{startTime: mclock.Now()}
+		lastCanon *types.Block
+	)
+	// Fire a single chain head event if we've progressed the chain
+	defer func() {
+		// NOTE 20210724
+		// if verifySeals {
+		// 	bc.chainmu.Unlock()
+		// 	bc.wg.Done()
+		// }
+
+		// NOTE 20210724
+		if f != nil {
+			f.(func())()
+		}
+
+		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
+			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
+		}
+	}()
+	// Start the parallel header verifier
+	headers := make([]*types.Header, len(chain))
+	seals := make([]bool, len(chain))
+
+	for i, block := range chain {
+		headers[i] = block.Header()
+		seals[i] = verifySeals
+	}
+	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+
+	defer close(abort)
+
+	// Peek the error for the first block to decide the directing import logic
+	it := newInsertIterator(chain, results, bc.validator)
+
+	block, err := it.next()
+
+	// Left-trim all the known blocks
+	if err == ErrKnownBlock {
+		// First block (and state) is known
+		//   1. We did a roll-back, and should now do a re-import
+		//   2. The block is stored as a sidechain, and is lying about it's stateroot, and passes a stateroot
+		// 	    from the canonical chain, which has not been verified.
+		// Skip all known blocks that are behind us
+		var (
+			current  = bc.CurrentBlock()
+			localTd  = bc.GetTd(current.Hash(), current.NumberU64())
+			externTd = bc.GetTd(block.ParentHash(), block.NumberU64()-1) // The first block can't be nil
+		)
+		for block != nil && err == ErrKnownBlock {
+			externTd = new(big.Int).Add(externTd, block.Difficulty())
+			if localTd.Cmp(externTd) < 0 {
+				break
+			}
+			log.Debug("Ignoring already known block", "number", block.Number(), "hash", block.Hash())
+			stats.ignored++
+
+			block, err = it.next()
+		}
+		// The remaining blocks are still known blocks, the only scenario here is:
+		// During the fast sync, the pivot point is already submitted but rollback
+		// happens. Then node resets the head full block to a lower height via `rollback`
+		// and leaves a few known blocks in the database.
+		//
+		// When node runs a fast sync again, it can re-import a batch of known blocks via
+		// `insertChain` while a part of them have higher total difficulty than current
+		// head full block(new pivot point).
+		for block != nil && err == ErrKnownBlock {
+			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
+			// NOTE 20210724 disable writeKnownBlock
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
+			lastCanon = block
+
+			block, err = it.next()
+		}
+		// Falls through to the block import
+	}
+	switch {
+	// First block is pruned, insert as sidechain and reorg only if TD grows enough
+	case err == consensus.ErrPrunedAncestor:
+		log.Debug("Pruned ancestor, inserting as sidechain", "number", block.Number(), "hash", block.Hash())
+		n2, err2 := bc.insertSideChain(block, it)
+		chn <- n2
+		cherr <- err2
+		return n2, err2
+
+	// First block is future, shove it (and all children) to the future queue (unknown ancestor)
+	case err == consensus.ErrFutureBlock || (err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(it.first().ParentHash())):
+		for block != nil && (it.index == 0 || err == consensus.ErrUnknownAncestor) {
+			log.Debug("Future block, postponing import", "number", block.Number(), "hash", block.Hash())
+			if err := bc.addFutureBlock(block); err != nil {
+				chn <- it.index
+				cherr <- err
+				return it.index, err
+			}
+			block, err = it.next()
+		}
+
+		// NOTE 20210724
+		if block != nil && it.index > 0 && err == consensus.ErrFutureBlock {
+			log.Debug("Future block >= 1, postponing import", "number", block.Number(), "hash", block.Hash())
+			if err := bc.addFutureBlock(block); err != nil {
+				chn <- it.index
+				cherr <- err
+				return it.index, err
+			}
+			block, err = it.next()
+		}
+
+		stats.queued += it.processed()
+		stats.ignored += it.remaining()
+
+		// If there are any still remaining, mark as ignored
+		chn <- it.index
+		cherr <- err
+		return it.index, err
+
+	// Some other error occurred, abort
+	case err != nil:
+		// NOTE 20210724
+		log.Debug("Other error block, ignore", block.Hash(), err)
+		bc.futureBlocks.Remove(block.Hash())
+		stats.ignored += len(it.chain)
+		bc.reportBlock(block, nil, err)
+		chn <- it.index
+		cherr <- err
+		return it.index, err
+	}
+	// No validation errors for the first block (or chain prefix skipped)
+	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
+		// If the chain is terminating, stop processing blocks
+		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+			log.Debug("Premature abort during blocks processing")
+			break
+		}
+		// If the header is a banned one, straight out abort
+		if BadHashes[block.Hash()] {
+			bc.reportBlock(block, nil, ErrBlacklistedHash)
+			chn <- it.index
+			cherr <- ErrBlacklistedHash
+			return it.index, ErrBlacklistedHash
+		}
+		// If the block is known (in the middle of the chain), it's a special case for
+		// Clique blocks where they can share state among each other, so importing an
+		// older block might complete the state of the subsequent one. In this case,
+		// just skip the block (we already validated it once fully (and crashed), since
+		// its header and body was already in the database).
+		if err == ErrKnownBlock {
+			logger := log.Debug
+			if bc.chainConfig.Clique == nil {
+				logger = log.Warn
+			}
+			logger("Inserted known block", "number", block.Number(), "hash", block.Hash(),
+				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
+				"root", block.Root())
+
+			// NOTE 20210724 disable writeKnownBlock
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
+			stats.processed++
+
+			// We can assume that logs are empty here, since the only way for consecutive
+			// Clique blocks to have the same state is if there are no transactions.
+			lastCanon = block
+			continue
+		}
+		// Retrieve the parent block and it's state to execute on top
+		start := time.Now()
+
+		parent := it.previous()
+		if parent == nil {
+			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
+		}
+		statedb, err := state.New(parent.Root, bc.stateCache)
+		if err != nil {
+			chn <- it.index
+			cherr <- err
+			return it.index, err
+		}
+		// If we have a followup block, run that against the current state to pre-cache
+		// transactions and probabilistically some of the account/storage trie nodes.
+		var followupInterrupt uint32
+
+		if !bc.cacheConfig.TrieCleanNoPrefetch {
+			if followup, err := it.peek(); followup != nil && err == nil {
+				go func(start time.Time) {
+					throwaway, _ := state.New(parent.Root, bc.stateCache)
+					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
+
+					blockPrefetchExecuteTimer.Update(time.Since(start))
+					if atomic.LoadUint32(&followupInterrupt) == 1 {
+						blockPrefetchInterruptMeter.Mark(1)
+					}
+				}(time.Now())
+			}
+		}
+		// Process block using the parent state as reference point
+		substart := time.Now()
+		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
+		if err != nil {
+			bc.reportBlock(block, receipts, err)
+			atomic.StoreUint32(&followupInterrupt, 1)
+			chn <- it.index
+			cherr <- err
+			return it.index, err
+		}
+		// Update the metrics touched during block processing
+		accountReadTimer.Update(statedb.AccountReads)     // Account reads are complete, we can mark them
+		storageReadTimer.Update(statedb.StorageReads)     // Storage reads are complete, we can mark them
+		accountUpdateTimer.Update(statedb.AccountUpdates) // Account updates are complete, we can mark them
+		storageUpdateTimer.Update(statedb.StorageUpdates) // Storage updates are complete, we can mark them
+
+		triehash := statedb.AccountHashes + statedb.StorageHashes // Save to not double count in validation
+		trieproc := statedb.AccountReads + statedb.AccountUpdates
+		trieproc += statedb.StorageReads + statedb.StorageUpdates
+
+		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
+
+		// Validate the state using the default validator
+		substart = time.Now()
+
+		// NOTE 20210724
+		usedGas = block.GasUsed()
+
+		if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
+			bc.reportBlock(block, receipts, err)
+			atomic.StoreUint32(&followupInterrupt, 1)
+			chn <- it.index
+			cherr <- err
+			return it.index, err
+		}
+		proctime := time.Since(start)
+
+		// Update the metrics touched during block validation
+		accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
+		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
+
+		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
+
+		// Write the block to the chain and get the status.
+		substart = time.Now()
+		status, err := bc.writeBlockWithState(block, receipts, logs, statedb, false)
+		if err != nil {
+			atomic.StoreUint32(&followupInterrupt, 1)
+			chn <- it.index
+			cherr <- err
+			return it.index, err
+		}
+		atomic.StoreUint32(&followupInterrupt, 1)
+
+		// Update the metrics touched during block commit
+		accountCommitTimer.Update(statedb.AccountCommits) // Account commits are complete, we can mark them
+		storageCommitTimer.Update(statedb.StorageCommits) // Storage commits are complete, we can mark them
+
+		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits)
+		blockInsertTimer.UpdateSince(start)
+
+		switch status {
+		case CanonStatTy:
+			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(),
+				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
+				"elapsed", common.PrettyDuration(time.Since(start)),
+				"root", block.Root())
+
+			lastCanon = block
+
+			// Only count canonical blocks for GC processing time
+			bc.gcproc += proctime
+
+		case SideStatTy:
+			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(),
+				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"root", block.Root())
+
+		default:
+			// This in theory is impossible, but lets be nice to our future selves and leave
+			// a log, instead of trying to track down blocks imports that don't emit logs.
+			log.Warn("Inserted block with unknown status", "number", block.Number(), "hash", block.Hash(),
+				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"root", block.Root())
+		}
+		stats.processed++
+		stats.usedGas += usedGas
+
+		dirty, _ := bc.stateCache.TrieDB().Size()
+		stats.report(chain, it.index, dirty)
+	}
+	// Any blocks remaining here? The only ones we care about are the future ones
+	if block != nil && err == consensus.ErrFutureBlock {
+		if err := bc.addFutureBlock(block); err != nil {
+			chn <- it.index
+			cherr <- err
+			return it.index, err
+		}
+		block, err = it.next()
+
+		for ; block != nil && err == consensus.ErrUnknownAncestor; block, err = it.next() {
+			if err := bc.addFutureBlock(block); err != nil {
+				chn <- it.index
+				cherr <- err
+				return it.index, err
+			}
+			stats.queued++
+		}
+	}
+	stats.ignored += it.remaining()
+
+	chn <- it.index
+	cherr <- err
 	return it.index, err
 }
 

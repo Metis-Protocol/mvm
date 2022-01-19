@@ -292,7 +292,7 @@ func (f *Fetcher) loop() {
 		loopMutex.Lock()
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
-		queueCount := f.queue.Size()
+		// queueCount := f.queue.Size()
 		for !f.queue.Empty() {
 			op := f.queue.PopItem().(*inject)
 			hash := op.block.Hash()
@@ -303,7 +303,6 @@ func (f *Fetcher) loop() {
 			number := op.block.NumberU64()
 			if number > height+1 {
 				// Note 20210724
-				log.Debug("Test: number > height + 1", "number", number, "height", height, "queue size", queueCount)
 				f.queue.Push(op, -int64(number))
 				if f.queueChangeHook != nil {
 					f.queueChangeHook(hash, true)
@@ -666,15 +665,12 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 		// Quickly validate the header and propagate the block if it passes
 		switch err := f.verifyHeader(block.Header()); err {
 		case nil:
-			// log.Debug("Test: verify header ok", block.ParentHash())
 			// All ok, quickly propagate to our peers
 			propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
 			go f.broadcastBlock(block, true)
 
 		case consensus.ErrFutureBlock:
 			// Weird future block, don't fail, but neither propagate
-			// NOTE 20210724
-			log.Debug("Test: consensus.ErrFutureBlock", err)
 			// propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
 			// go f.broadcastBlock(block, true)
 
@@ -760,8 +756,7 @@ func (f *Fetcher) EnsureQueueInsert() {
 	// Note 20210724
 	loopMutex.Lock()
 	height := f.chainHeight()
-	queueCount := f.queue.Size()
-	// log.Debug("Test: ensureQueueInsert running", "height", height, "queue size", queueCount)
+	// queueCount := f.queue.Size()
 	for !f.queue.Empty() {
 		op := f.queue.PopItem().(*inject)
 		hash := op.block.Hash()
@@ -772,14 +767,12 @@ func (f *Fetcher) EnsureQueueInsert() {
 		number := op.block.NumberU64()
 		if number > height+1 {
 			// Note 20210724
-			log.Debug("Test: number > height + 1 ensureQueueInsert", "number", number, "height", height, "queue size", queueCount)
 			f.queue.Push(op, -int64(number))
 			if f.queueChangeHook != nil {
 				f.queueChangeHook(hash, true)
 			}
 			break
 		}
-		// log.Debug("Test: number <= height + 1 ensureQueueInsert", "number", number, "height", height, "queue size", queueCount)
 		// Otherwise if fresh and still unknown, try and import
 		if number+maxUncleDist < height || f.getBlock(hash) != nil {
 			f.forgetBlock(hash)
