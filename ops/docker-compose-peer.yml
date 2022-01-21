@@ -12,11 +12,7 @@ services:
 
   l2geth-peer:
     image: ethereumoptimism/l2geth-peer
-    build:
-      context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth.peer
     # override with the geth script and the env vars required for it
-    entrypoint: sh ./geth-peer.sh
     env_file:
       - ./envs/geth-peer.env
     environment:
