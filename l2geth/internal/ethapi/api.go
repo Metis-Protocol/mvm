@@ -1007,16 +1007,16 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
-	// if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
-	// 	hi = uint64(*args.Gas)
-	// } else {
-	// Retrieve the block to act as the gas ceiling
-	block, err := b.BlockByNumberOrHash(ctx, blockNrOrHash)
-	if err != nil {
-		return 0, err
+	if args.Gas != nil && uint64(*args.Gas) >= params.TxGas {
+		hi = uint64(*args.Gas)
+	} else {
+		// Retrieve the block to act as the gas ceiling
+		block, err := b.BlockByNumberOrHash(ctx, blockNrOrHash)
+		if err != nil {
+			return 0, err
+		}
+		hi = block.GasLimit()
 	}
-	hi = block.GasLimit()
-	// }
 	if gasCap != nil && hi > gasCap.Uint64() {
 		log.Warn("Caller gas above allowance, capping", "requested", hi, "cap", gasCap)
 		hi = gasCap.Uint64()
@@ -1072,11 +1072,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
 		}
 	}
-
-	// threshold if has Gas arg
-	// if args.Gas != nil && uint64(*args.Gas) < hi {
-	// 	hi = uint64(*args.Gas)
-	// }
 
 	log.Debug("gas estimate", "gas", hi)
 	return hexutil.Uint64(hi), nil
