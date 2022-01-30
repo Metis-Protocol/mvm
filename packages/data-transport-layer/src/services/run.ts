@@ -1,6 +1,6 @@
 /* Imports: External */
 import * as dotenv from 'dotenv'
-import { Bcfg } from '@eth-optimism/core-utils'
+import { Bcfg } from '@metis.io/core-utils'
 import Config from 'bcfg'
 
 /* Imports: Internal */
@@ -51,6 +51,13 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       useSentry: config.bool('use-sentry', false),
       sentryDsn: config.str('sentry-dsn'),
       sentryTraceRate: config.ufloat('sentry-trace-rate', 0.05),
+      minioAccessKey: config.str('minio-access-key'),
+      minioBucket: config.str('minio-bucket'),
+      minioEnabled: config.bool('minio-enabled', false),
+      minioEndpoint: config.str('minio-endpoint'),
+      minioPort: config.uint('minio-port', 5080),
+      minioSecretKey: config.str('minio-secret-key'),
+      minioUseSsl: config.bool('minio-use-ssl', false),
     })
 
     const stop = async (signal) => {

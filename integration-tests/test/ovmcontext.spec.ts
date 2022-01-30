@@ -2,7 +2,7 @@ import { expect } from 'chai'
 
 /* Imports: External */
 import { ethers } from 'hardhat'
-import { injectL2Context } from '@eth-optimism/core-utils'
+import { injectL2Context } from '@metis.io/core-utils'
 import { predeploys } from '@eth-optimism/contracts'
 import { Contract, BigNumber } from 'ethers'
 

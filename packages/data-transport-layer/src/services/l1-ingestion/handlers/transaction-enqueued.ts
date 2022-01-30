@@ -1,4 +1,4 @@
-import { EventArgsTransactionEnqueued } from '@eth-optimism/core-utils'
+import { EventArgsTransactionEnqueued } from '@metis.io/core-utils'
 
 /* Imports: Internal */
 import { BigNumber } from 'ethers'
@@ -13,7 +13,7 @@ export const handleEventsTransactionEnqueued: EventHandlerSet<
   getExtraData: async () => {
     return null
   },
-  parseEvent: (event) => {
+  parseEvent: async (event) => {
     return {
       index: event.args._queueIndex.toNumber(),
       target: event.args._target,

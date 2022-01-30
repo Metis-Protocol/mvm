@@ -7,7 +7,7 @@ import * as fs from 'fs'
 import byline from 'byline'
 import * as dotenv from 'dotenv'
 import * as assert from 'assert'
-import { reqenv, getenv } from '@eth-optimism/core-utils'
+import { reqenv, getenv } from '@metis.io/core-utils'
 import {
   Account,
   EtherscanContract,

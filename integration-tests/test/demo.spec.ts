@@ -3,7 +3,7 @@ import assert = require('assert')
 import { JsonRpcProvider, TransactionResponse } from '@ethersproject/providers'
 import { BigNumber, Contract, Wallet, utils } from 'ethers'
 import { predeploys, getContractInterface } from '@metis.io/contracts'
-import { Watcher } from '@eth-optimism/core-utils'
+import { Watcher } from '@metis.io/core-utils'
 import dotenv = require('dotenv')
 import * as path from 'path';
 

@@ -7,7 +7,7 @@
 /* Imports: External */
 import { ethers } from 'ethers'
 import { predeploys, getContractInterface } from '@metis.io/contracts'
-import { sleep } from '@eth-optimism/core-utils'
+import { sleep } from '@metis.io/core-utils'
 import dotenv from 'dotenv'
 
 /* Imports: Internal */

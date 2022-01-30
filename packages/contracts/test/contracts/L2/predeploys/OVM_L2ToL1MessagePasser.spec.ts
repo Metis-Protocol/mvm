@@ -4,7 +4,7 @@ import { expect } from '../../../setup'
 import { ethers } from 'hardhat'
 import { ContractFactory, Contract } from 'ethers'
 import { MockContract, smockit } from '@eth-optimism/smock'
-import { remove0x } from '@eth-optimism/core-utils'
+import { remove0x } from '@metis.io/core-utils'
 import { keccak256 } from 'ethers/lib/utils'
 
 /* Internal Imports */

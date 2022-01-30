@@ -2,7 +2,7 @@ import { expect } from 'chai'
 
 /* Imports: Internal */
 import { providers } from 'ethers'
-import { injectL2Context, applyL1ToL2Alias } from '@eth-optimism/core-utils'
+import { injectL2Context, applyL1ToL2Alias } from '@metis.io/core-utils'
 
 /* Imports: External */
 import { OptimismEnv } from './shared/env'

@@ -5,7 +5,7 @@ import {
   remove0x,
   toHexString,
   toRpcHexString,
-} from '@eth-optimism/core-utils'
+} from '@metis.io/core-utils'
 import { getContractInterface, predeploys } from '@metis.io/contracts'
 import * as rlp from 'rlp'
 import { MerkleTree } from 'merkletreejs'

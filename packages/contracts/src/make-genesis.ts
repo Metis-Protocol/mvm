@@ -6,7 +6,7 @@ import {
   computeStorageSlots,
   getStorageLayout,
 } from '@defi-wonderland/smock/dist/src/utils'
-import { remove0x } from '@eth-optimism/core-utils'
+import { remove0x } from '@metis.io/core-utils'
 
 /* Internal Imports */
 import { predeploys } from './predeploys'
@@ -43,7 +43,7 @@ export interface RollupDeployConfig {
   l1MetisAddress: string
   // l1 metis manager address
   l1MetisManagerAddress: string
-  
+
   gasPriceOracleMinErc20BridgeCost: number
 }
 
@@ -108,7 +108,7 @@ export const makeL2GenesisFile = async (
     },
     MVM_ChainConfig: {
     }
-    
+
   }
 
   const dump = {}

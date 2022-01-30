@@ -4,7 +4,7 @@ import { expect } from '../../../setup'
 import * as rlp from 'rlp'
 import { ethers } from 'hardhat'
 import { Contract } from 'ethers'
-import { fromHexString, toHexString } from '@eth-optimism/core-utils'
+import { fromHexString, toHexString } from '@metis.io/core-utils'
 import { Trie } from 'merkle-patricia-tree/dist/baseTrie'
 
 /* Internal Imports */

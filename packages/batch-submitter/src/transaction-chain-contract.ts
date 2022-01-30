@@ -10,7 +10,8 @@ import {
   BatchContext,
   encodeAppendSequencerBatch,
   remove0x,
-} from '@eth-optimism/core-utils'
+  EncodeSequencerBatchOptions
+} from '@metis.io/core-utils'
 
 interface AppendSequencerBatchParams {
     chainId: number;
@@ -29,11 +30,12 @@ export { encodeAppendSequencerBatch, BatchContext, AppendSequencerBatchParams }
 export class CanonicalTransactionChainContract extends Contract {
   public customPopulateTransaction = {
     appendSequencerBatch: async (
-      batch: AppendSequencerBatchParams
+      batch: AppendSequencerBatchParams,
+      opts?: EncodeSequencerBatchOptions
     ): Promise<ethers.PopulatedTransaction> => {
       const nonce = await this.signer.getTransactionCount()
       const to = this.address
-      const data = getEncodedCalldata(batch)
+      const data = await getEncodedCalldata(batch, opts)
       const gasLimit = await this.signer.provider.estimateGas({
         to,
         from: await this.signer.getAddress(),
@@ -50,9 +52,10 @@ export class CanonicalTransactionChainContract extends Contract {
   }
   public async appendSequencerBatch(
     batch: AppendSequencerBatchParams,
-    options?: TransactionRequest
+    options?: TransactionRequest,
+    opts?: EncodeSequencerBatchOptions
   ): Promise<TransactionResponse> {
-    return appendSequencerBatch(this, batch, options)
+    return appendSequencerBatch(this, batch, options, opts)
   }
 }
 
@@ -67,18 +70,19 @@ const APPEND_SEQUENCER_BATCH_METHOD_ID = keccak256(
 const appendSequencerBatch = async (
   CanonicalTransactionChain: Contract,
   batch: AppendSequencerBatchParams,
-  options?: TransactionRequest
+  options?: TransactionRequest,
+  opts?: EncodeSequencerBatchOptions
 ): Promise<TransactionResponse> => {
   return CanonicalTransactionChain.signer.sendTransaction({
     to: CanonicalTransactionChain.address,
-    data: getEncodedCalldata(batch),
+    data: await getEncodedCalldata(batch, opts),
     ...options,
   })
 }
 const encodeHex = (val: any, len: number) =>
   remove0x(BigNumber.from(val).toHexString()).padStart(len, '0')
-const getEncodedCalldata = (batch: AppendSequencerBatchParams): string => {
+const getEncodedCalldata = async (batch: AppendSequencerBatchParams, opts?: EncodeSequencerBatchOptions): Promise<string> => {
   const methodId = APPEND_SEQUENCER_BATCH_METHOD_ID
-  const calldata = encodeAppendSequencerBatch(batch)
+  const calldata = await encodeAppendSequencerBatch(batch, opts)
   return '0x' + remove0x(methodId) + encodeHex(batch.chainId, 64) + remove0x(calldata)
 }

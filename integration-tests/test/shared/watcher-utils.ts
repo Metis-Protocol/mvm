@@ -3,7 +3,7 @@ import {
   TransactionReceipt,
   TransactionResponse,
 } from '@ethersproject/providers'
-import { Watcher } from '@eth-optimism/core-utils'
+import { Watcher } from '@metis.io/core-utils'
 
 import { Contract, Transaction } from 'ethers'
 

@@ -8,7 +8,7 @@ import {
   RollupInfo,
   Bytes32,
   remove0x,
-} from '@eth-optimism/core-utils'
+} from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
 /* Internal Imports */
@@ -174,7 +174,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
 
     // Generate the transaction we will repeatedly submit
     const nonce = await this.signer.getTransactionCount()
-    
+
     const tx = await this.chainContract.populateTransaction.appendStateBatchByChainId(
       this.l2ChainId,
       batch,
@@ -182,7 +182,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
       proposer,
       { nonce }
     )
-    
+
     this.logger.info('Submitting batch.', { chainId:this.l2ChainId,proposer:proposer })
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(

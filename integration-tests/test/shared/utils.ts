@@ -14,7 +14,7 @@ import {
   getContractInterface,
   predeploys,
 } from '@eth-optimism/contracts'
-import { injectL2Context, remove0x, Watcher } from '@eth-optimism/core-utils'
+import { injectL2Context, remove0x, Watcher } from '@metis.io/core-utils'
 import { cleanEnv, str, num, bool } from 'envalid'
 import dotenv from 'dotenv'
 

@@ -4,7 +4,7 @@ import {
   BlockWithTransactions,
   TransactionResponse,
 } from '@ethersproject/abstract-provider'
-import { L2Transaction, L2Block, RollupInfo } from '@eth-optimism/core-utils'
+import { L2Transaction, L2Block, RollupInfo } from '@metis.io/core-utils'
 
 /**
  * Unformatted Transaction & Blocks. This exists because Geth currently

@@ -2,7 +2,7 @@
 import { ethers } from 'hardhat'
 import { Signer, ContractFactory, Contract, constants } from 'ethers'
 import { smoddit } from '@eth-optimism/smock'
-import { expectApprox } from '@eth-optimism/core-utils'
+import { expectApprox } from '@metis.io/core-utils'
 
 /* Internal Imports */
 import {

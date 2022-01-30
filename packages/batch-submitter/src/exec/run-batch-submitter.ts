@@ -1,5 +1,5 @@
 /* External Imports */
-import { injectL2Context, Bcfg } from '@eth-optimism/core-utils'
+import { injectL2Context, Bcfg, MinioConfig } from '@metis.io/core-utils'
 import * as Sentry from '@sentry/node'
 import { Logger, Metrics, createMetricsServer } from '@eth-optimism/common-ts'
 import { exit } from 'process'
@@ -59,7 +59,16 @@ interface RequiredEnvVars {
   SAFE_MINIMUM_ETHER_BALANCE: number
   // A boolean to clear the pending transactions in the mempool
   // on start up.
-  CLEAR_PENDING_TXS: boolean
+  CLEAR_PENDING_TXS: boolean,
+
+  // distributed storage options
+  MINIO_ENABLED: boolean,
+  MINIO_BUCKET: string,
+  MINIO_ENDPOINT: string,
+  MINIO_PORT: number,
+  MINIO_USE_SSL:boolean,
+  MINIO_ACCESS_KEY: string,
+  MINIO_SECRET_KEY: string,
 }
 
 /* Optional Env Vars
@@ -328,6 +337,35 @@ export const run = async () => {
       'clear-pending-txs',
       env.CLEAR_PENDING_TXS === 'true'
     ),
+
+    MINIO_ACCESS_KEY: config.str(
+      'minio-access-key',
+      env.MINIO_ACCESS_KEY
+    ),
+    MINIO_BUCKET: config.str(
+      'minio-bucket',
+      env.MINIO_BUCKET
+    ),
+    MINIO_ENABLED: config.bool(
+      'minio-enabled',
+      env.MINIO_ENABLED === 'true'
+    ),
+    MINIO_ENDPOINT: config.str(
+      'minio-endpoint',
+      env.MINIO_ENDPOINT
+    ),
+    MINIO_PORT: config.uint(
+      'minio-port',
+      parseInt(env.MINIO_PORT, 10)
+    ),
+    MINIO_SECRET_KEY: config.str(
+      'minio-secret-key',
+      env.MINIO_SECRET_KEY
+    ),
+    MINIO_USE_SSL: config.bool(
+      'minio-use-ssl',
+      env.MINIO_USE_SSL === 'true'
+    ),
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {
@@ -379,6 +417,22 @@ export const run = async () => {
       resubmissionConfig,
       requiredEnvVars.NUM_CONFIRMATIONS
     )
+  let minioConfig: MinioConfig = null
+  if (requiredEnvVars.MINIO_ENABLED && requiredEnvVars.MINIO_ACCESS_KEY
+    && requiredEnvVars.MINIO_BUCKET && requiredEnvVars.MINIO_ENDPOINT
+    && requiredEnvVars.MINIO_PORT && requiredEnvVars.MINIO_SECRET_KEY) {
+      minioConfig = {
+        options: {
+          useSSL: requiredEnvVars.MINIO_USE_SSL,
+          accessKey: requiredEnvVars.MINIO_ACCESS_KEY,
+          secretKey: requiredEnvVars.MINIO_SECRET_KEY,
+          port: requiredEnvVars.MINIO_PORT,
+          endPoint: requiredEnvVars.MINIO_SECRET_KEY,
+        },
+        l2ChainId: 0,
+        bucket: requiredEnvVars.MINIO_BUCKET
+      }
+    }
   const txBatchSubmitter = new TransactionBatchSubmitter(
     sequencerSigner,
     l2Provider,
@@ -396,7 +450,9 @@ export const run = async () => {
     VALIDATE_TX_BATCH,
     logger.child({ name: TX_BATCH_SUBMITTER_LOG_TAG }),
     metrics,
-    autoFixBatchOptions
+    autoFixBatchOptions,
+    requiredEnvVars.MINIO_ENABLED,
+    minioConfig,
   )
 
   const stateBatchTxSubmitter: TransactionSubmitter =

@@ -47,7 +47,7 @@ export const encodeAppendSequencerBatch = async (
   }, '')
 
   if (opts?.useMinio && opts?.minioClient) {
-    const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 5)
+    const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
 
     if (
       storagedObject &&

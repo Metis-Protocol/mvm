@@ -5,7 +5,7 @@ import crypto from "crypto"
 
 /* Imports: External */
 import { ethers, BigNumber, Contract, utils } from 'ethers'
-import { sleep } from '@eth-optimism/core-utils'
+import { sleep } from '@metis.io/core-utils'
 import {
   getContractInterface,
   getContractFactory,

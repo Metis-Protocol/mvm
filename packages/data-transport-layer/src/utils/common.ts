@@ -1,4 +1,4 @@
-import { toHexString } from '@eth-optimism/core-utils'
+import { toHexString } from '@metis.io/core-utils'
 
 /**
  * Basic timeout-based async sleep function.
