@@ -1,5 +1,6 @@
 import { add0x, remove0x, encodeHex } from '../common'
 import { BigNumber, ethers } from 'ethers'
+import { MinioClient } from './minio-client'
 
 export interface BatchContext {
   numSequencedTransactions: number
@@ -15,20 +16,27 @@ export interface AppendSequencerBatchParams {
   transactions: string[] // total_size_bytes[],total_size_bytes[]
 }
 
+export interface EncodeSequencerBatchOptions {
+  useMinio?: boolean
+  minioClient?: MinioClient
+}
+
 const APPEND_SEQUENCER_BATCH_METHOD_ID = 'appendSequencerBatch()'
 
-export const encodeAppendSequencerBatch = (
-  b: AppendSequencerBatchParams
-): string => {
+export const encodeAppendSequencerBatch = async (
+  b: AppendSequencerBatchParams,
+  opts?: EncodeSequencerBatchOptions
+): Promise<string> => {
   const encodeShouldStartAtElement = encodeHex(b.shouldStartAtElement, 10)
   const encodedTotalElementsToAppend = encodeHex(b.totalElementsToAppend, 6)
+  const contexts = b.contexts.slice()
 
-  const encodedContextsHeader = encodeHex(b.contexts.length, 6)
-  const encodedContexts =
-    encodedContextsHeader +
-    b.contexts.reduce((acc, cur) => acc + encodeBatchContext(cur), '')
+  // const encodedContextsHeader = encodeHex(b.contexts.length, 6)
+  // const encodedContexts =
+  //   encodedContextsHeader +
+  //   b.contexts.reduce((acc, cur) => acc + encodeBatchContext(cur), '')
 
-  const encodedTransactionData = b.transactions.reduce((acc, cur) => {
+  let encodedTransactionData = b.transactions.reduce((acc, cur) => {
     if (cur.length % 2 !== 0) {
       throw new Error('Unexpected uneven hex string value!')
     }
@@ -37,6 +45,28 @@ export const encodeAppendSequencerBatch = (
     ).padStart(6, '0')
     return acc + encodedTxDataHeader + remove0x(cur)
   }, '')
+
+  if (opts?.useMinio && opts?.minioClient) {
+    const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 5)
+
+    if (
+      storagedObject &&
+      contexts.length > 0
+    ) {
+      encodedTransactionData = storagedObject
+      contexts.unshift({
+        numSequencedTransactions: 0,
+        numSubsequentQueueTransactions: 0,
+        timestamp: 0,
+        blockNumber: 0,
+      })
+    }
+  }
+
+  const encodedContextsHeader = encodeHex(contexts.length, 6)
+  const encodedContexts = encodedContextsHeader +
+    contexts.reduce((acc, cur) => acc + encodeBatchContext(cur), '')
+
   return (
     encodeShouldStartAtElement +
     encodedTotalElementsToAppend +
@@ -54,9 +84,10 @@ const encodeBatchContext = (context: BatchContext): string => {
   )
 }
 
-export const decodeAppendSequencerBatch = (
-  b: string
-): AppendSequencerBatchParams => {
+export const decodeAppendSequencerBatch = async (
+  b: string,
+  opts?: EncodeSequencerBatchOptions
+): Promise<AppendSequencerBatchParams> => {
   b = remove0x(b)
 
   const shouldStartAtElement = b.slice(0, 10)
@@ -65,7 +96,7 @@ export const decodeAppendSequencerBatch = (
   const contextCount = parseInt(contextHeader, 16)
 
   let offset = 22
-  const contexts = []
+  let contexts = []
   for (let i = 0; i < contextCount; i++) {
     const numSequencedTransactions = b.slice(offset, offset + 6)
     offset += 6
@@ -86,9 +117,25 @@ export const decodeAppendSequencerBatch = (
     })
   }
 
+  if (contexts.length > 0) {
+    const context = contexts[0]
+    if (context.blockNumber === 0) {
+      switch (context.timestamp) {
+        case 0: {
+          const storageObject = b.slice(offset)
+          const txData = await opts?.minioClient?.readObject(storageObject, 5)
+          b = b.slice(0, offset) + txData
+          break
+        }
+      }
+      // remove the dummy context
+      contexts = contexts.slice(1)
+    }
+  }
+
   const transactions = []
   for (const context of contexts) {
-    for (let i = 0; i < context.numSequencedTransactions; i++) {
+    for (let j = 0; j < context.numSequencedTransactions; j++) {
       const size = b.slice(offset, offset + 6)
       offset += 6
       const raw = b.slice(offset, offset + parseInt(size, 16) * 2)
@@ -106,13 +153,14 @@ export const decodeAppendSequencerBatch = (
 }
 
 export const sequencerBatch = {
-  encode: (b: AppendSequencerBatchParams) => {
+  encode: async (b: AppendSequencerBatchParams, opts?: EncodeSequencerBatchOptions) => {
+    const encodedParams = await encodeAppendSequencerBatch(b)
     return (
       ethers.utils.id(APPEND_SEQUENCER_BATCH_METHOD_ID).slice(0, 10) +
-      encodeAppendSequencerBatch(b)
+      encodedParams
     )
   },
-  decode: (b: string): AppendSequencerBatchParams => {
+  decode: async (b: string, opts?: EncodeSequencerBatchOptions): Promise<AppendSequencerBatchParams> => {
     b = remove0x(b)
     const functionSelector = b.slice(0, 8)
     if (
@@ -121,6 +169,6 @@ export const sequencerBatch = {
     ) {
       throw new Error('Incorrect function signature')
     }
-    return decodeAppendSequencerBatch(b.slice(8))
+    return await decodeAppendSequencerBatch(b.slice(8), opts)
   },
 }
