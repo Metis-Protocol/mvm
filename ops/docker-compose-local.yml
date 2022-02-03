@@ -120,8 +120,8 @@ services:
     depends_on:
       - l2geth
     image: ethereumoptimism/l2geth-peer
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth.peer
@@ -136,7 +136,7 @@ services:
       # connecting to the DTL
       ROLLUP_CLIENT_HTTP: http://dtl:7878
       L2_URL: http://l2geth:8545
-      L2_MAIN_IP: 
+      L2_MAIN_IP:
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
       RETRIES: 60
       # ROLLUP_POLL_INTERVAL_FLAG: 30000ms
@@ -200,8 +200,8 @@ services:
       - deployer
       - dtl
     image: ethereumoptimism/l2geth
-    deploy:
-      replicas: 0
+    # deploy:
+    #   replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth

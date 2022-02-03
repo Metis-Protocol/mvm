@@ -18,11 +18,11 @@ describe('MinioClient', () => {
         l2ChainId: 488,
         bucket: 'mefstest',
         options: {
-          endPoint: '45.113.32.39',
+          endPoint: '103.39.231.220',
           accessKey: 'maticuser',
           secretKey: 'door*three3',
           useSSL: false,
-          port: 5080,
+          port: 5081,
         }
       }
       const client = new MinioClient(config)
@@ -34,11 +34,11 @@ describe('MinioClient', () => {
         l2ChainId: 488,
         bucket: 'mefstest',
         options: {
-          endPoint: '45.113.32.39',
+          endPoint: '103.39.231.220',
           accessKey: 'readonly',
-          secretKey: 'read888&',
+          secretKey: 'read888_w',
           useSSL: false,
-          port: 5080,
+          port: 5082,
         }
       }
       const client2 = new MinioClient(config2)
@@ -53,11 +53,11 @@ describe('MinioClient', () => {
         l2ChainId: 488,
         bucket: 'mefstest',
         options: {
-          endPoint: '45.113.32.39',
+          endPoint: '103.39.231.220',
           accessKey: 'readonly',
-          secretKey: 'read888&',
+          secretKey: 'read888_w',
           useSSL: false,
-          port: 5080,
+          port: 5082,
         }
       }
       const client = new MinioClient(config)
