@@ -308,6 +308,7 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // Transactions originating from the RPC endpoints are added to remotes so that
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+	log.Debug("Test 0203: SendTx resp", "tx", signedTx.Hash().Hex())
 	if b.UsingOVM {
 		to := signedTx.To()
 		if to != nil {
@@ -321,9 +322,11 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 			}
 		}
+		log.Debug("Test 0203: SendTx to ValidateAndApplySequencerTransaction")
 		return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
 	}
 	// OVM Disabled
+	log.Debug("Test 0203: SendTx to AddLocal")
 	return b.eth.txPool.AddLocal(signedTx)
 }
 

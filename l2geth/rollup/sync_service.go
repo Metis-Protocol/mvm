@@ -954,9 +954,11 @@ func (s *SyncService) ValidateAndApplySequencerTransaction(tx *types.Transaction
 	if tx == nil {
 		return errors.New("nil transaction passed to ValidateAndApplySequencerTransaction")
 	}
+	log.Debug("Test 0203: sync_service resp")
 	s.txLock.Lock()
 	defer s.txLock.Unlock()
 	if err := s.verifyFee(tx); err != nil {
+		log.Debug("Test 0203: sync_service verifyFee error", "err", err)
 		return err
 	}
 	log.Trace("Sequencer transaction validation", "hash", tx.Hash().Hex())
