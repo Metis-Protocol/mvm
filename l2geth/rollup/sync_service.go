@@ -846,6 +846,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 		}
 		return nil
 	case txApplyErr := <-s.txApplyErrCh:
+		log.Error("Test 0203: Got error when added to chain", "err", txApplyErr)
+		s.SetLatestL1Timestamp(ts)
+		s.SetLatestL1BlockNumber(bn)
+		s.SetLatestIndex(index)
 		return txApplyErr
 	}
 }
@@ -961,6 +965,7 @@ func (s *SyncService) ValidateAndApplySequencerTransaction(tx *types.Transaction
 	log.Debug("Test 0203: sync_service resp")
 	s.txLock.Lock()
 	defer s.txLock.Unlock()
+	s.shiftTxApplyError()
 	if err := s.verifyFee(tx); err != nil {
 		log.Debug("Test 0203: sync_service verifyFee error", "err", err)
 		return err
@@ -1241,6 +1246,7 @@ func (s *SyncService) IngestTransaction(tx *types.Transaction) error {
 }
 
 func (s *SyncService) shiftTxApplyError() {
+	log.Debug("Test 0203: shift ch", "ch count", len(s.txApplyErrCh))
 	if len(s.txApplyErrCh) > 0 {
 		<-s.txApplyErrCh
 	}
@@ -1249,4 +1255,5 @@ func (s *SyncService) shiftTxApplyError() {
 func (s *SyncService) PushTxApplyError(err error) {
 	s.shiftTxApplyError()
 	s.txApplyErrCh <- err
+	log.Debug("Test 0203: pushed tx apply err ch", "err", err)
 }
