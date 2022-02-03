@@ -142,7 +142,6 @@ type worker struct {
 	chainSideCh  chan core.ChainSideEvent
 	chainSideSub event.Subscription
 	rollupCh     chan core.NewTxsEvent
-	rollupErrCh  chan error
 	rollupSub    event.Subscription
 
 	// Channels
@@ -199,7 +198,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		pendingTasks:       make(map[common.Hash]*task),
 		txsCh:              make(chan core.NewTxsEvent, txChanSize),
 		rollupCh:           make(chan core.NewTxsEvent, 1),
-		rollupErrCh:        make(chan error, 1),
 		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
 		newWorkCh:          make(chan *newWorkReq),
@@ -551,10 +549,6 @@ func (w *worker) mainLoop() {
 				}
 			}
 			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
-
-		case rollupErr := <-w.rollupErrCh:
-			w.eth.SyncService().PushTxApplyError(rollupErr)
-
 		// System stopped
 		case <-w.exitCh:
 			return
@@ -606,7 +600,7 @@ func (w *worker) taskLoop() {
 			w.pendingMu.Unlock()
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
-				w.rollupErrCh <- err
+				w.eth.SyncService().PushTxApplyError(err)
 				log.Warn("Block sealing failed", "err", err)
 			}
 		case <-w.exitCh:
@@ -664,7 +658,7 @@ func (w *worker) resultLoop() {
 			// Commit block and state to database.
 			_, err := w.chain.WriteBlockWithState(block, receipts, logs, task.state, true)
 			if err != nil {
-				w.rollupErrCh <- err
+				w.eth.SyncService().PushTxApplyError(err)
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
