@@ -601,6 +601,7 @@ func (w *worker) taskLoop() {
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				w.eth.SyncService().PushTxApplyError(err)
+				w.makeEmptyChainHeadEvent()
 				log.Warn("Block sealing failed", "err", err)
 			}
 		case <-w.exitCh:
@@ -659,6 +660,7 @@ func (w *worker) resultLoop() {
 			_, err := w.chain.WriteBlockWithState(block, receipts, logs, task.state, true)
 			if err != nil {
 				w.eth.SyncService().PushTxApplyError(err)
+				w.makeEmptyChainHeadEvent()
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
@@ -1140,4 +1142,9 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 	case w.chainSideCh <- event:
 	case <-w.exitCh:
 	}
+}
+
+// make empty chainheadevent to prevent rollupCh deadlock
+func (w *worker) makeEmptyChainHeadEvent() {
+	w.chainHeadCh <- core.ChainHeadEvent{Block: types.NewBlock(&types.Header{Number: big.NewInt(0)}, nil, nil, nil)}
 }
