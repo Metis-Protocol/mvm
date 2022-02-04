@@ -427,7 +427,7 @@ export const run = async () => {
           accessKey: requiredEnvVars.MINIO_ACCESS_KEY,
           secretKey: requiredEnvVars.MINIO_SECRET_KEY,
           port: requiredEnvVars.MINIO_PORT,
-          endPoint: requiredEnvVars.MINIO_SECRET_KEY,
+          endPoint: requiredEnvVars.MINIO_ENDPOINT,
         },
         l2ChainId: 0,
         bucket: requiredEnvVars.MINIO_BUCKET
