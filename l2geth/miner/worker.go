@@ -490,7 +490,6 @@ func (w *worker) mainLoop() {
 				// a transaction that cannot be added to the chain, so this
 				// should be updated to a select statement that can also listen
 				// for errors.
-				log.Debug("Test 0203: commitNewTx, waiting chainHeadCh")
 				head := <-w.chainHeadCh
 				txs := head.Block.Transactions()
 				if len(txs) == 0 {
@@ -589,11 +588,9 @@ func (w *worker) taskLoop() {
 			if w.newTaskHook != nil {
 				w.newTaskHook(task)
 			}
-			log.Debug("Test 0203: new taskCh resp")
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
-				log.Debug("Test 0203: sealHash equals with prev", "sealHash", sealHash)
 				w.eth.SyncService().PushTxApplyError(errors.New("Block sealing ignored"))
 				w.makeEmptyChainHeadEvent()
 				continue
@@ -603,17 +600,13 @@ func (w *worker) taskLoop() {
 			stopCh, prev = make(chan struct{}), sealHash
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
-				log.Debug("Test 0203: skipSealHook task")
 				w.eth.SyncService().PushTxApplyError(errors.New("Block sealing skiped"))
 				w.makeEmptyChainHeadEvent()
 				continue
 			}
-			log.Debug("Test 0203: pendingMu lock 1")
 			w.pendingMu.Lock()
-			log.Debug("Test 0203: pendingMu lock 2")
 			w.pendingTasks[w.engine.SealHash(task.block.Header())] = task
 			w.pendingMu.Unlock()
-			log.Debug("Test 0203: pendingMu lock 3")
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				w.eth.SyncService().PushTxApplyError(err)
@@ -635,14 +628,12 @@ func (w *worker) resultLoop() {
 		case block := <-w.resultCh:
 			// Short circuit when receiving empty result.
 			if block == nil {
-				log.Debug("Test 0203: block nil")
 				w.eth.SyncService().PushTxApplyError(errors.New("Block is nil"))
 				w.makeEmptyChainHeadEvent()
 				continue
 			}
 			// Short circuit when receiving duplicate result caused by resubmitting.
 			if w.chain.HasBlock(block.Hash(), block.NumberU64()) {
-				log.Debug("Test 0203: duplicate block", "block", block.NumberU64())
 				w.eth.SyncService().PushTxApplyError(errors.New("Dulplicate block"))
 				w.makeEmptyChainHeadEvent()
 				continue
