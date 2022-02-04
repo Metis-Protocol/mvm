@@ -1606,9 +1606,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if !tx.Protected() {
 		return common.Hash{}, errors.New("Cannot submit unprotected transaction")
 	}
-	log.Debug("Test 0203: befor sendTx")
 	if err := b.SendTx(ctx, tx); err != nil {
-		log.Debug("Test 0203: sendTx error", "err", err)
 		return common.Hash{}, err
 	}
 	if tx.To() == nil {
@@ -1636,7 +1634,6 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
-		log.Debug("Test 0203: get wallet error", "err", err)
 		return common.Hash{}, err
 	}
 	if args.Nonce == nil {
@@ -1654,8 +1651,6 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	tx := args.toTransaction()
 
 	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
-
-	log.Debug("Test 0203: signed tx with wallet", "err", err)
 
 	if err != nil {
 		return common.Hash{}, err
@@ -1693,8 +1688,6 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, errors.New("Cannot send raw transaction while syncing")
 	}
 
-	log.Debug("Test 0203: start sendRawTransaction")
-
 	tx := new(types.Transaction)
 	tx.SetL2Tx(1)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
@@ -1703,8 +1696,6 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	// L1Timestamp and L1BlockNumber will be set right before execution
 	txMeta := types.NewTransactionMeta(nil, 0, nil, types.QueueOriginSequencer, nil, nil, encodedTx)
 	tx.SetTransactionMeta(txMeta)
-
-	log.Debug("Test 0203: set tx meta", "tx", tx.Hash().Hex())
 
 	return SubmitTransaction(ctx, s.b, tx)
 }
