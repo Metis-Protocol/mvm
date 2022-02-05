@@ -150,19 +150,19 @@ describe('Fee Payment Integration Tests', async () => {
   it('deposit', async () => {
     // const preBalances = await getBalances()
 
-    // const gasPrice = BigNumber.from(15000000)
-    // const gasLimit = BigNumber.from(167060000)
+    const gasPrice = BigNumber.from(15000000)
+    const gasLimit = BigNumber.from(167060000)
     // //await l2Wallet.sendTransaction({to:PROXY_SEQUENCER_ENTRYPOINT_ADDRESS,value:1000000000000000,gasPrice,gasLimit})
     // // transfer with 0 value to easily pay a gas fee
-    // const res: TransactionResponse = await MVM_Coinbase.transfer(
-    //   PROXY_SEQUENCER_ENTRYPOINT_ADDRESS,
-    //   100,
-    //   {
-    //     gasPrice,
-    //     gasLimit
-    //   }
-    // )
-    //await res.wait()
+    const res: TransactionResponse = await MVM_Coinbase.transfer(
+      PROXY_SEQUENCER_ENTRYPOINT_ADDRESS,
+      100,
+      {
+        gasPrice,
+        gasLimit
+      }
+    )
+    await res.wait()
     // const postBalances = await getBalances()
     // console.log("l1 wallet balance:" + postBalances.l1UserBalance + ",l2 wallet balance" + postBalances.l2UserBalance + ",l1gateway balance" + postBalances.l1GatewayBalance + ",seq balance" + postBalances.sequencerBalance)
     const tx2 = await OVM_L1ETHGateway.depositETHByChainId(
@@ -173,7 +173,7 @@ describe('Fee Payment Integration Tests', async () => {
         value: depositAmount
       }
     )
-    const res = await tx2.wait()
+    await tx2.wait()
     // await 2s for peer
     console.log('waiting peer')
     await new Promise((resolve) => setTimeout(resolve, 2000));

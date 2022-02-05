@@ -45,9 +45,13 @@ export const encodeAppendSequencerBatch = async (
     ).padStart(6, '0')
     return acc + encodedTxDataHeader + remove0x(cur)
   }, '')
+  
+  console.info('opts', opts)
+  console.info('input data', b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData.length)
 
   if (opts?.useMinio && opts?.minioClient) {
     const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
+    console.info('storage tx data to minio', storagedObject, 'context length', contexts.length)
 
     if (
       storagedObject &&
@@ -66,6 +70,8 @@ export const encodeAppendSequencerBatch = async (
   const encodedContextsHeader = encodeHex(contexts.length, 6)
   const encodedContexts = encodedContextsHeader +
     contexts.reduce((acc, cur) => acc + encodeBatchContext(cur), '')
+  
+  console.info('sequencer batch result', encodeShouldStartAtElement, encodedTotalElementsToAppend, encodedContexts, encodedTransactionData)
 
   return (
     encodeShouldStartAtElement +
@@ -154,7 +160,7 @@ export const decodeAppendSequencerBatch = async (
 
 export const sequencerBatch = {
   encode: async (b: AppendSequencerBatchParams, opts?: EncodeSequencerBatchOptions) => {
-    const encodedParams = await encodeAppendSequencerBatch(b)
+    const encodedParams = await encodeAppendSequencerBatch(b, opts)
     return (
       ethers.utils.id(APPEND_SEQUENCER_BATCH_METHOD_ID).slice(0, 10) +
       encodedParams

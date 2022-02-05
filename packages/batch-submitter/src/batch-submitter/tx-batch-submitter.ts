@@ -316,12 +316,12 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     let wasBatchTruncated = false
     await this.getEncodeAppendSequencerBatchOptions()
     let encoded = await encodeAppendSequencerBatch(sequencerBatchParams, this.encodeSequencerBatchOptions)
-    this.logger.debug('encode batch options: ' + this.encodeSequencerBatchOptions?.useMinio)
+    this.logger.info('encode batch options minioClient is null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
     if (this.encodeSequencerBatchOptions?.useMinio) {
-      this.logger.debug('encoded with minio: ' + encoded)
+      this.logger.info('encoded with minio: ' + encoded)
     }
     while (encoded.length / 2 > this.maxTxSize) {
-      this.logger.debug('Splicing batch...', {
+      this.logger.info('Splicing batch...', {
         batchSizeInBytes: encoded.length / 2,
       })
       batch.splice(Math.ceil((batch.length * 2) / 3)) // Delete 1/3rd of all of the batch elements

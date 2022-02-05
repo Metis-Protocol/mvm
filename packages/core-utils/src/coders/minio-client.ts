@@ -42,6 +42,7 @@ export class MinioClient {
     totalElements: number,
     encodedTransactionData: string,
     tryCount: number): Promise<string> {
+      console.info('start write object', startAtElement, totalElements, encodedTransactionData.length)
       if (!encodedTransactionData || startAtElement < 0 || totalElements <= 0) {
         return ''
       }
@@ -56,9 +57,10 @@ export class MinioClient {
       let objectKey = `${hash(calcHash)}_${calcHash[2]}`
       try {
         await this.client.putObject(bucketName, objectKey, encodedTransactionData, null, metaData)
+        console.info('write object successfully', objectKey)
       }
       catch(x) {
-        console.log('write object err', x.message)
+        console.error('write object err', x.message)
         if (tryCount <= 0) {
           return ''
         }
