@@ -43,7 +43,7 @@ var (
 func init() {
 	UsingOVM = os.Getenv("USING_OVM") == "true"
 
-	suicideForkNumber := os.Getenv("EMERGENCY_FORK_NUMBER")
+	suicideForkNumber := os.Getenv("EMERGENCY_FORK020222_NUMBER")
 	if suicideForkNumber == "" {
 		SuicideForkNumber = ^uint64(0)
 	} else {
