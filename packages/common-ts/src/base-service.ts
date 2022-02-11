@@ -14,6 +14,8 @@ type BaseServiceOptions<T> = T & {
   metrics?: Metrics
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 /**
  * Base for other "Service" objects. Handles your standard initialization process, can dynamically
  * start and stop.
@@ -25,6 +27,7 @@ export class BaseService<T> {
   protected metrics: Metrics
   protected initialized = false
   protected running = false
+  protected waitForShutdown = false
 
   constructor(
     name: string,
@@ -48,9 +51,9 @@ export class BaseService<T> {
       return
     }
 
-    this.logger.info('Service is initializing...')
+    this.logger.info(`Service ${this.name} is initializing...`)
     await this._init()
-    this.logger.info('Service has initialized.')
+    this.logger.info(`Service ${this.name} has initialized.`)
     this.initialized = true
   }
 
@@ -61,13 +64,14 @@ export class BaseService<T> {
     if (this.running) {
       return
     }
-    this.logger.info('Service is starting...')
+    this.logger.info(`Service ${this.name} is starting...`)
     await this.init()
 
     // set the service to running
     this.running = true
     await this._start()
-    this.logger.info('Service has started')
+    this.waitForShutdown = true
+    this.logger.info(`Service ${this.name} can stop now`)
   }
 
   /**
@@ -78,10 +82,13 @@ export class BaseService<T> {
       return
     }
 
-    this.logger.info('Service is stopping...')
-    await this._stop()
-    this.logger.info('Service has stopped')
+    this.logger.info(`Service ${this.name} is stopping...`)
     this.running = false
+    await this._stop()
+    while (!this.waitForShutdown) {
+      await sleep(100)
+    }
+    this.logger.info(`Service ${this.name} has stopped`)
   }
 
   /**

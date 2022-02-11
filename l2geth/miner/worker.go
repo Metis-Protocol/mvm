@@ -469,6 +469,11 @@ func (w *worker) mainLoop() {
 		case ev := <-w.rollupCh:
 			if len(ev.Txs) == 0 {
 				log.Warn("No transaction sent to miner from syncservice")
+				if ev.ErrCh != nil {
+					ev.ErrCh <- errors.New("No transaction sent to miner from syncservice")
+				} else {
+					w.handleErrInTask(errors.New("No transaction sent to miner from syncservice"), false)
+				}
 				continue
 			}
 			tx := ev.Txs[0]
@@ -549,7 +554,6 @@ func (w *worker) mainLoop() {
 				}
 			}
 			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
-
 		// System stopped
 		case <-w.exitCh:
 			return
@@ -587,6 +591,7 @@ func (w *worker) taskLoop() {
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
+				w.handleErrInTask(errors.New("Block sealing ignored"), true)
 				continue
 			}
 			// Interrupt previous sealing operation
@@ -594,6 +599,7 @@ func (w *worker) taskLoop() {
 			stopCh, prev = make(chan struct{}), sealHash
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
+				w.handleErrInTask(errors.New("Block sealing skiped"), true)
 				continue
 			}
 			w.pendingMu.Lock()
@@ -601,6 +607,7 @@ func (w *worker) taskLoop() {
 			w.pendingMu.Unlock()
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
+				w.handleErrInTask(err, true)
 				log.Warn("Block sealing failed", "err", err)
 			}
 		case <-w.exitCh:
@@ -618,10 +625,12 @@ func (w *worker) resultLoop() {
 		case block := <-w.resultCh:
 			// Short circuit when receiving empty result.
 			if block == nil {
+				w.handleErrInTask(errors.New("Block is nil"), true)
 				continue
 			}
 			// Short circuit when receiving duplicate result caused by resubmitting.
 			if w.chain.HasBlock(block.Hash(), block.NumberU64()) {
+				w.handleErrInTask(errors.New("Dulplicate block"), true)
 				continue
 			}
 			var (
@@ -633,6 +642,7 @@ func (w *worker) resultLoop() {
 			w.pendingMu.RUnlock()
 			if !exist {
 				log.Error("Block found but no relative pending task", "number", block.Number(), "sealhash", sealhash, "hash", hash)
+				w.handleErrInTask(errors.New("Block found but no relative pending task"), true)
 				continue
 			}
 			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
@@ -658,6 +668,7 @@ func (w *worker) resultLoop() {
 			// Commit block and state to database.
 			_, err := w.chain.WriteBlockWithState(block, receipts, logs, task.state, true)
 			if err != nil {
+				w.handleErrInTask(err, true)
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
@@ -1138,5 +1149,23 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 	select {
 	case w.chainSideCh <- event:
 	case <-w.exitCh:
+	}
+}
+
+// make empty chainheadevent to prevent rollupCh deadlock
+func (w *worker) makeEmptyChainHeadEvent() {
+	// not push if exists
+	if len(w.chainHeadCh) > 0 {
+		return
+	}
+	w.chainHeadCh <- core.ChainHeadEvent{Block: types.NewBlock(&types.Header{Number: big.NewInt(0)}, nil, nil, nil)}
+}
+
+func (w *worker) handleErrInTask(err error, headFlag bool) {
+	if rcfg.UsingOVM {
+		w.eth.SyncService().PushTxApplyError(err)
+	}
+	if headFlag {
+		w.makeEmptyChainHeadEvent()
 	}
 }
