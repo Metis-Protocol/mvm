@@ -21,6 +21,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
+
 	// "os"
 	"sync/atomic"
 
@@ -179,7 +180,9 @@ func isProtectedV(V *big.Int) bool {
 
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
-	//peer, only for calc hash
+	// l2tx = 2, peer, only for calc hash
+	// l2tx = 1, l2 rpc tx
+	// l2tx = 0, from main node peer, or l1 rollup
 	if tx.l2tx == 2 {
 		return rlp.Encode(w, &tx.data)
 	}

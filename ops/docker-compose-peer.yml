@@ -12,21 +12,18 @@ services:
 
   l2geth-peer:
     image: ethereumoptimism/l2geth-peer
-    build:
-      context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth.peer
     # override with the geth script and the env vars required for it
-    entrypoint: sh ./geth-peer.sh
     env_file:
       - ./envs/geth-peer.env
     environment:
-        ETH1_HTTP: http://192.168.31.146:9545
-        ROLLUP_STATE_DUMP_PATH: http://192.168.31.146:8080/state-dump.latest.json
+        ETH1_HTTP: http://127.0.0.1:9545
+        ROLLUP_STATE_DUMP_PATH: http://127.0.0.1:8080/state-dump.latest.json
         # used for getting the addresses
-        URL: http://192.168.31.146:8080/addresses.json
+        URL: http://127.0.0.1:8080/addresses.json
         # connecting to the DTL
-        ROLLUP_CLIENT_HTTP: http://192.168.31.146:7878
-        L2_URL: http://192.168.31.146:8545
+        ROLLUP_CLIENT_HTTP: http://127.0.0.1:7878
+        L2_URL: http://127.0.0.1:8545
+        L2_MAIN_IP: 
         ETH1_CTC_DEPLOYMENT_HEIGHT: 8
         RETRIES: 60
         ROLLUP_POLL_INTERVAL_FLAG: 30000ms

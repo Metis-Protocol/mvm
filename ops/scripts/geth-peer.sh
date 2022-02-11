@@ -18,15 +18,15 @@ curl \
     -o genesis.json
 
 # wait for the dtl to be up, else geth will crash if it cannot connect
-curl \
-    --fail \
-    --show-error \
-    --silent \
-    --output /dev/null \
-    --retry-connrefused \
-    --retry $RETRIES \
-    --retry-delay 1 \
-    $ROLLUP_CLIENT_HTTP
+# curl \
+#     --fail \
+#     --show-error \
+#     --silent \
+#     --output /dev/null \
+#     --retry-connrefused \
+#     --retry $RETRIES \
+#     --retry-delay 1 \
+#     $ROLLUP_CLIENT_HTTP
 
 # import the key that will be used to locally sign blocks
 # this key does not have to be kept secret in order to be secure
@@ -49,6 +49,9 @@ NODE_IP=$(echo $NODE_INFO | jq -r '.result.ip')
 
 if [ "$NODE_IP" = "127.0.0.1" ];then
     HOST_IP=$(/sbin/ip route | awk '/default/ { print $3 }')
+    if [ "$L2_MAIN_IP" != "" ]; then
+       HOST_IP=$L2_MAIN_IP 
+    fi
     NODE_ENODE=${NODE_ENODE//127.0.0.1/$HOST_IP}
 fi
 

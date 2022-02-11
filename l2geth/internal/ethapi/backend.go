@@ -99,6 +99,9 @@ type Backend interface {
 
 	// Metis-specific API
 	NodeHTTPModules() []string
+	IsRpcProxySupport() bool
+	ProxyTransaction(ctx context.Context, tx *types.Transaction) error
+	ProxyEstimateGas(ctx context.Context, arg interface{}) (uint64, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

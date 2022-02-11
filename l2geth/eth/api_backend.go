@@ -426,3 +426,21 @@ func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 func (b *EthAPIBackend) NodeHTTPModules() []string {
 	return b.eth.nodeRpcModules
 }
+
+func (b *EthAPIBackend) IsRpcProxySupport() bool {
+	return b.eth.rpcClient != nil
+}
+
+func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transaction) error {
+	if !b.IsRpcProxySupport() {
+		return nil
+	}
+	return b.eth.rpcClient.SendTransaction(ctx, tx)
+}
+
+func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (uint64, error) {
+	if !b.IsRpcProxySupport() {
+		return 0, errors.New("Not support proxy estimate gas")
+	}
+	return b.eth.rpcClient.EstimateGasByArg(ctx, arg)
+}
