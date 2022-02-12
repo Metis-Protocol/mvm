@@ -101,6 +101,8 @@ func New(file string, cache int, handles int, namespace string) (*Database, erro
 		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
 		Filter:                 filter.NewBloomFilter(10),
 		DisableSeeksCompaction: true,
+		//todo 20220212 miss tire
+		DisableBlockCache: true,
 	})
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
 		db, err = leveldb.RecoverFile(file, nil)
