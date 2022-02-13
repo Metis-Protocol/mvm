@@ -75,6 +75,7 @@ type SyncService struct {
 	pollInterval                   time.Duration
 	timestampRefreshThreshold      time.Duration
 	chainHeadCh                    chan core.ChainHeadEvent
+	txApplyErrCh                   chan error
 	backend                        Backend
 	gasPriceOracleOwnerAddress     common.Address
 	gasPriceOracleOwnerAddressLock *sync.RWMutex
@@ -139,14 +140,15 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	}
 
 	service := SyncService{
-		ctx:         ctx,
-		cancel:      cancel,
-		verifier:    cfg.IsVerifier,
-		enable:      cfg.Eth1SyncServiceEnable,
-		syncing:     atomic.Value{},
-		bc:          bc,
-		txpool:      txpool,
-		chainHeadCh: make(chan core.ChainHeadEvent, 1),
+		ctx:          ctx,
+		cancel:       cancel,
+		verifier:     cfg.IsVerifier,
+		enable:       cfg.Eth1SyncServiceEnable,
+		syncing:      atomic.Value{},
+		bc:           bc,
+		txpool:       txpool,
+		chainHeadCh:  make(chan core.ChainHeadEvent, 1),
+		txApplyErrCh: make(chan error, 1),
 
 		client:                         client,
 		db:                             db,
@@ -843,6 +845,12 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 			}
 		}
 		return nil
+	case txApplyErr := <-s.txApplyErrCh:
+		log.Error("Got error when added to chain", "err", txApplyErr)
+		s.SetLatestL1Timestamp(ts)
+		s.SetLatestL1BlockNumber(bn)
+		s.SetLatestIndex(index)
+		return txApplyErr
 	}
 }
 
@@ -956,6 +964,7 @@ func (s *SyncService) ValidateAndApplySequencerTransaction(tx *types.Transaction
 	}
 	s.txLock.Lock()
 	defer s.txLock.Unlock()
+	s.shiftTxApplyError()
 	if err := s.verifyFee(tx); err != nil {
 		return err
 	}
@@ -1232,4 +1241,15 @@ func stringify(i *uint64) string {
 // validation and applies the transaction
 func (s *SyncService) IngestTransaction(tx *types.Transaction) error {
 	return s.applyTransaction(tx)
+}
+
+func (s *SyncService) shiftTxApplyError() {
+	if len(s.txApplyErrCh) > 0 {
+		<-s.txApplyErrCh
+	}
+}
+
+func (s *SyncService) PushTxApplyError(err error) {
+	s.shiftTxApplyError()
+	s.txApplyErrCh <- err
 }
