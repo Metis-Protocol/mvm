@@ -47,11 +47,9 @@
   "dependencies": {
     "@ethersproject/abstract-provider": "^5.4.1",
     "@ethersproject/providers": "^5.4.5",
-    "@types/object-hash": "^2.2.1",
     "chai": "^4.3.4",
     "ethers": "^5.4.5",
     "lodash": "^4.17.21",
-    "minio": "^7.0.26",
-    "object-hash": "^2.2.0"
+    "minio": "^7.0.26"
   }
 }

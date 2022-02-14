@@ -41,6 +41,10 @@ export class CanonicalTransactionChainContract extends Contract {
         from: await this.signer.getAddress(),
         data,
       })
+      
+      if (opts?.useMinio) {
+        console.info('encoded calldata with useMinio: ' + data)
+      }
 
       return {
         nonce,

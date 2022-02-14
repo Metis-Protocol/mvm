@@ -46,7 +46,6 @@ export const encodeAppendSequencerBatch = async (
     return acc + encodedTxDataHeader + remove0x(cur)
   }, '')
   
-  console.info('opts', opts)
   console.info('input data', b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData.length)
 
   if (opts?.useMinio && opts?.minioClient) {

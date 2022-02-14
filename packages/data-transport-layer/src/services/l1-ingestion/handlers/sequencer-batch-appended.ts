@@ -128,12 +128,12 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         context.numSubsequentQueueTransactions === 0 &&
         context.numSequencedTransactions === 0
       ) {
-        const storageObject = calldata.slice(nextTxPointer).toString()
+        const storageObject = calldata.slice(nextTxPointer).toString('hex')
         console.info('calc storage object name', storageObject)
         const txData = await minioClient.readObject(storageObject, 3)
         calldata = Buffer.concat([
           calldata.slice(0, nextTxPointer),
-          Buffer.from(txData, 'utf-8'),
+          Buffer.from(txData, 'hex'),
         ])
       }
 

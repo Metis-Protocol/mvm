@@ -1,6 +1,6 @@
 import * as Minio from 'minio'
-import hash from 'object-hash'
 import { sleep } from '../common'
+import crypto from 'crypto'
 
 export interface MinioConfig {
   options: Minio.ClientOptions
@@ -36,13 +36,17 @@ export class MinioClient {
     }
     return bucketName
   }
+  
+  public sha256Hash(plain): string {
+    return crypto.createHash('sha256').update(plain).digest('hex')
+  }
 
   public async writeObject(
     startAtElement: number,
     totalElements: number,
     encodedTransactionData: string,
     tryCount: number): Promise<string> {
-      console.info('start write object', startAtElement, totalElements, encodedTransactionData.length)
+      console.info('start write object', startAtElement, totalElements, 'len' + encodedTransactionData.length)
       if (!encodedTransactionData || startAtElement < 0 || totalElements <= 0) {
         return ''
       }
@@ -54,7 +58,8 @@ export class MinioClient {
           'X-Metis-Meta-Tx-Total': totalElements,
           'X-Metis-Meta-Tx-Timestamp': calcHash[2]
       }
-      let objectKey = `${hash(calcHash)}_${calcHash[2]}`
+      // object key is timestamp[13] + 00000 + sha256(metaData+txData)
+      let objectKey = `${calcHash[2]}00000${this.sha256Hash(calcHash.join('_'))}`
       try {
         await this.client.putObject(bucketName, objectKey, encodedTransactionData, null, metaData)
         console.info('write object successfully', objectKey)

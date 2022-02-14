@@ -268,9 +268,14 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private async submitAppendSequencerBatch(
     batchParams: AppendSequencerBatchParams
   ): Promise<TransactionReceipt> {
+    await this.getEncodeAppendSequencerBatchOptions()
+    if (this.encodeSequencerBatchOptions?.useMinio) {
+      this.logger.info('encode batch options minioClient if null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
+    }
     const tx =
       await this.chainContract.customPopulateTransaction.appendSequencerBatch(
-        batchParams
+        batchParams,
+        this.encodeSequencerBatchOptions
       )
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(
@@ -314,12 +319,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       batch
     )
     let wasBatchTruncated = false
-    await this.getEncodeAppendSequencerBatchOptions()
-    let encoded = await encodeAppendSequencerBatch(sequencerBatchParams, this.encodeSequencerBatchOptions)
-    this.logger.info('encode batch options minioClient is null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
-    if (this.encodeSequencerBatchOptions?.useMinio) {
-      this.logger.info('encoded with minio: ' + encoded)
-    }
+    // This method checks encoded length without options anyway
+    // it will set raw calldata to CTC if needs fraud proof
+    let encoded = await encodeAppendSequencerBatch(sequencerBatchParams, null)
     while (encoded.length / 2 > this.maxTxSize) {
       this.logger.info('Splicing batch...', {
         batchSizeInBytes: encoded.length / 2,
@@ -329,7 +331,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         startBlock,
         batch
       )
-      encoded = await encodeAppendSequencerBatch(sequencerBatchParams, this.encodeSequencerBatchOptions)
+      encoded = await encodeAppendSequencerBatch(sequencerBatchParams, null)
       //  This is to prevent against the case where a batch is oversized,
       //  but then gets truncated to the point where it is under the minimum size.
       //  In this case, we want to submit regardless of the batch's size.
