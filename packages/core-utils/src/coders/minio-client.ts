@@ -54,9 +54,9 @@ export class MinioClient {
       const calcHash = [startAtElement, totalElements, new Date().getTime(), encodedTransactionData]
       const metaData = {
           'Content-Type': 'application/octet-stream',
-          'X-Metis-Meta-Tx-Start': startAtElement,
-          'X-Metis-Meta-Tx-Total': totalElements,
-          'X-Metis-Meta-Tx-Timestamp': calcHash[2]
+          'x-metis-meta-tx-start': startAtElement,
+          'x-metis-meta-tx-total': totalElements,
+          'x-metis-meta-tx-timestamp': calcHash[2]
       }
       // object key is timestamp[13] + 00000 + sha256(metaData+txData)
       let objectKey = `${calcHash[2]}00000${this.sha256Hash(calcHash.join('_'))}`
@@ -94,7 +94,7 @@ export class MinioClient {
       data = (buffer as Buffer).toString('utf-8')
     }
     catch(x) {
-      console.log('read object err', x.message)
+      console.error('read object err', x.message)
       if (tryCount <= 0) {
         return ''
       }
@@ -103,5 +103,41 @@ export class MinioClient {
       data = await this.readObject(objectName, tryCount)
     }
     return data
+  }
+  
+  public async verifyObject(objectName: string, data: string, tryCount: number) : Promise<boolean> {
+    if (!objectName || !data || objectName.length <= 18) {
+      return false
+    }
+    const bucketName = await this.ensureBucket()
+    let verified = false
+    let meta = null
+    try {
+      const stat = await this.client.statObject(bucketName, objectName)
+      if (!stat) {
+        throw 'statObject failed'
+      }
+      meta = stat.metaData
+      if (meta['x-metis-meta-tx-start'] == 'undefined' || meta['x-metis-meta-tx-total'] == 'undefined'
+      || !meta['x-metis-meta-tx-timestamp']) {
+        return false
+      }
+      // to verfiy
+      const calcHash = [meta['x-metis-meta-tx-start'], meta['x-metis-meta-tx-total'], meta['x-metis-meta-tx-timestamp'], data]
+      // hash from name
+      const hashFromName = objectName.substr(18)
+      const hashFromCalc = this.sha256Hash(calcHash.join('_'))
+      return hashFromName === hashFromCalc
+    }
+    catch(x) {
+      console.error('stat object err', x.message)
+      if (tryCount <= 0) {
+        return false
+      }
+      tryCount--
+      await sleep(1000)
+      verified = await this.verifyObject(objectName, data, tryCount)
+    }
+    return verified
   }
 }

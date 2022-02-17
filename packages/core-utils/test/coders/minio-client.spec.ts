@@ -5,7 +5,6 @@ import {
   MinioClient,
   MinioConfig
 } from '../../src'
-import sha256 from 'fast-sha256'
 import chai, { expect, assert } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 
@@ -45,7 +44,7 @@ describe('MinioClient', () => {
       }
       const client = new MinioClient(config)
       const input = 'this is a test data'
-      const objectName = await client.writeObject(0, 1, input, 3)
+      const objectName = await client.writeObject(0, 1, input, 2)
       expect(objectName).to.length.gt(0)
 
       const config2: MinioConfig = {
@@ -53,8 +52,8 @@ describe('MinioClient', () => {
         bucket: 'metis-1088-tx',
         options: {
           endPoint: 'metis.memosync.org',
-          accessKey: 'maticuser',
-          secretKey: 'door*three3',
+          accessKey: 'readonly',
+          secretKey: 'read888&',
           useSSL: true,
           port: 6081,
         }
@@ -62,8 +61,10 @@ describe('MinioClient', () => {
       const client2 = new MinioClient(config2)
       const output = await client2.readObject(objectName, 2)
       console.log('object', objectName, 'input', input, 'output', output)
+      const verified = await client2.verifyObject(objectName, output, 2)
       expect(output).to.length.gt(0)
       expect(output).to.equal(input, `input: ${input}, output: ${output}`)
+      expect(verified).to.be.true
     })
 
     it('should throw an error when writing with readonly account', async () => {
@@ -72,8 +73,8 @@ describe('MinioClient', () => {
         bucket: 'metis-1088-tx',
         options: {
           endPoint: 'metis.memosync.org',
-          accessKey: 'maticuser',
-          secretKey: 'door*three3',
+          accessKey: 'readonly',
+          secretKey: 'read888&',
           useSSL: true,
           port: 6081,
         }
@@ -96,8 +97,8 @@ describe('MinioClient', () => {
         bucket: 'metis-1088-tx',
         options: {
           endPoint: 'metis.memosync.org',
-          accessKey: 'maticuser',
-          secretKey: 'door*three3',
+          accessKey: 'readonly',
+          secretKey: 'read888&',
           useSSL: true,
           port: 6081,
         }

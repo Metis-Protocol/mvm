@@ -130,7 +130,12 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
       ) {
         const storageObject = calldata.slice(nextTxPointer).toString('hex')
         console.info('calc storage object name', storageObject)
-        const txData = await minioClient.readObject(storageObject, 3)
+        const txData = await minioClient.readObject(storageObject, 2)
+        const verified = await minioClient.verifyObject(storageObject, txData, 2)
+        if (!verified) {
+          throw new Error(`verified calldata from storage error, storage object ${storageObject}`)
+        }
+        console.info('verified storage data', storageObject)
         calldata = Buffer.concat([
           calldata.slice(0, nextTxPointer),
           Buffer.from(txData, 'hex'),
