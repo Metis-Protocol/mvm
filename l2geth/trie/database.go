@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -384,6 +385,9 @@ func (db *Database) node(hash common.Hash) node {
 	// Content unavailable in memory, attempt to retrieve from disk
 	enc, err := db.diskdb.Get(hash[:])
 	if err != nil || enc == nil {
+		//todo 20220212 miss tire
+		log.Error(fmt.Sprintf("missing trie node:%v", err))
+		log.Error(fmt.Sprintf("%s", debug.Stack()))
 		return nil
 	}
 	if db.cleans != nil {
