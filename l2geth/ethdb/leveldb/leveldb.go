@@ -102,7 +102,7 @@ func New(file string, cache int, handles int, namespace string) (*Database, erro
 		Filter:                 filter.NewBloomFilter(10),
 		DisableSeeksCompaction: true,
 		//todo 20220212 miss tire
-		DisableBlockCache: true,
+		DisableBlockCache: false,
 	})
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
 		db, err = leveldb.RecoverFile(file, nil)
