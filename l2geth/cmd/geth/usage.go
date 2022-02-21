@@ -192,6 +192,8 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.JSpathFlag,
 			utils.ExecFlag,
 			utils.PreloadJSFlag,
+			// metis flag
+			utils.L2UrlFlag,
 		},
 	},
 	{

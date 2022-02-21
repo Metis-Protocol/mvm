@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/les/checkpointoracle"
@@ -51,6 +52,8 @@ type LightEthereum struct {
 
 	// Node config for check if rollup on
 	nodeRpcModules []string
+
+	rpcClient *ethclient.Client
 
 	reqDist    *requestDistributor
 	retriever  *retrieveManager
@@ -154,6 +157,16 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 	}
 	leth.ApiBackend.gpo = gasprice.NewOracle(leth.ApiBackend, gpoParams)
 
+	// create ethclient
+	l2Url := ctx.L2Url()
+	if l2Url != "" && !ctx.IsRollupNode() {
+		leth.rpcClient, err = ethclient.Dial(l2Url)
+		if err != nil {
+			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
+		}
+		log.Info("Dial to a new proxy rpc client", "url", l2Url)
+	}
+
 	return leth, nil
 }
 
@@ -256,6 +269,11 @@ func (s *LightEthereum) Start(srvr *p2p.Server) error {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *LightEthereum) Stop() error {
+	// stop rpc
+	if s.rpcClient != nil {
+		s.rpcClient.Close()
+	}
+
 	close(s.closeCh)
 	s.peers.Close()
 	s.reqDist.close()

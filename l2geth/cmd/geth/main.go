@@ -187,6 +187,8 @@ var (
 		utils.IPCPathFlag,
 		utils.InsecureUnlockAllowedFlag,
 		utils.RPCGlobalGasCap,
+		// metis flag
+		utils.L2UrlFlag,
 	}
 
 	whisperFlags = []cli.Flag{

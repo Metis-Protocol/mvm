@@ -4,7 +4,7 @@ import * as rlp from 'rlp'
 import { MerkleTree } from 'merkletreejs'
 
 /* Imports: Internal */
-import { fromHexString, sleep } from '@eth-optimism/core-utils'
+import { fromHexString, sleep } from '@metis.io/core-utils'
 import { Logger, BaseService, Metrics } from '@eth-optimism/common-ts'
 
 import {
@@ -355,7 +355,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           return false
         }
       })
-      
+
       this.state.eventCache = this.state.eventCache.concat(filteredEvents)
       //this.state.eventCache = this.state.eventCache.concat(events)
       startingBlock += this.options.getLogsInterval
@@ -506,7 +506,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         elements.push(ethers.utils.keccak256('0x' + '00'.repeat(32)))
       }
     }
-    
+
     const hash = (el: Buffer | string): Buffer => {
       return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
     }
@@ -514,7 +514,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     const leaves = elements.map((element) => {
       return fromHexString(element)
     })
-    
+
     const tree = new MerkleTree(leaves, hash)
     const index =
       message.parentTransactionIndex - header.batch.prevTotalElements.toNumber()

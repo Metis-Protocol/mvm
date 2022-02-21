@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@discoveryjs/json-ext": "^0.5.3",
-    "@eth-optimism/core-utils": "^0.6.0",
+    "@metis.io/core-utils": "^0.6.1",
     "@types/node": "^15.12.2",
     "@types/node-fetch": "^3.0.3",
     "@uniswap/sdk-core": "^3.0.1",

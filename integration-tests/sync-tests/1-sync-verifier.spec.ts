@@ -1,6 +1,6 @@
 import chai, { expect } from 'chai'
 import { Wallet, BigNumber, providers } from 'ethers'
-import { injectL2Context } from '@eth-optimism/core-utils'
+import { injectL2Context } from '@metis.io/core-utils'
 
 import {
   sleep,

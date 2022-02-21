@@ -353,7 +353,7 @@ func ReadTransactionMeta(db ethdb.Reader, number uint64) *types.TransactionMeta 
 		return nil
 	}
 	// NOTE 20210724
-	log.Debug("Test: Read Tx Meta", "meta L1Timestamp", meta.L1Timestamp, "L1MessageSender", meta.L1MessageSender, "Index", meta.Index)
+	// log.Debug("Test: Read Tx Meta", "meta L1Timestamp", meta.L1Timestamp, "L1MessageSender", meta.L1MessageSender, "Index", meta.Index)
 
 	return meta
 }

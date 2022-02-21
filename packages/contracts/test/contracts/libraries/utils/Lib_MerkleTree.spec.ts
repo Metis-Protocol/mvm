@@ -4,7 +4,7 @@ import { expect } from '../../../setup'
 import { ethers } from 'hardhat'
 import { Contract, BigNumber } from 'ethers'
 import { MerkleTree } from 'merkletreejs'
-import { fromHexString, toHexString } from '@eth-optimism/core-utils'
+import { fromHexString, toHexString } from '@metis.io/core-utils'
 
 /* Internal Imports */
 import { NON_NULL_BYTES32 } from '../../../helpers'

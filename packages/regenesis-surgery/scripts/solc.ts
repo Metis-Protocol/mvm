@@ -5,7 +5,7 @@ import path from 'path'
 import fs, { mkdirSync } from 'fs'
 import solc from 'solc'
 import { ethers } from 'ethers'
-import { clone } from '@eth-optimism/core-utils'
+import { clone } from '@metis.io/core-utils'
 import {
   COMPILER_VERSIONS_TO_SOLC,
   EMSCRIPTEN_BUILD_LIST,

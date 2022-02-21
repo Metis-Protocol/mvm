@@ -1,12 +1,12 @@
 import { Contract, ContractFactory, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
-import { TxGasLimit, TxGasPrice } from '@eth-optimism/core-utils'
+import { TxGasLimit, TxGasPrice } from '@metis.io/core-utils'
 import chai, { expect } from 'chai'
 import { GWEI } from './shared/utils'
 import { OptimismEnv } from './shared/env'
 import { solidity } from 'ethereum-waffle'
 import { JsonRpcProvider, TransactionResponse } from '@ethersproject/providers'
-import { Watcher } from '@eth-optimism/core-utils'
+import { Watcher } from '@metis.io/core-utils'
 
 chai.use(solidity)
 
@@ -30,7 +30,7 @@ export const getEnvironment = async (): Promise<{
     l1Provider = new JsonRpcProvider("http://localhost:9545")
     l2Provider = new JsonRpcProvider("http://localhost:8545")
     l2PeerProvider = new JsonRpcProvider("http://localhost:10545")
-    
+
     l1Wallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", l1Provider)
     l2Wallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", l2Provider)
     l2PeerWallet = new Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", l2PeerProvider)
@@ -65,11 +65,11 @@ describe('Basic ERC20 interactions', async () => {
     l1Wallet = system.l1Wallet
     l2Wallet = system.l2Wallet
     l2PeerWallet = system.l2Wallet
-    
+
     wallet = l2Wallet
     other = Wallet.createRandom().connect(l2Provider)
     Factory__ERC20 = await ethers.getContractFactory('ERC20', wallet)
-    
+
   })
 
   beforeEach(async () => {
@@ -95,7 +95,7 @@ describe('Basic ERC20 interactions', async () => {
   it.skip('should get the token name', async () => {
     const name = await ERC20.name()
     expect(name).to.equal(tokenName)
-    
+
     const peerErc20=Factory__ERC20.connect(l2PeerWallet).attach(ERC20.address)
     console.log(await peerErc20.name())
   })
@@ -116,7 +116,7 @@ describe('Basic ERC20 interactions', async () => {
   })
 
   it.skip('should transfer amount to destination account', async () => {
-    
+
     const peerErc20=Factory__ERC20.connect(l2PeerWallet).attach(ERC20.address)
     console.log("token:"+await ERC20.balanceOf(l2Wallet.address)+","+await peerErc20.balanceOf(l2PeerWallet.address))
     const transfer = await ERC20.transfer(other.address, 100)

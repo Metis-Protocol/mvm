@@ -3,7 +3,7 @@ import { expect } from '../../../setup'
 /* External Imports */
 import { ethers } from 'hardhat'
 import { Contract } from 'ethers'
-import { applyL1ToL2Alias, undoL1ToL2Alias } from '@eth-optimism/core-utils'
+import { applyL1ToL2Alias, undoL1ToL2Alias } from '@metis.io/core-utils'
 
 describe('AddressAliasHelper', () => {
   let AddressAliasHelper: Contract

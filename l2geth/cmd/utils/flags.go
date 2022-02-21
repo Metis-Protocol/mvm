@@ -864,6 +864,14 @@ var (
 		Usage:  "Allow txs with fees above the current fee up to this amount, must be > 1",
 		EnvVar: "ROLLUP_FEE_THRESHOLD_UP",
 	}
+
+	// metis flag
+	L2UrlFlag = cli.StringFlag{
+		Name:   "l2_url",
+		Usage:  "L2 main node RPC url, peer will submit tx via it",
+		Value:  "",
+		EnvVar: "L2_URL",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1364,6 +1372,9 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
 	}
+
+	// metis set
+	cfg.L2Url = ctx.GlobalString(L2UrlFlag.Name)
 }
 
 func setSmartCard(ctx *cli.Context, cfg *node.Config) {

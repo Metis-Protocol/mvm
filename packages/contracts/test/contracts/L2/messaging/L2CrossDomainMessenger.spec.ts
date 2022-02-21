@@ -4,7 +4,7 @@ import { expect } from '../../../setup'
 import hre, { ethers } from 'hardhat'
 import { Signer, ContractFactory, Contract } from 'ethers'
 import { smockit, MockContract } from '@eth-optimism/smock'
-import { applyL1ToL2Alias } from '@eth-optimism/core-utils'
+import { applyL1ToL2Alias } from '@metis.io/core-utils'
 
 /* Internal Imports */
 import {

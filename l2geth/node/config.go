@@ -188,6 +188,10 @@ type Config struct {
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
 
+	// L2Url is L2 main node rpc url, peer config only
+	// if it is nil or empty,
+	L2Url string `toml:",omitempty"`
+
 	staticNodesWarning     bool
 	trustedNodesWarning    bool
 	oldGethResourceWarning bool

@@ -7,7 +7,9 @@ import {
   toHexString,
   toRpcHexString,
   EventArgsSequencerBatchAppended,
-} from '@eth-optimism/core-utils'
+  MinioClient,
+  MinioConfig,
+} from '@metis.io/core-utils'
 
 /* Imports: Internal */
 import {
@@ -79,11 +81,30 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
       batchExtraData: batchSubmissionEvent.args._extraData,
     }
   },
-  parseEvent: (event, extraData, l2ChainId) => {
+  parseEvent: async (event, extraData, l2ChainId, options) => {
     const transactionEntries: TransactionEntry[] = []
 
     // It's easier to deal with this data if it's a Buffer.
-    const calldata = fromHexString(extraData.l1TransactionData)
+    let calldata = fromHexString(extraData.l1TransactionData)
+    let minioClient: MinioClient = null
+    if (options.minioBucket && options.minioAccessKey &&
+      options.minioSecretKey && options.minioEndpoint &&
+      options.minioPort) {
+        const minioConfig: MinioConfig = {
+          options: {
+            endPoint: options.minioEndpoint,
+            port: options.minioPort,
+            useSSL: options.minioUseSsl,
+            accessKey: options.minioAccessKey,
+            secretKey: options.minioSecretKey,
+          },
+          l2ChainId: l2ChainId,
+          bucket: options.minioBucket
+        }
+        minioClient = new MinioClient(minioConfig)
+      }
+    
+    console.info('minio client if null', minioClient == null)
 
     // chainid + 32, so not [12, 15]
     if (calldata.length < 44) {
@@ -99,6 +120,27 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     for (let i = 0; i < numContexts; i++) {
       const contextPointer = 47 + 16 * i
       const context = parseSequencerBatchContext(calldata, contextPointer)
+
+      if (
+        i === 0 &&
+        context.blockNumber === 0 &&
+        context.timestamp === 0 &&
+        context.numSubsequentQueueTransactions === 0 &&
+        context.numSequencedTransactions === 0
+      ) {
+        const storageObject = calldata.slice(nextTxPointer).toString('hex')
+        console.info('calc storage object name', storageObject)
+        const txData = await minioClient.readObject(storageObject, 2)
+        const verified = await minioClient.verifyObject(storageObject, txData, 2)
+        if (!verified) {
+          throw new Error(`verified calldata from storage error, storage object ${storageObject}`)
+        }
+        console.info('verified storage data', storageObject)
+        calldata = Buffer.concat([
+          calldata.slice(0, nextTxPointer),
+          Buffer.from(txData, 'hex'),
+        ])
+      }
 
       for (let j = 0; j < context.numSequencedTransactions; j++) {
         const sequencerTransaction = parseSequencerBatchTransaction(

@@ -1,5 +1,5 @@
 /* Imports: External */
-import { fromHexString, FallbackProvider } from '@eth-optimism/core-utils'
+import { fromHexString, FallbackProvider } from '@metis.io/core-utils'
 import { BaseService, Metrics } from '@eth-optimism/common-ts'
 import { BaseProvider } from '@ethersproject/providers'
 import { LevelUp } from 'levelup'
@@ -408,13 +408,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
             event,
             this.state.l1RpcProvider
           )
+	        // filter chainId
+          var chainId = event.args._chainId.toNumber()
           const parsedEvent = await handlers.parseEvent(
             event,
             extraData,
-            this.options.l2ChainId
+            chainId,
+            this.options
           )
-	  // filter chainId
-          var chainId = event.args._chainId.toNumber()
           var db=this.state.db
           if(chainId&&chainId!=0){
              db = await this.options.dbs.getTransportDbByChainId(chainId)

@@ -5,7 +5,7 @@ import { Gauge, Histogram } from 'prom-client'
 import cron from 'node-cron'
 import { providers, Wallet } from 'ethers'
 import { Metrics, Logger } from '@eth-optimism/common-ts'
-import { injectL2Context, sleep } from '@eth-optimism/core-utils'
+import { injectL2Context, sleep } from '@metis.io/core-utils'
 
 import { binarySearchForMismatch } from './helpers'
 

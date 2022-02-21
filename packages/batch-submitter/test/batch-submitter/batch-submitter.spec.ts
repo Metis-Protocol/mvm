@@ -37,7 +37,7 @@ import {
   Batch,
   Signature,
   remove0x,
-} from '@eth-optimism/core-utils'
+} from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
 const DUMMY_ADDRESS = '0x' + '00'.repeat(20)

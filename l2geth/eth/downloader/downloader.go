@@ -157,6 +157,9 @@ type Downloader struct {
 	bodyFetchHook    func([]*types.Header) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.Header) // Method to call upon starting a receipt fetch
 	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+
+	// Metis
+	blocksInsertedHook func(types.Blocks)
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -210,7 +213,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn) *Downloader {
+func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, blocksInserted func(types.Blocks)) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -239,6 +242,8 @@ func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, 
 			processed: rawdb.ReadFastTrieProgress(stateDb),
 		},
 		trackStateReq: make(chan *stateReq),
+
+		blocksInsertedHook: blocksInserted,
 	}
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -1565,6 +1570,10 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 			log.Debug("Downloaded item processing failed on sidechain import", "index", index, "err", err)
 		}
 		return errInvalidChain
+	}
+	// call hook
+	if d.blocksInsertedHook != nil {
+		d.blocksInsertedHook(blocks)
 	}
 	return nil
 }

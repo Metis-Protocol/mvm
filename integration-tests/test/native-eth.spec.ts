@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { Wallet, utils, BigNumber } from 'ethers'
 import { serialize } from '@ethersproject/transactions'
 import { predeploys } from '@eth-optimism/contracts'
-import { expectApprox } from '@eth-optimism/core-utils'
+import { expectApprox } from '@metis.io/core-utils'
 
 /* Imports: Internal */
 import { Direction } from './shared/watcher-utils'

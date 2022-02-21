@@ -37,6 +37,14 @@ export interface L1DataTransportServiceOptions {
   defaultBackend: string
   l1GasPriceBackend: string
   l1StartHeight?: number
+
+  minioEnabled?: boolean
+  minioBucket?: string
+  minioEndpoint?: string
+  minioPort?: number
+  minioUseSsl?: boolean
+  minioAccessKey?: string
+  minioSecretKey?: string
 }
 
 const optionSettings = {

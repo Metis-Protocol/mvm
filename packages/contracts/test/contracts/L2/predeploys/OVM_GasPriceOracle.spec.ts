@@ -4,7 +4,7 @@ import { expect } from '../../../setup'
 import { ethers } from 'hardhat'
 import { ContractFactory, Contract, Signer } from 'ethers'
 
-import { calculateL1GasUsed, calculateL1Fee } from '@eth-optimism/core-utils'
+import { calculateL1GasUsed, calculateL1Fee } from '@metis.io/core-utils'
 
 describe('OVM_GasPriceOracle', () => {
   const initialGasPrice = 0

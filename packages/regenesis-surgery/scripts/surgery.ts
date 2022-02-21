@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import fs from 'fs'
-import { add0x, remove0x, clone } from '@eth-optimism/core-utils'
+import { add0x, remove0x, clone } from '@metis.io/core-utils'
 import { StateDump, SurgeryDataSources, AccountType } from './types'
 import { findAccount } from './utils'
 import { handlers } from './handlers'

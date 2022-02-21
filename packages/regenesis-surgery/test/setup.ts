@@ -3,7 +3,7 @@ import chai = require('chai')
 import Mocha from 'mocha'
 import chaiAsPromised from 'chai-as-promised'
 import * as dotenv from 'dotenv'
-import { reqenv, getenv } from '@eth-optimism/core-utils'
+import { reqenv, getenv } from '@metis.io/core-utils'
 import { providers } from 'ethers'
 import { SurgeryDataSources, Account, AccountType } from '../scripts/types'
 import { loadSurgeryData } from '../scripts/data'

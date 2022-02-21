@@ -957,6 +957,26 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 	return (hexutil.Bytes)(result), err
 }
 
+func toCallArg(args CallArgs) interface{} {
+	arg := map[string]interface{}{
+		"from": args.From,
+		"to":   args.To,
+	}
+	if args.Data != nil {
+		arg["data"] = args.Data
+	}
+	if args.Value != nil {
+		arg["value"] = args.Value
+	}
+	// if args.Gas != 0 {
+	// 	arg["gas"] = args.Gas
+	// }
+	if args.GasPrice != nil {
+		arg["gasPrice"] = args.GasPrice
+	}
+	return arg
+}
+
 // Optimism note: The gasPrice in Optimism is modified to always return 1 gwei. We
 // use the gasLimit field to communicate the entire user fee. This is done for
 // for compatibility reasons with the existing Ethereum toolchain, so that the user
@@ -969,6 +989,21 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		hi  uint64
 		cap uint64
 	)
+
+	// rpc proxy check
+	// if b.IsRpcProxySupport() {
+	// 	callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
+
+	// 	gasLimit, err := b.ProxyEstimateGas(ctx, toCallArg(callArgs))
+	// 	if err != nil {
+	// 		return 0, err
+	// 	}
+	// 	// threshold if has Gas arg
+	// 	// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
+	// 	// 	gasLimit = uint64(*args.Gas)
+	// 	// }
+	// 	return hexutil.Uint64(gasLimit), nil
+	// }
 
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
@@ -1047,6 +1082,9 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 // encode the fee in wei as gas price is always 1
 func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
 	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	if s.b.IsRpcProxySupport() {
+		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+	}
 	return DoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
 }
 
@@ -1600,6 +1638,17 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		}
 	}
 	if !canSubmit {
+		// check RPC proxy and do proxy
+		if b.IsRpcProxySupport() {
+			tx.SetL2Tx(2)
+			errRpc := b.ProxyTransaction(ctx, tx)
+			tx.SetL2Tx(1)
+			if errRpc == nil {
+				return tx.Hash(), nil
+			}
+			return common.Hash{}, errRpc
+		}
+
 		return common.Hash{}, errors.New("Not support submit transaction")
 	}
 

@@ -1,5 +1,5 @@
 import { KECCAK256_RLP_S, KECCAK256_NULL_S } from 'ethereumjs-util'
-import { add0x } from '@eth-optimism/core-utils'
+import { add0x } from '@metis.io/core-utils'
 import { expect, env, NUM_ACCOUNTS_DIVISOR } from '../setup'
 import { AccountType, Account } from '../../scripts/types'
 
