@@ -13,7 +13,7 @@ chai.use(chaiAsPromised)
 
 describe('MinioClient', () => {
   describe('minioClientPutAndGetObject', () => {
-    it('hash sha256', ()=>{
+    it.skip('hash sha256', ()=>{
       const config: MinioConfig = {
         l2ChainId: 488,
         bucket: 'metis-1088-tx',
@@ -30,7 +30,7 @@ describe('MinioClient', () => {
       expect(hash).to.equal('8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'sha256 incorrect')
     })
     
-    it('should work with the simple case', async () => {
+    it.skip('should work with the simple case', async () => {
       const config: MinioConfig = {
         l2ChainId: 488,
         bucket: 'metis-1088-tx',
@@ -67,7 +67,7 @@ describe('MinioClient', () => {
       expect(verified).to.be.true
     })
 
-    it('should throw an error when writing with readonly account', async () => {
+    it.skip('should throw an error when writing with readonly account', async () => {
       const config: MinioConfig = {
         l2ChainId: 488,
         bucket: 'metis-1088-tx',
@@ -91,7 +91,7 @@ describe('MinioClient', () => {
       }
     })
     
-    it('should throw an error when read a file not exists', async () => {
+    it.skip('should throw an error when read a file not exists', async () => {
       const config: MinioConfig = {
         l2ChainId: 488,
         bucket: 'metis-1088-tx',
@@ -107,6 +107,32 @@ describe('MinioClient', () => {
       // S3Error: Access Denied.
       try{
         await client.readObject('123', 2)
+      }
+      catch(x) {
+        console.log('read obj error: ', x.message)
+        expect(x.message).to.equal('The specified key does not exist.')
+      }
+    })
+
+    it.skip('test an exist object', async () => {
+      const config: MinioConfig = {
+        l2ChainId: 488,
+        bucket: 'metis-1088-tx',
+        options: {
+          endPoint: 'metis.memosync.org',
+          accessKey: 'readonly',
+          secretKey: 'read888&',
+          useSSL: true,
+          port: 6081,
+        }
+      }
+      const client = new MinioClient(config)
+      // S3Error: Access Denied.
+      try {
+        const objectName = '16454988508790000021a5f8d7508995929b6b0302603c8bdb38abe1613737611c04874f0a3e0ab2e4'
+        const calldata = await client.readObject(objectName, 2)
+        const verified = await client.verifyObject(objectName, calldata, 2)
+        expect(verified).to.be.true
       }
       catch(x) {
         console.log('read obj error: ', x.message)
