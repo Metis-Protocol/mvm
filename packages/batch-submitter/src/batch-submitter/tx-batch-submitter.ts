@@ -221,8 +221,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     }
 
     const [batchParams, wasBatchTruncated] = params
-    await this.getEncodeAppendSequencerBatchOptions()
-    const encodeBatch = await encodeAppendSequencerBatch(batchParams, this.encodeSequencerBatchOptions)
+    // encodeBatch of calldata for _shouldSubmitBatch
+    const encodeBatch = await encodeAppendSequencerBatch(batchParams, null)
     const batchSizeInBytes = encodeBatch.length / 2
     this.logger.debug('Sequencer batch generated', {
       batchSizeInBytes,

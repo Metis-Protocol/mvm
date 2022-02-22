@@ -46,7 +46,7 @@ export class MinioClient {
     totalElements: number,
     encodedTransactionData: string,
     tryCount: number): Promise<string> {
-      console.info('start write object', startAtElement, totalElements, 'len' + encodedTransactionData.length)
+      console.info('start write object', startAtElement, totalElements, 'len ' + encodedTransactionData.length)
       if (!encodedTransactionData || startAtElement < 0 || totalElements <= 0) {
         return ''
       }
@@ -83,15 +83,29 @@ export class MinioClient {
     const bucketName = await this.ensureBucket()
     let data = ''
     try {
-      const readable = await this.client.getObject(bucketName, objectName)
-      if (!readable) {
-        throw 'getObject err: readable'
-      }
-      const buffer = readable.read()
-      if (!buffer) {
+      let self = this
+      data = await new Promise(function(resolve, reject){
+        let chunks = ''
+        self.client.getObject(bucketName, objectName, function(err, dataStream) {
+          if (err) {
+            reject(err)
+            return
+          }
+          dataStream.on('data', function(chunk) {
+           chunks += chunk
+          })
+          dataStream.on('end', function() {
+            resolve(chunks)
+          })
+          dataStream.on('error', function(err) {
+            console.log(err)
+            reject(err)
+          })
+        })
+      })
+      if (!data || data.length === 0) {
         throw 'getObject err: readable.read'
       }
-      data = (buffer as Buffer).toString('utf-8')
     }
     catch(x) {
       console.error('read object err', x.message)
@@ -127,7 +141,11 @@ export class MinioClient {
       // hash from name
       const hashFromName = objectName.substr(18)
       const hashFromCalc = this.sha256Hash(calcHash.join('_'))
-      return hashFromName === hashFromCalc
+      verified = hashFromName === hashFromCalc
+      if (!verified) {
+        console.info('compare hash', 'from name', hashFromName, 'from calc', hashFromCalc, 'data len', data.length)
+      }
+      return verified
     }
     catch(x) {
       console.error('stat object err', x.message)
