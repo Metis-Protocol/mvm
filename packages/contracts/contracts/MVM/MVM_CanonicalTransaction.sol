@@ -222,13 +222,12 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
                 queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
                 "insufficient balance"
             );
+            queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.SEQ_SET;
             // transfer from contract to sender ETHER and record
             address payable _to = payable(msg.sender);
             (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
             require(success, "insufficient balance");
             verifierStakes[queueTxDataRequestStake[_chainId][_batchIndex].sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
-
-            queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.SEQ_SET;
 
             emit SetBatchTxData(
                 msg.sender,
@@ -259,19 +258,20 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
 
         _setBatchTxData(_chainId, _batchIndex, _sliceIndex, _data, _end, false);
 
-        if (_end && queueTxDataRequestStake[_chainId][_batchIndex].amount <= verifierStakes[msg.sender]) {
-            require(
-                queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
-                "insufficient balance"
-            );
-            // transfer from contract to sender ETHER and record
-            address payable _to = payable(msg.sender);
-            (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
-            require(success, "insufficient balance");
-            verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
-        }
         if (_end) {
             queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.VERIFIER_SET;
+
+            if (queueTxDataRequestStake[_chainId][_batchIndex].amount <= verifierStakes[msg.sender]) {
+                require(
+                    queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
+                    "insufficient balance"
+                );
+                // transfer from contract to sender ETHER and record
+                address payable _to = payable(msg.sender);
+                (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+                require(success, "insufficient balance");
+                verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
+            }
 
             emit SetBatchTxData(
                 msg.sender,
@@ -426,12 +426,12 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
             "insufficient balance"
         );
+        queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.PAYBACK;
         // transfer from contract to sender ETHER and record
         address payable _to = payable(msg.sender);
         (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
         require(success, "insufficient balance");
         verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
-        queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.PAYBACK;
     }
 
     function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
