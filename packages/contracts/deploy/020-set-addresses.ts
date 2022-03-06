@@ -7,7 +7,7 @@ import { predeploys } from '../src/predeploys'
 
 
 const deployFn: DeployFunction = async (hre) => {
-  
+
   // L2CrossDomainMessenger is the address of the predeploy on L2. We can refactor off-chain
   // services such that we can remove the need to set this address, but for now it's easier
   // to simply keep setting the address.
@@ -32,19 +32,20 @@ const deployFn: DeployFunction = async (hre) => {
   //  name: 'OVM_Proposer',
   //  address: (hre as any).deployConfig.ovmProposerAddress,
   //})
-  
+
   await registerAddress({
     hre,
     name: 'METIS_MANAGER',
     address: (hre as any).deployConfig.mvmMetisManager,
   })
-  
+
+  // register the {l2chainId}_MVM_Sequencer_Wrapper, it will call MVM contract
   await registerAddress({
     hre,
-    name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
+    name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer_Wrapper',
     address: (hre as any).deployConfig.ovmSequencerAddress,
   })
-  
+
   await registerAddress({
     hre,
     name: (hre as any).deployConfig.l2chainid + '_MVM_Proposer',

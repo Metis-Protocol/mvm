@@ -26,6 +26,7 @@ import {
 
 import { BlockRange, BatchSubmitter } from '.'
 import { TransactionSubmitter } from '../utils'
+import { hrtime } from 'process'
 
 export interface AutoFixBatchOptions {
   fixDoublePlayedDeposits: boolean
@@ -35,6 +36,7 @@ export interface AutoFixBatchOptions {
 
 export class TransactionBatchSubmitter extends BatchSubmitter {
   protected chainContract: CanonicalTransactionChainContract
+  protected mvmCtcContract: CanonicalTransactionChainContract
   protected l2ChainId: number
   protected syncing: boolean
   private autoFixBatchOptions: AutoFixBatchOptions
@@ -114,13 +116,24 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.syncing = info.syncing
     const addrs = await this._getChainAddresses()
     const ctcAddress = addrs.ctcAddress
+    const mvmCtcAddress = addrs.mvmCtcAddress
+
+    if (mvmCtcAddress == ethers.constants.AddressZero) {
+      this.logger.error(
+        'MVM_CanonicalTransaction contract load failed'
+      )
+      process.exit(1)
+    }
 
     if (
       typeof this.chainContract !== 'undefined' &&
-      ctcAddress === this.chainContract.address
+      ctcAddress === this.chainContract.address &&
+      typeof this.mvmCtcContract !== 'undefined' &&
+      mvmCtcAddress === this.mvmCtcContract.address
     ) {
       this.logger.debug('Chain contract already initialized', {
         ctcAddress,
+        mvmCtcAddress,
       })
       return
     }
@@ -136,6 +149,19 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     )
     this.logger.info('Initialized new CTC', {
       address: this.chainContract.address,
+    })
+
+    const unwrapped_MVM_CanonicalTransaction = (
+      await getContractFactory('MVM_CanonicalTransaction', this.signer)
+    ).attach(mvmCtcAddress)
+
+    this.mvmCtcContract = new CanonicalTransactionChainContract(
+      unwrapped_MVM_CanonicalTransaction.address,
+      getContractInterface('MVM_CanonicalTransaction'),
+      this.signer
+    )
+    this.logger.info('Initialized new mvmCTC', {
+      address: this.mvmCtcContract.address,
     })
     return
   }
@@ -272,8 +298,13 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     if (this.encodeSequencerBatchOptions?.useMinio) {
       this.logger.info('encode batch options minioClient if null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
     }
+    // const tx =
+    //   await this.chainContract.customPopulateTransaction.appendSequencerBatch(
+    //     batchParams,
+    //     this.encodeSequencerBatchOptions
+    //   )
     const tx =
-      await this.chainContract.customPopulateTransaction.appendSequencerBatch(
+      await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
         batchParams,
         this.encodeSequencerBatchOptions
       )

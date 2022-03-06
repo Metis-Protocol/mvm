@@ -133,6 +133,7 @@ export abstract class BatchSubmitter {
   protected async _getChainAddresses(): Promise<{
     ctcAddress: string
     sccAddress: string
+    mvmCtcAddress: string
   }> {
     const addressManager = (
       await getContractFactory('Lib_AddressManager', this.signer)
@@ -141,9 +142,13 @@ export abstract class BatchSubmitter {
     const ctcAddress = await addressManager.getAddress(
       'CanonicalTransactionChain'
     )
+    const mvmCtcAddress = await addressManager.getAddress(
+      'MVM_CanonicalTransaction'
+    )
     return {
       ctcAddress,
       sccAddress,
+      mvmCtcAddress,
     }
   }
 

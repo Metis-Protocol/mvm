@@ -107,7 +107,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     function processL2SeqGas(address sender, uint256 _chainId)
     public payable override {
         require(isXDomainSenderAllowed(sender), "sender is not whitelisted");
-        string memory ch = string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer"));
+        string memory ch = string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper"));
 
         address sequencer = resolve(ch);
         require (sequencer != address(0), string(abi.encodePacked("sequencer address not available: ", ch)));

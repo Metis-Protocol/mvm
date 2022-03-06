@@ -36,7 +36,7 @@ export class MinioClient {
     }
     return bucketName
   }
-  
+
   public sha256Hash(plain): string {
     return crypto.createHash('sha256').update(plain).digest('hex')
   }
@@ -48,6 +48,7 @@ export class MinioClient {
     tryCount: number): Promise<string> {
       console.info('start write object', startAtElement, totalElements, 'len ' + encodedTransactionData.length)
       if (!encodedTransactionData || startAtElement < 0 || totalElements <= 0) {
+        console.info('return with nothing to write')
         return ''
       }
       const bucketName = await this.ensureBucket()
@@ -88,18 +89,18 @@ export class MinioClient {
         let chunks = ''
         self.client.getObject(bucketName, objectName, function(err, dataStream) {
           if (err) {
-            reject(err)
-            return
+            reject(err)
+            return
           }
           dataStream.on('data', function(chunk) {
-           chunks += chunk
+           chunks += chunk
           })
           dataStream.on('end', function() {
             resolve(chunks)
           })
           dataStream.on('error', function(err) {
-            console.log(err)
-            reject(err)
+            console.log(err)
+            reject(err)
           })
         })
       })
@@ -118,7 +119,7 @@ export class MinioClient {
     }
     return data
   }
-  
+
   public async verifyObject(objectName: string, data: string, tryCount: number) : Promise<boolean> {
     if (!objectName || !data || objectName.length <= 18) {
       return false
