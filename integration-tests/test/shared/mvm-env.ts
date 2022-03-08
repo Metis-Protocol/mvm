@@ -14,6 +14,7 @@ import {
   l2Wallet,
   l1Wallet2,
   l2Wallet2,
+  l1WalletSequencer,
   fundUser,
   getOvmEth,
   getL1Bridge,
@@ -44,6 +45,7 @@ export class MvmEnv {
   gasPriceOracle: Contract
   sequencerFeeVault: Contract
   mvmVerifer: Contract
+  mvmCTC: Contract
 
   // The L1 <> L2 State watcher
   watcher: Watcher
@@ -53,6 +55,7 @@ export class MvmEnv {
   l2Wallet: Wallet
   l1Wallet2: Wallet
   l2Wallet2: Wallet
+  l1WalletSequencer: Wallet
 
   // The providers
   l1Provider: providers.JsonRpcProvider
@@ -68,11 +71,13 @@ export class MvmEnv {
     this.gasPriceOracle = args.gasPriceOracle
     this.sequencerFeeVault = args.sequencerFeeVault
     this.mvmVerifer = args.mvmVerifer
+    this.mvmCTC = args.mvmCTC
     this.watcher = args.watcher
     this.l1Wallet = args.l1Wallet
     this.l2Wallet = args.l2Wallet
     this.l1Wallet2 = args.l1Wallet2
     this.l2Wallet2 = args.l2Wallet2
+    this.l1WalletSequencer = args.l1WalletSequencer
     this.l1Provider = args.l1Provider
     this.l2Provider = args.l2Provider
     this.ctc = args.ctc
@@ -121,9 +126,17 @@ export class MvmEnv {
     const verifierAddress = await addressManager.getAddress(
       'MVM_Verifier_for_verification_only'
     )
+    const mvmCtcAddress = await addressManager.getAddress(
+      'MVM_CanonicalTransaction'
+    )
+
     const mvmVerifer = getContractFactory('MVM_Verifier')
       .connect(l1Wallet)
       .attach(verifierAddress)
+
+    const mvmCTC = getContractFactory('MVM_CanonicalTransaction')
+      .connect(l1Wallet)
+      .attach(mvmCtcAddress)
 
     return new MvmEnv({
       addressManager,
@@ -135,6 +148,7 @@ export class MvmEnv {
       gasPriceOracle,
       sequencerFeeVault,
       mvmVerifer,
+      mvmCTC,
       l2Bridge,
       l2Messenger,
       watcher,
@@ -142,6 +156,7 @@ export class MvmEnv {
       l2Wallet,
       l1Wallet2,
       l2Wallet2,
+      l1WalletSequencer,
       l1Provider,
       l2Provider,
     })

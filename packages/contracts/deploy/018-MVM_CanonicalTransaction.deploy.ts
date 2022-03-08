@@ -158,16 +158,23 @@ const deployFn: DeployFunction = async (hre) => {
     args: [Lib_AddressManager.address, txDataSliceSize, stakeSeqSeconds, stakeCost],
   })
 
-  // register the {l2chainId}_MVM_Sequencer to this contract
+  // register the {l2chainId}_MVM_Sequencer with this contract address
   const MVM_CanonicalTransaction = await getDeployedContract(
     hre,
-    'MVM_CanonicalTransaction'
+    'MVM_CanonicalTransaction',
+    {
+      signerOrProvider: deployer,
+    }
   )
   await registerAddress({
     hre,
     name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
     address: MVM_CanonicalTransaction.address,
   })
+
+  // setAddressChainId to l2chainid
+  await MVM_CanonicalTransaction.setAddressChainId(MVM_CanonicalTransaction.address, (hre as any).deployConfig.l2chainid)
+  console.log(`set MVM_CanonicalTransaction address ${MVM_CanonicalTransaction.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
 }
 
 deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade']

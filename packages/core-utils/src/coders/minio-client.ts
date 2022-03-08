@@ -1,5 +1,5 @@
+import { encodeHex, sleep } from '../common'
 import * as Minio from 'minio'
-import { sleep } from '../common'
 import crypto from 'crypto'
 
 export interface MinioConfig {
@@ -60,7 +60,7 @@ export class MinioClient {
           'x-metis-meta-tx-timestamp': calcHash[2]
       }
       // object key is timestamp[13] + 00000 + sha256(metaData+txData)
-      let objectKey = `${calcHash[2]}00000${this.sha256Hash(calcHash.join('_'))}`
+      let objectKey = `${encodeHex(calcHash[2], 13)}00000${this.sha256Hash(calcHash.join('_'))}`
       try {
         await this.client.putObject(bucketName, objectKey, encodedTransactionData, null, metaData)
         console.info('write object successfully', objectKey)

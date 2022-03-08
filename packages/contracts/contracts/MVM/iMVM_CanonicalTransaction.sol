@@ -43,6 +43,15 @@ interface iMVM_CanonicalTransaction {
         bool _sequencer
     );
 
+    event AppendBatchElement (
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint40 _shouldStartAtElement,
+        uint24 _totalElementsToAppend,
+        uint256 _txBatchTime,
+        bytes32 _txBatchHash
+    );
+
     /***********
      * Structs *
      ***********/
@@ -76,6 +85,18 @@ interface iMVM_CanonicalTransaction {
      *******************************/
 
     /**
+     * Sets address's chain id.
+     * @param _address contract address.
+     * @param _chainId chain id.
+     */
+    function setAddressChainId(address _address, uint256 _chainId) external;
+
+    /**
+     * Gets address's chain id.
+     */
+    function getAddressChainId(address _address) external view returns (uint256);
+
+    /**
      * Sets the verifier stake cost of ETH.
      * @param _stakeCost Stake cost for verifier.
      */
@@ -83,7 +104,6 @@ interface iMVM_CanonicalTransaction {
 
     /**
      * Gets the verifier stake cost of ETH.
-     * @return Stake cost for verifier.
      */
     function getStakeCost() external view returns (uint256);
 
@@ -95,7 +115,6 @@ interface iMVM_CanonicalTransaction {
 
     /**
      * Gets batch transaction data slice size per submit.
-     * @return Slice size of batch transaction data.
      */
     function getTxDataSliceSize() external view returns (uint256);
 
@@ -160,9 +179,8 @@ interface iMVM_CanonicalTransaction {
      * Stake by verifier.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
-     * @param _amount slice index.
     */
-    function verifierStake(uint256 _chainId, uint256 _batchIndex, uint256 _amount) external;
+    function verifierStake(uint256 _chainId, uint256 _batchIndex) external payable;
 
     /**
      * Withdraw stake by verifier.
