@@ -13,7 +13,7 @@ import {
 
 /* Imports: Internal */
 import { MvmEnv } from './shared/mvm-env'
-import { l1Wallet2, l1WalletSequencer } from './shared/mvm-utils'
+import { l1Wallet, l1Wallet2, l1WalletSequencer } from './shared/mvm-utils'
 import { cat } from 'shelljs'
 
 describe('Mvm CTC wrapper Tests', async () => {
@@ -189,6 +189,44 @@ describe('Mvm CTC wrapper Tests', async () => {
     console.log(`get tx data: ${txData}`)
     expect(txData[1]).to.true
     expect(txData[0]).to.equal('0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000648208a4a007c88534a589c55a624a34751d026cc08527a66cb9461bb576269a34a1a254bfa04af0e8a6ea611a7d870bc9ed31096bd6e76f2b68665da0ff992150ae13ab9b3d')
+  })
+
+  it.skip(`should set batch tx data for verify failed with during protection`, async () => {
+    try {
+      const mvmCTC2 = env.mvmCTC.connect(l1Wallet2)
+      const tx: ContractTransaction = await mvmCTC2.setBatchTxDataForStake(chainId, 1, 0, '0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000', false)
+    }
+    catch(x) {
+      const ret = x.message.indexOf('can not submit during sequencer submit protection') >= 0
+      expect(ret).to.be.true
+    }
+  })
+
+  it.skip(`should set batch tx data for verify failed with during protection`, async () => {
+    try {
+      const mvmCTC2 = env.mvmCTC.connect(l1Wallet2)
+      const tx: ContractTransaction = await mvmCTC2.setBatchTxDataForVerifier(chainId, 1, 0, '0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000', false)
+    }
+    catch(x) {
+      const ret = x.message.indexOf('can not submit during sequencer submit protection') >= 0
+      expect(ret).to.be.true
+    }
+  })
+
+  it.skip(`should set batch tx data for verify success after protection`, async () => {
+    let result = await env.mvmCTC.getStakeSeqSeconds()
+    console.log(`mvm CTC setting: stake seq seconds is ${result}`)
+
+    // batchIndex = 0 with no tx data
+    console.log('verifier balance 1 : ', (await l1Wallet2.getBalance()).toString())
+    const mvmCTC2 = env.mvmCTC.connect(l1Wallet2)
+    let tx: ContractTransaction = await mvmCTC2.setBatchTxDataForVerifier(chainId, 3, 0, '0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000', false)
+    let receipt: ContractReceipt = await tx.wait()
+    console.log(`set tx data slice 1: ${JSON.stringify(tx)}`)
+    tx = await mvmCTC2.setBatchTxDataForVerifier(chainId, 3, 1, '648208a4a007c88534a589c55a624a34751d026cc08527a66cb9461bb576269a34a1a254bfa04af0e8a6ea611a7d870bc9ed31096bd6e76f2b68665da0ff992150ae13ab9b3d', true)
+    receipt = await tx.wait()
+    console.log(`set tx data slice 2: ${JSON.stringify(tx)}`)
+    console.log('verifier balance 2 : ', (await l1Wallet2.getBalance()).toString())
   })
 
 })
