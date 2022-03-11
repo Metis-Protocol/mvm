@@ -43,6 +43,9 @@ const env = cleanEnv(process.env, {
   PRIVATE_KEY2: str({
     default: '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
   }),
+  PRIVATE_KEY_SEQ: str({
+    default: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+  }),
   ADDRESS_MANAGER: str({
     default: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
   }),
@@ -73,6 +76,8 @@ export const l2Wallet = l1Wallet.connect(l2Provider)
 export const l1Wallet2 = new Wallet(env.PRIVATE_KEY2, l1Provider)
 
 export const l2Wallet2 = l1Wallet2.connect(l2Provider)
+
+export const l1WalletSequencer = new Wallet(env.PRIVATE_KEY_SEQ, l1Provider)
 
 // Predeploys
 export const PROXY_SEQUENCER_ENTRYPOINT_ADDRESS =
