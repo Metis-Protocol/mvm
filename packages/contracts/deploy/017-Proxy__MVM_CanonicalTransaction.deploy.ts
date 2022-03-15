@@ -20,6 +20,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['Proxy__MVM_CanonicalTransaction']
+deployFn.tags = ['Proxy__MVM_CanonicalTransaction', 'storage']
 
 export default deployFn

@@ -177,6 +177,6 @@ const deployFn: DeployFunction = async (hre) => {
   console.log(`set MVM_CanonicalTransaction address ${MVM_CanonicalTransaction.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade']
+deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade', 'storage']
 
 export default deployFn
