@@ -44,7 +44,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
     // white list
     mapping (address => bool) public whitelist;
 
-    mapping(address => uint256) private addressChains;
+    // mapping(address => uint256) private addressChains;
 
     // verifier stakes statistic
     mapping(address => uint256) private verifierStakes;
@@ -97,7 +97,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
     /********************
      * Public Functions *
      ********************/
-
+    /**
     receive() external payable {
         // msg.sender
         if (msg.sender == resolve('MVM_DiscountOracle')) {
@@ -121,6 +121,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
     function getAddressChainId(address _address) override public view returns (uint256) {
         return addressChains[_address];
     }
+    */
 
     function setStakeCost(uint256 _stakeCost) override public onlyManager {
         // 1e16 = 0.01 ether

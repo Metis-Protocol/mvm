@@ -89,12 +89,12 @@ interface iMVM_CanonicalTransaction {
      * @param _address contract address.
      * @param _chainId chain id.
      */
-    function setAddressChainId(address _address, uint256 _chainId) external;
+    // function setAddressChainId(address _address, uint256 _chainId) external;
 
     /**
      * Gets address's chain id.
      */
-    function getAddressChainId(address _address) external view returns (uint256);
+    // function getAddressChainId(address _address) external view returns (uint256);
 
     /**
      * Sets the verifier stake cost of ETH.

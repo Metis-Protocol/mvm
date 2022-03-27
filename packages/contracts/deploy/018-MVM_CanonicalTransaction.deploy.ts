@@ -216,6 +216,7 @@ const deployFn: DeployFunction = async (hre) => {
     address: proxy.address,
   })
 
+  /**
   const MVM_DiscountOracle = await getDeployedContract(
     hre,
     'MVM_DiscountOracle',
@@ -232,6 +233,7 @@ const deployFn: DeployFunction = async (hre) => {
   // setAddressChainId discountOracle to l2chainid
   await contract.setAddressChainId(MVM_DiscountOracle.address, (hre as any).deployConfig.l2chainid)
   console.log(`Proxy set MVM_DiscountOracle address ${MVM_DiscountOracle.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
+  */
 }
 
 deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade', 'storage']
