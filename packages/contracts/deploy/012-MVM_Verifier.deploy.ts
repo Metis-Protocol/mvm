@@ -131,6 +131,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['MVM_Verifier', 'upgrade']
+deployFn.tags = ['MVM_Verifier', 'upgrade2']
 
 export default deployFn

@@ -236,6 +236,6 @@ const deployFn: DeployFunction = async (hre) => {
   */
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade', 'storage']
+deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade2', 'storage']
 
 export default deployFn

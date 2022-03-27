@@ -40,6 +40,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre,
       'Proxy__MVM_ChainManager'
   )
+  //temporarily set to deployer for now
   await registerAddress({
     hre,
     name: 'METIS_MANAGER',
@@ -57,6 +58,6 @@ const deployFn: DeployFunction = async (hre) => {
   console.log('chainmgr.address access:', accessStored2)
 }
 
-deployFn.tags = ['MVM_DiscountOracle']
+deployFn.tags = ['MVM_DiscountOracle','upgrad2']
 
 export default deployFn
