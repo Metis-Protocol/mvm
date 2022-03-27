@@ -19,7 +19,7 @@ const deployFn: DeployFunction = async (hre) => {
   await deployAndRegister({
     hre,
     name: 'MVM_DiscountOracle',
-    args: [Lib_AddressManager.address, '1000000000'],
+    args: [Lib_AddressManager.address, '0'],
   })
   
   const MVM_DiscountOracle = await getDeployedContract(
