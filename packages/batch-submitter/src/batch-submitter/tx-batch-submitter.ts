@@ -152,12 +152,12 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     })
 
     const unwrapped_MVM_CanonicalTransaction = (
-      await getContractFactory('Proxy__MVM_CanonicalTransaction', this.signer)
+      await getContractFactory('MVM_CanonicalTransaction', this.signer)
     ).attach(mvmCtcAddress)
 
     this.mvmCtcContract = new CanonicalTransactionChainContract(
       unwrapped_MVM_CanonicalTransaction.address,
-      getContractInterface('Proxy__MVM_CanonicalTransaction'),
+      getContractInterface('MVM_CanonicalTransaction'),
       this.signer
     )
     this.logger.info('Initialized new mvmCTC', {

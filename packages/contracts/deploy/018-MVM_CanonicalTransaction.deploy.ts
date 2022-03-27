@@ -21,6 +21,8 @@ const deployFn: DeployFunction = async (hre) => {
   const txDataSliceSize = 90000
   const stakeSeqSeconds = 24 * 60 * 60
   const stakeCost = '100000000000000000'
+  const txBatchSize = 90000 * 5
+  const txDataSliceCount = 5
 
   const Lib_AddressManager = await getDeployedContract(
     hre,
@@ -129,6 +131,48 @@ const deployFn: DeployFunction = async (hre) => {
     return await contract.stakeCost() == stakeCost
   })
 
+  console.log(
+    `Setting txDataSliceCount to ${txDataSliceCount}...`
+  )
+  // Set Slot 5 to the txDataSliceCount
+  await proxy.setStorage(
+    hre.ethers.utils.hexZeroPad('0x04', 32),
+    hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(txDataSliceCount), 32)
+  )
+
+  console.log(`Confirming that txDataSliceCount was correctly set...`)
+  await waitUntilTrue(async () => {
+    return await contract.txDataSliceCount() == txDataSliceCount
+  })
+
+  console.log(
+    `Setting txBatchSize to ${txBatchSize}...`
+  )
+  // Set Slot 6 to the txBatchSize
+  await proxy.setStorage(
+    hre.ethers.utils.hexZeroPad('0x05', 32),
+    hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(txBatchSize), 32)
+  )
+
+  console.log(`Confirming that txBatchSize was correctly set...`)
+  await waitUntilTrue(async () => {
+    return await contract.txBatchSize() == txBatchSize
+  })
+
+  // console.log(
+  //   `Setting useWhiteList to ${true}...`
+  // )
+  // // Set Slot 7 to the useWhiteList
+  // await proxy.setStorage(
+  //   hre.ethers.utils.hexZeroPad('0x06', 32),
+  //   hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(1), 32)
+  // )
+
+  // console.log(`Confirming that useWhiteList was correctly set...`)
+  // await waitUntilTrue(async () => {
+  //   return await contract.useWhiteList() == true
+  // })
+
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
   const owner = (hre as any).deployConfig.mvmMetisManager
   console.log(`Setting owner address to ${owner}...`)
@@ -172,9 +216,22 @@ const deployFn: DeployFunction = async (hre) => {
     address: proxy.address,
   })
 
-  // setAddressChainId to l2chainid
-  await MVM_CanonicalTransaction.setAddressChainId(MVM_CanonicalTransaction.address, (hre as any).deployConfig.l2chainid)
-  console.log(`set MVM_CanonicalTransaction address ${MVM_CanonicalTransaction.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
+  const MVM_DiscountOracle = await getDeployedContract(
+    hre,
+    'MVM_DiscountOracle',
+    {
+      signerOrProvider: deployer,
+      iface: 'MVM_DiscountOracle',
+    }
+  )
+  
+  // setAddressChainId discountOracle to l2chainid
+  await MVM_CanonicalTransaction.setAddressChainId(MVM_DiscountOracle.address, (hre as any).deployConfig.l2chainid)
+  console.log(`set MVM_DiscountOracle address ${MVM_DiscountOracle.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
+  
+  // setAddressChainId discountOracle to l2chainid
+  await contract.setAddressChainId(MVM_DiscountOracle.address, (hre as any).deployConfig.l2chainid)
+  console.log(`Proxy set MVM_DiscountOracle address ${MVM_DiscountOracle.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
 }
 
 deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade', 'storage']

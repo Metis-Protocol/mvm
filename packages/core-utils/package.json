@@ -1,6 +1,6 @@
 {
   "name": "@metis.io/core-utils",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "main": "dist/index",
   "files": [
     "dist/*"

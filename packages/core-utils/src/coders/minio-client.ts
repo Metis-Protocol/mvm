@@ -142,7 +142,7 @@ export class MinioClient {
       // to verfiy
       const calcHash = [meta['x-metis-meta-tx-start'], meta['x-metis-meta-tx-total'], meta['x-metis-meta-tx-timestamp'], data]
       // hash from name
-      const hashFromName = objectName.substr(18)
+      const hashFromName = objectName.substr(22)
       const hashFromCalc = this.sha256Hash(calcHash.join('_'))
       verified = hashFromName === hashFromCalc
       if (!verified) {

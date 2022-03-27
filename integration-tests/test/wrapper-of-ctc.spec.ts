@@ -33,8 +33,8 @@ describe('Mvm CTC wrapper Tests', async () => {
   })
 
   it(`should load settings`, async () => {
-    const res_chainId = await env.mvmCTC.getAddressChainId(env.mvmCTC.address)
-    console.log(`${env.mvmCTC.address} mapping chain id is ${res_chainId}`)
+    const res_chainId = await env.mvmCTC.getAddressChainId(env.mvmDiscountOracle.address)
+    console.log(`${env.mvmDiscountOracle.address} mapping chain id is ${res_chainId}`)
     expect(res_chainId).to.equal(chainId)
 
     let result = await env.mvmCTC.getStakeCost()
@@ -44,6 +44,14 @@ describe('Mvm CTC wrapper Tests', async () => {
     result = await env.mvmCTC.getTxDataSliceSize()
     console.log(`mvm CTC setting: tx data slice size is ${result}`)
     expect(result).to.equal(90000)
+    
+    result = await env.mvmCTC.getTxBatchSize()
+    console.log(`mvm CTC setting: tx batch size is ${result}`)
+    expect(result).to.equal(90000*5)
+    
+    result = await env.mvmCTC.getTxDataSliceCount()
+    console.log(`mvm CTC setting: tx data slice count is ${result}`)
+    expect(result).to.equal(5)
 
     result = await env.mvmCTC.getStakeSeqSeconds()
     console.log(`mvm CTC setting: stake seq seconds is ${result}`)

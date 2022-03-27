@@ -37,6 +37,9 @@ export class MvmEnv {
   l1Messenger: Contract
   ctc: Contract
   scc: Contract
+  mvmVerifer: Contract
+  mvmCTC: Contract
+  mvmDiscountOracle: Contract
 
   // L2 Contracts
   ovmEth: Contract
@@ -44,8 +47,6 @@ export class MvmEnv {
   l2Messenger: Contract
   gasPriceOracle: Contract
   sequencerFeeVault: Contract
-  mvmVerifer: Contract
-  mvmCTC: Contract
 
   // The L1 <> L2 State watcher
   watcher: Watcher
@@ -72,6 +73,7 @@ export class MvmEnv {
     this.sequencerFeeVault = args.sequencerFeeVault
     this.mvmVerifer = args.mvmVerifer
     this.mvmCTC = args.mvmCTC
+    this.mvmDiscountOracle = args.mvmDiscountOracle
     this.watcher = args.watcher
     this.l1Wallet = args.l1Wallet
     this.l2Wallet = args.l2Wallet
@@ -127,7 +129,10 @@ export class MvmEnv {
       'MVM_Verifier_for_verification_only'
     )
     const mvmCtcAddress = await addressManager.getAddress(
-      'MVM_CanonicalTransaction'
+      'Proxy__MVM_CanonicalTransaction'
+    )
+    const mvmDiscountOracleAddress = await addressManager.getAddress(
+      'MVM_DiscountOracle'
     )
 
     const mvmVerifer = getContractFactory('MVM_Verifier')
@@ -137,6 +142,10 @@ export class MvmEnv {
     const mvmCTC = getContractFactory('MVM_CanonicalTransaction')
       .connect(l1Wallet)
       .attach(mvmCtcAddress)
+      
+    const mvmDiscountOracle = getContractFactory('MVM_DiscountOracle')
+      .connect(l1Wallet)
+      .attach(mvmDiscountOracleAddress)
 
     return new MvmEnv({
       addressManager,
@@ -149,6 +158,7 @@ export class MvmEnv {
       sequencerFeeVault,
       mvmVerifer,
       mvmCTC,
+      mvmDiscountOracle,
       l2Bridge,
       l2Messenger,
       watcher,

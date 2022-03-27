@@ -26,14 +26,14 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
 
     // submit tx data slice size (in bytes)
     uint256 public txDataSliceSize;
-    // submit tx data slice count (a whole tx batch)
-    uint256 public txDataSliceCount;
-    // submit tx batch size (in bytes)
-    uint256 public txBatchSize;
     // stake duration seconds for sequencer submit batch tx data
     uint256 public stakeSeqSeconds;
     // verifier stake cost for a batch tx data requirement (in ETH)
     uint256 public stakeCost;
+    // submit tx data slice count (a whole tx batch)
+    uint256 public txDataSliceCount;
+    // submit tx batch size (in bytes)
+    uint256 public txBatchSize;
 
     bool useWhiteList;
 

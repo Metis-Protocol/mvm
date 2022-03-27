@@ -143,7 +143,7 @@ export abstract class BatchSubmitter {
       'CanonicalTransactionChain'
     )
     const mvmCtcAddress = await addressManager.getAddress(
-      'MVM_CanonicalTransaction'
+      'Proxy__MVM_CanonicalTransaction'
     )
     return {
       ctcAddress,
