@@ -234,6 +234,6 @@ const deployFn: DeployFunction = async (hre) => {
   console.log(`Proxy set MVM_DiscountOracle address ${MVM_DiscountOracle.address} to l2chainid ${(hre as any).deployConfig.l2chainid}`)
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade', 'storage']
+deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade2', 'storage']
 
 export default deployFn
