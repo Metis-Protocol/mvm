@@ -169,7 +169,7 @@ const deployFn: DeployFunction = async (hre) => {
   await registerAddress({
     hre,
     name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
-    address: MVM_CanonicalTransaction.address,
+    address: proxy.address,
   })
 
   // setAddressChainId to l2chainid

@@ -59,8 +59,10 @@ export class MinioClient {
           'x-metis-meta-tx-total': totalElements,
           'x-metis-meta-tx-timestamp': calcHash[2]
       }
-      // object key is timestamp[13] + 00000 + sha256(metaData+txData)
-      let objectKey = `${encodeHex(calcHash[2], 13)}00000${this.sha256Hash(calcHash.join('_'))}`
+      // object key is timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + sha256(metaData+txData)
+      // sizeOfTxData here is string length, if compare to sizeInBytes, should be encodedTransactionData.length/2
+      const sizeOfTxData = encodeHex(encodedTransactionData.length, 8);
+      let objectKey = `${encodeHex(calcHash[2], 13)}0${sizeOfTxData}${this.sha256Hash(calcHash.join('_'))}`
       try {
         await this.client.putObject(bucketName, objectKey, encodedTransactionData, null, metaData)
         console.info('write object successfully', objectKey)

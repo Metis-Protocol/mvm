@@ -152,12 +152,12 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     })
 
     const unwrapped_MVM_CanonicalTransaction = (
-      await getContractFactory('MVM_CanonicalTransaction', this.signer)
+      await getContractFactory('Proxy__MVM_CanonicalTransaction', this.signer)
     ).attach(mvmCtcAddress)
 
     this.mvmCtcContract = new CanonicalTransactionChainContract(
       unwrapped_MVM_CanonicalTransaction.address,
-      getContractInterface('MVM_CanonicalTransaction'),
+      getContractInterface('Proxy__MVM_CanonicalTransaction'),
       this.signer
     )
     this.logger.info('Initialized new mvmCTC', {
@@ -334,6 +334,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       { concurrency: 100 }
     )
 
+    // fix max batch size with env and mvmCtc
+    const mvmMaxBatchSize = await this.mvmCtcContract.getTxBatchSize()
+    const fixedMaxTxSize = Math.min(this.maxTxSize, mvmMaxBatchSize)
+
     // Fix our batches if we are configured to. This will not
     // modify the batch unless an autoFixBatchOption is set
     batch = await this._fixBatch(batch)
@@ -353,7 +357,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // This method checks encoded length without options anyway
     // it will set raw calldata to CTC if needs fraud proof
     let encoded = await encodeAppendSequencerBatch(sequencerBatchParams, null)
-    while (encoded.length / 2 > this.maxTxSize) {
+    while (encoded.length / 2 > fixedMaxTxSize) {
       this.logger.info('Splicing batch...', {
         batchSizeInBytes: encoded.length / 2,
       })

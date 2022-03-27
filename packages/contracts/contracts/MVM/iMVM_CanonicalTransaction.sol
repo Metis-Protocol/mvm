@@ -119,6 +119,28 @@ interface iMVM_CanonicalTransaction {
     function getTxDataSliceSize() external view returns (uint256);
 
     /**
+     * Sets batch size per batch.
+     * @param _size Batch size of batch.
+     */
+    function setTxBatchSize(uint256 _size) external;
+
+    /**
+     * Gets batch size per batch.
+     */
+    function getTxBatchSize() external view returns (uint256);
+
+    /**
+     * Sets slice count per batch transaction data.
+     * @param _count Slice count per batch transaction data.
+     */
+    function setTxDataSliceCount(uint256 _count) external;
+
+    /**
+     * Gets slice count per batch transaction data.
+     */
+    function getTxDataSliceCount() external view returns (uint256);
+
+    /**
      * Sets seconds can submit transaction data after staking.
      * @param _seconds Seconds the Sequencer can sumbit transaction data after verifier staking.
      */
@@ -129,6 +151,14 @@ interface iMVM_CanonicalTransaction {
      * @return Seconds the Sequencer can sumbit transaction data after verifier staking.
      */
     function getStakeSeqSeconds() external view returns (uint256);
+
+    function isWhiteListed(address _verifier) external view returns(bool);
+
+    // add the verifier to the whitelist
+    function setWhiteList(address _verifier, bool _allowed) external;
+
+    // allow everyone to be the verifier
+    function disableWhiteList() external;
 
     /**
      * Allows the sequencer to append a batch of transactions.

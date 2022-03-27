@@ -26,14 +26,23 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
 
     // submit tx data slice size (in bytes)
     uint256 public txDataSliceSize;
+    // submit tx data slice count (a whole tx batch)
+    uint256 public txDataSliceCount;
+    // submit tx batch size (in bytes)
+    uint256 public txBatchSize;
     // stake duration seconds for sequencer submit batch tx data
     uint256 public stakeSeqSeconds;
     // verifier stake cost for a batch tx data requirement (in ETH)
     uint256 public stakeCost;
 
+    bool useWhiteList;
+
     /***************
      * Queue State *
      ***************/
+
+    // white list
+    mapping (address => bool) public whitelist;
 
     mapping(address => uint256) private addressChains;
 
@@ -63,6 +72,9 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         txDataSliceSize = _txDataSliceSize;
         stakeSeqSeconds = _stakeSeqSeconds;
         stakeCost = _stakeCost;
+        useWhiteList = true;
+        txDataSliceCount = 5;
+        txBatchSize = _txDataSliceSize * 5;
     }
 
     /**********************
@@ -74,6 +86,11 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             msg.sender == resolve(CONFIG_OWNER_KEY),
             "MVM_CanonicalTransaction: Function can only be called by the METIS_MANAGER."
         );
+        _;
+    }
+
+    modifier onlyWhitelisted {
+        require(isWhiteListed(msg.sender), "only whitelisted verifiers can call");
         _;
     }
 
@@ -125,6 +142,26 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         return txDataSliceSize;
     }
 
+    function setTxDataSliceCount(uint256 _count) override public onlyManager {
+        require(_count > 0, "slice count should gt 0");
+        require(_count != txDataSliceCount, "slice count has not changed");
+        txDataSliceCount = _count;
+    }
+
+    function getTxDataSliceCount() override public view returns (uint256) {
+        return txDataSliceCount;
+    }
+
+    function setTxBatchSize(uint256 _size) override public onlyManager {
+        require(_size > 0, "batch size should gt 0");
+        require(_size != txBatchSize, "batch size has not changed");
+        txBatchSize = _size;
+    }
+
+    function getTxBatchSize() override public view returns (uint256) {
+        return txBatchSize;
+    }
+
     function setStakeSeqSeconds(uint256 _seconds) override public onlyManager {
         require(_seconds > 0, "seconds should gt 0");
         require(_seconds != stakeSeqSeconds, "seconds has not changed");
@@ -133,6 +170,19 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
 
     function getStakeSeqSeconds() override public view returns (uint256) {
         return stakeSeqSeconds;
+    }
+
+    function isWhiteListed(address _verifier) override public view returns(bool){
+        return !useWhiteList || whitelist[_verifier];
+    }
+
+    function setWhiteList(address _verifier, bool _allowed) override public onlyManager {
+        whitelist[_verifier] = _allowed;
+        useWhiteList = true;
+    }
+
+    function disableWhiteList() override public onlyManager {
+        useWhiteList = false;
     }
 
     function appendSequencerBatchByChainId() override public {
@@ -155,19 +205,25 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             "Function can only be called by the Sequencer."
         );
         uint256 posTs =  47 + 16 * numContexts;
-        uint256 posHash =  9 + posTs;
         if (_dataSize > posTs) {
             // when tx count = 0, there is no hash!
+            // string len: [13]{milliseconds}-[1]{0}-[8]{sizeOfData}-[64]{hash}
+            uint256 posTxSize = 7 + posTs;
+            uint256 posHash =  11 + posTs;
+            uint256 txSize;
             assembly {
                 batchTime := shr(204, calldataload(posTs))
+                txSize := shr(224, calldataload(posTxSize))
                 batchHash := calldataload(posHash)
             }
+
+            // check batch size
+            require(txSize / 2 <= txBatchSize, "size of tx data is too large");
         }
 
         address ctc = resolve("CanonicalTransactionChain");
         IChainStorageContainer batchesRef = ICanonicalTransactionChain(ctc).batches();
         uint256 batchIndex = batchesRef.lengthByChainId(_chainId);
-
         {
             // ctc call
             (bool success, bytes memory result) = ctc.call(msg.data);
@@ -335,8 +391,9 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
         require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend > 0, "batch total element to append should not be zero");
 
-        // slice data check
+        // slice data check, slice size in bytes
         require(bytes(_data).length / 2 <= txDataSliceSize, "slice size of data is too large");
+        require(_sliceIndex < txDataSliceCount, "slice index is greater");
         require(_sliceIndex <= queueTxData[_chainId][_batchIndex].txDataSlices.length, "incorrect slice index");
 
         // sequencer protect
@@ -418,6 +475,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         override
         public
         payable
+        onlyWhitelisted
     {
         uint256 _amount = msg.value;
         require(stakeCost > 0, "stake cost not config yet");
