@@ -180,7 +180,7 @@ contract L1StandardBridgeLocal is IL1StandardBridge, CrossDomainEnabled {
         if (_l2Gas < mingas) {
             _l2Gas = mingas;
         }
-        uint256 fee = _l2Gas / oracle.getDiscount();
+        uint256 fee = _l2Gas * oracle.getDiscount();
         
         require(fee <= msg.value, string(abi.encodePacked("insufficient fee supplied. send at least ", uint2str(fee))));
         // Construct calldata for finalizeDeposit call
