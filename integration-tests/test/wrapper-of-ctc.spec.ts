@@ -37,8 +37,8 @@ describe('Mvm CTC wrapper Tests', async () => {
     // console.log(`${env.mvmDiscountOracle.address} mapping chain id is ${res_chainId}`)
     // expect(res_chainId).to.equal(chainId)
 
-    let result = await env.mvmCTC.getStakeCost()
-    console.log(`mvm CTC setting: stake cost is ${result}`)
+    let result = await env.mvmCTC.getStakeBaseCost()
+    console.log(`mvm CTC setting: stake base cost is ${result}`)
     expect(result).to.equal('100000000000000000')
 
     result = await env.mvmCTC.getTxDataSliceSize()

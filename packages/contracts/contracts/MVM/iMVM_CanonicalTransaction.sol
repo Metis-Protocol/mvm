@@ -48,6 +48,7 @@ interface iMVM_CanonicalTransaction {
         uint256 _batchIndex,
         uint40 _shouldStartAtElement,
         uint24 _totalElementsToAppend,
+        uint256 _txBatchSize,
         uint256 _txBatchTime,
         bytes32 _txBatchHash
     );
@@ -76,6 +77,7 @@ interface iMVM_CanonicalTransaction {
     struct BatchElement {
         uint40 shouldStartAtElement;
         uint24 totalElementsToAppend;
+        uint256 txBatchSize;
         uint256 txBatchTime;
         bytes32 txBatchHash;
     }
@@ -97,15 +99,31 @@ interface iMVM_CanonicalTransaction {
     // function getAddressChainId(address _address) external view returns (uint256);
 
     /**
-     * Sets the verifier stake cost of ETH.
-     * @param _stakeCost Stake cost for verifier.
+     * Sets the verifier stake base cost of ETH.
+     * @param _stakeBaseCost Stake base cost for verifier.
      */
-    function setStakeCost(uint256 _stakeCost) external;
+    function setStakeBaseCost(uint256 _stakeBaseCost) external;
 
     /**
-     * Gets the verifier stake cost of ETH.
+     * Gets the verifier stake base cost of ETH.
      */
-    function getStakeCost() external view returns (uint256);
+    function getStakeBaseCost() external view returns (uint256);
+
+    /**
+     * Sets the verifier stake unit cost of ETH.
+     * @param _stakeUnitCost Stake cost for verifier.
+     */
+    function setStakeUnitCost(uint256 _stakeUnitCost) external;
+    
+    /**
+     * Gets the verifier stake unit cost of ETH for per storage unit.
+     */
+    function getStakeUnitCost() external view returns (uint256);
+    
+    /**
+     * Gets the verifier stake cost of ETH by batch index.
+     */
+    function getStakeCostByBatch(uint256 _chainId, uint256 _batchIndex) external view returns (uint256);
 
     /**
      * Sets batch transaction data slice size per submit.

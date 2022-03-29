@@ -28,12 +28,14 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
     uint256 public txDataSliceSize;
     // stake duration seconds for sequencer submit batch tx data
     uint256 public stakeSeqSeconds;
-    // verifier stake cost for a batch tx data requirement (in ETH)
-    uint256 public stakeCost;
+    // verifier stake base cost for a batch tx data requirement (in ETH)
+    uint256 public stakeBaseCost;
     // submit tx data slice count (a whole tx batch)
     uint256 public txDataSliceCount;
     // submit tx batch size (in bytes)
     uint256 public txBatchSize;
+    // verifier stake unit cost for a batch tx data requirement (in ETH)
+    uint256 public stakeUnitCost;
 
     bool useWhiteList;
 
@@ -66,12 +68,14 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         address _libAddressManager,
         uint256 _txDataSliceSize,
         uint256 _stakeSeqSeconds,
-        uint256 _stakeCost
+        uint256 _stakeBaseCost,
+        uint256 _stakeUnitCost
     ) Lib_AddressResolver(_libAddressManager)
     {
         txDataSliceSize = _txDataSliceSize;
         stakeSeqSeconds = _stakeSeqSeconds;
-        stakeCost = _stakeCost;
+        stakeBaseCost = _stakeBaseCost;
+        stakeUnitCost = _stakeUnitCost;
         useWhiteList = true;
         txDataSliceCount = 5;
         txBatchSize = _txDataSliceSize * 5;
@@ -123,14 +127,29 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
     }
     */
 
-    function setStakeCost(uint256 _stakeCost) override public onlyManager {
+    function setStakeBaseCost(uint256 _stakeBaseCost) override public onlyManager {
         // 1e16 = 0.01 ether
-        require(_stakeCost >= 1e16, "stake cost should gte 1e16");
-        stakeCost = _stakeCost;
+        require(_stakeBaseCost >= 1e16, "stake base cost should gte 1e16");
+        stakeBaseCost = _stakeBaseCost;
     }
 
-    function getStakeCost() override public view returns (uint256) {
-        return stakeCost;
+    function getStakeBaseCost() override public view returns (uint256) {
+        return stakeBaseCost;
+    }
+
+    function setStakeUnitCost(uint256 _stakeUnitCost) override public onlyManager {
+        // 1e16 = 0.01 ether
+        stakeUnitCost = _stakeUnitCost;
+    }
+
+    function getStakeUnitCost() override public view returns (uint256) {
+        return stakeUnitCost;
+    }
+
+    function getStakeCostByBatch(uint256 _chainId, uint256 _batchIndex) override public view returns (uint256) {
+        require(stakeBaseCost > 0, "stake base cost not config yet");
+        require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
+        return stakeBaseCost + queueBatchElement[_chainId][_batchIndex].txBatchSize * stakeUnitCost;
     }
 
     function setTxDataSliceSize(uint256 _size) override public onlyManager {
@@ -194,6 +213,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         uint256 batchTime;
         bytes32 batchHash;
         uint256 _dataSize;
+        uint256 txSize;
         assembly {
             _dataSize             := calldatasize()
             _chainId              := calldataload(4)
@@ -211,7 +231,6 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             // string len: [13]{milliseconds}-[1]{0}-[8]{sizeOfData}-[64]{hash}
             uint256 posTxSize = 7 + posTs;
             uint256 posHash =  11 + posTs;
-            uint256 txSize;
             assembly {
                 batchTime := shr(204, calldataload(posTs))
                 txSize := shr(224, calldataload(posTxSize))
@@ -242,6 +261,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         queueBatchElement[_chainId][batchIndex] = BatchElement({
             shouldStartAtElement:  shouldStartAtElement,
             totalElementsToAppend: totalElementsToAppend,
+            txBatchSize:           txSize,
             txBatchTime:           batchTime,
             txBatchHash:           batchHash
         });
@@ -251,6 +271,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             batchIndex,
             shouldStartAtElement,
             totalElementsToAppend,
+            txSize,
             batchTime,
             batchHash
         );
@@ -390,6 +411,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         require(bytes(_data).length > 0, "empty data");
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
+        require(queueBatchElement[_chainId][_batchIndex].txBatchSize > 0, "batch size should not be zero");
         require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend > 0, "batch total element to append should not be zero");
 
         // slice data check, slice size in bytes
@@ -445,6 +467,10 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
 
             bytes32 hexSha256 = sha256(abi.encodePacked(startAt, split, totalElement, split, batchTime, split, txData));
             require(hexSha256 == queueBatchElement[_chainId][_batchIndex].txBatchHash, "tx data verify failed");
+            
+            // verify total size
+            require(queueBatchElement[_chainId][_batchIndex].txBatchSize == bytes(txData).length, "batch size does not match");
+            
             // save verified status
             queueTxData[_chainId][_batchIndex].verified = true;
         }
@@ -479,7 +505,8 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         onlyWhitelisted
     {
         uint256 _amount = msg.value;
-        require(stakeCost > 0, "stake cost not config yet");
+        uint256 stakeCost = getStakeCostByBatch(_chainId, _batchIndex);
+        require(stakeBaseCost > 0, "stake base cost not config yet");
         require(stakeCost == _amount, "stake cost incorrect");
         require(stakeSeqSeconds > 0, "sequencer submit seconds not config yet");
         // check queue BatchElement
