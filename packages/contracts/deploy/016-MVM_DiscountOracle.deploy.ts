@@ -58,6 +58,6 @@ const deployFn: DeployFunction = async (hre) => {
   console.log('chainmgr.address access:', accessStored2)
 }
 
-deployFn.tags = ['MVM_DiscountOracle','upgrade2']
+deployFn.tags = ['MVM_DiscountOracle','upgrade3']
 
 export default deployFn

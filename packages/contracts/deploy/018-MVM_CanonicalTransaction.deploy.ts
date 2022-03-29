@@ -21,8 +21,8 @@ const deployFn: DeployFunction = async (hre) => {
   const txDataSliceSize = 90000
   const stakeSeqSeconds = 24 * 60 * 60
   const stakeCost = '100000000000000000'
-  const txBatchSize = 90000 * 5
-  const txDataSliceCount = 5
+  const txBatchSize = 90000 * 8
+  const txDataSliceCount = 8
 
   const Lib_AddressManager = await getDeployedContract(
     hre,
@@ -197,19 +197,11 @@ const deployFn: DeployFunction = async (hre) => {
   console.log(`Deploying MVM_CanonicalTransaction...`)
   await deployAndRegister({
     hre,
-    name: 'MVM_CanonicalTransaction',
+    name: 'MVM_CanonicalTransaction_for_verification_only',
     contract: 'MVM_CanonicalTransaction',
     args: [Lib_AddressManager.address, txDataSliceSize, stakeSeqSeconds, stakeCost],
   })
 
-  // register the {l2chainId}_MVM_Sequencer with this contract address
-  const MVM_CanonicalTransaction = await getDeployedContract(
-    hre,
-    'MVM_CanonicalTransaction',
-    {
-      signerOrProvider: deployer,
-    }
-  )
   await registerAddress({
     hre,
     name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
@@ -236,6 +228,6 @@ const deployFn: DeployFunction = async (hre) => {
   */
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade2', 'storage']
+deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade5', 'storage']
 
 export default deployFn
