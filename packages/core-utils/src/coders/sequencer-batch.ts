@@ -51,6 +51,11 @@ export const encodeAppendSequencerBatch = async (
   if (opts?.useMinio && opts?.minioClient) {
     const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
     console.info('storage tx data to minio', storagedObject, 'context length', contexts.length)
+    
+    // the following 2 conditions except empty encodedTransactionData
+    if (!storagedObject && encodedTransactionData && b.shouldStartAtElement >= 0 &&  b.totalElementsToAppend > 0) {
+      throw new Error('Storage encoded transaction data failed!')
+    }
 
     if (
       storagedObject &&
