@@ -71,7 +71,7 @@ Network : __rinkeby (chain id: 4)__
 |L1StandardBridge_for_verification_only|[0x7AE95D1241d7B27312baA8245dfAC80B08E2e68a](https://rinkeby.etherscan.io/address/0x7AE95D1241d7B27312baA8245dfAC80B08E2e68a)|
 |Lib_AddressManager|[0xC9EB2B0bD7dbA69bb72886E9cF5da34d1Ca88C38](https://rinkeby.etherscan.io/address/0xC9EB2B0bD7dbA69bb72886E9cF5da34d1Ca88C38)|
 |MVM_CanonicalTransaction|[0xCCB4a3279310Ed85A3ff1Ef84DE1a9d91fAF56e0](https://rinkeby.etherscan.io/address/0xCCB4a3279310Ed85A3ff1Ef84DE1a9d91fAF56e0)|
-|MVM_CanonicalTransaction_for_verification_only|[0x421c2fe777693C705632371185c5ba8B831A2063](https://rinkeby.etherscan.io/address/0x421c2fe777693C705632371185c5ba8B831A2063)|
+|MVM_CanonicalTransaction_for_verification_only|[0x76d4Fc1CB6D554ff9A065914A22C46df0ffB8A6D](https://rinkeby.etherscan.io/address/0x76d4Fc1CB6D554ff9A065914A22C46df0ffB8A6D)|
 |MVM_DiscountOracle|[0x9db3BedF13fa81a887DA2010470E4A5E49523239](https://rinkeby.etherscan.io/address/0x9db3BedF13fa81a887DA2010470E4A5E49523239)|
 |MVM_L2ChainManagerOnL1_for_verification_only|[0x23b1BFb369667cc0bDa7B1da628268d3531d1D38](https://rinkeby.etherscan.io/address/0x23b1BFb369667cc0bDa7B1da628268d3531d1D38)|
 |MVM_Verifier|[0xA9b8E3a95e0E22352747Ab5395Ec535Cd113016a](https://rinkeby.etherscan.io/address/0xA9b8E3a95e0E22352747Ab5395Ec535Cd113016a)|

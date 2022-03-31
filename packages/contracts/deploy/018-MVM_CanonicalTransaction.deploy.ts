@@ -20,9 +20,13 @@ const deployFn: DeployFunction = async (hre) => {
 
   const txDataSliceSize = 90000
   const stakeSeqSeconds = 24 * 60 * 60
-  const stakeCost = '100000000000000000'
+
   const txBatchSize = 90000 * 8
   const txDataSliceCount = 8
+
+  const stakeBaseCost = '100000000000000000'
+  const stakeUnitCost = '1000000000'
+
 
   const Lib_AddressManager = await getDeployedContract(
     hre,
@@ -118,17 +122,17 @@ const deployFn: DeployFunction = async (hre) => {
   })
 
   console.log(
-    `Setting stakeCost to ${stakeCost}...`
+    `Setting stakeBaseCost to ${stakeBaseCost}...`
   )
-  // Set Slot 4 to the stakeCost
+  // Set Slot 4 to the stakeBaseCost
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x03', 32),
-    hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(hre.ethers.BigNumber.from(stakeCost).toBigInt()), 32)
+    hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(hre.ethers.BigNumber.from(stakeBaseCost).toBigInt()), 32)
   )
 
-  console.log(`Confirming that stakeCost was correctly set...`)
+  console.log(`Confirming that stakeBaseCost was correctly set...`)
   await waitUntilTrue(async () => {
-    return await contract.stakeCost() == stakeCost
+    return await contract.stakeBaseCost() == stakeBaseCost
   })
 
   console.log(
@@ -159,20 +163,6 @@ const deployFn: DeployFunction = async (hre) => {
     return await contract.txBatchSize() == txBatchSize
   })
 
-  // console.log(
-  //   `Setting useWhiteList to ${true}...`
-  // )
-  // // Set Slot 7 to the useWhiteList
-  // await proxy.setStorage(
-  //   hre.ethers.utils.hexZeroPad('0x06', 32),
-  //   hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(1), 32)
-  // )
-
-  // console.log(`Confirming that useWhiteList was correctly set...`)
-  // await waitUntilTrue(async () => {
-  //   return await contract.useWhiteList() == true
-  // })
-
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
   const owner = (hre as any).deployConfig.mvmMetisManager
   console.log(`Setting owner address to ${owner}...`)
@@ -199,7 +189,7 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     name: 'MVM_CanonicalTransaction_for_verification_only',
     contract: 'MVM_CanonicalTransaction',
-    args: [Lib_AddressManager.address, txDataSliceSize, stakeSeqSeconds, stakeCost],
+    args: [Lib_AddressManager.address, txDataSliceSize, stakeSeqSeconds, stakeBaseCost, stakeUnitCost],
   })
 
   await registerAddress({
@@ -228,6 +218,6 @@ const deployFn: DeployFunction = async (hre) => {
   */
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade5', 'storage']
+deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade6', 'storage']
 
 export default deployFn
