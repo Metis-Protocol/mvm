@@ -103,8 +103,6 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         }
         minioClient = new MinioClient(minioConfig)
       }
-    
-    console.info('minio client if null', minioClient == null)
 
     // chainid + 32, so not [12, 15]
     if (calldata.length < 44) {
@@ -129,7 +127,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         context.numSequencedTransactions === 0
       ) {
         const storageObject = calldata.slice(nextTxPointer).toString('hex')
-        console.info('calc storage object name', storageObject)
+        // console.info('calc storage object name', storageObject)
         const txData = await minioClient.readObject(storageObject, 2)
         const verified = await minioClient.verifyObject(storageObject, txData, 2)
         if (!verified) {

@@ -322,7 +322,8 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // check stake
         require(queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0, "there is no stake for this batch index");
         require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.INIT, "not allowed to submit");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].endtime >= block.timestamp, "can not submit out of sequencer submit protection");
+        // sequencer can submit at any time
+        // require(queueTxDataRequestStake[_chainId][_batchIndex].endtime >= block.timestamp, "can not submit out of sequencer submit protection");
 
         _setBatchTxData(_chainId, _batchIndex, _sliceIndex, _data, _end, true);
 
@@ -338,8 +339,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.SEQ_SET;
             verifierStakes[queueTxDataRequestStake[_chainId][_batchIndex].sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
             // transfer from contract to sender ETHER and record
-            address payable _to = payable(msg.sender);
-            (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+            (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
             require(success, "insufficient balance");
 
             emit SetBatchTxData(
@@ -381,8 +381,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
                 );
                 verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
                 // transfer from contract to sender ETHER and record
-                address payable _to = payable(msg.sender);
-                (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+                (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
                 require(success, "insufficient balance");
             }
 
@@ -512,7 +511,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
         if (queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0) {
-            require(queueTxDataRequestStake[_chainId][_batchIndex].status != STAKESTATUS.INIT, "there is a stake for this batch index");
+            require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.PAYBACK, "there is a stake for this batch index");
         }
         queueTxDataRequestStake[_chainId][_batchIndex] = TxDataRequestStake({
             sender:    msg.sender,
@@ -546,8 +545,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.PAYBACK;
         verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
         // transfer from contract to sender ETHER and record
-        address payable _to = payable(msg.sender);
-        (bool success, ) = _to.call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+        (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
         require(success, "insufficient balance");
     }
 

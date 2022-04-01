@@ -295,9 +295,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     batchParams: AppendSequencerBatchParams
   ): Promise<TransactionReceipt> {
     await this.getEncodeAppendSequencerBatchOptions()
-    if (this.encodeSequencerBatchOptions?.useMinio) {
-      this.logger.info('encode batch options minioClient if null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
-    }
+    // if (this.encodeSequencerBatchOptions?.useMinio) {
+    //   this.logger.info('encode batch options minioClient if null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
+    // }
     // const tx =
     //   await this.chainContract.customPopulateTransaction.appendSequencerBatch(
     //     batchParams,
