@@ -9,6 +9,7 @@ import { Lib_AddressResolver } from "../libraries/resolver/Lib_AddressResolver.s
 import { iMVM_CanonicalTransaction } from "./iMVM_CanonicalTransaction.sol";
 import { ICanonicalTransactionChain } from "../L1/rollup/ICanonicalTransactionChain.sol";
 import { IChainStorageContainer } from "../L1/rollup/IChainStorageContainer.sol";
+import { StateCommitmentChain } from "../L1/rollup/StateCommitmentChain.sol";
 
 contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResolver{
     /*************
@@ -263,7 +264,8 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             totalElementsToAppend: totalElementsToAppend,
             txBatchSize:           txSize,
             txBatchTime:           batchTime,
-            txBatchHash:           batchHash
+            txBatchHash:           batchHash,
+            timestamp:             block.timestamp
         });
 
         emit AppendBatchElement(
@@ -275,34 +277,6 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             batchTime,
             batchHash
         );
-    }
-
-    function setBatchTxData(
-        uint256 _chainId,
-        uint256 _batchIndex,
-        uint256 _sliceIndex,
-        string memory _data,
-        bool _end
-    )
-        override
-        public
-    {
-        require(
-            msg.sender == resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
-            "Function can only be called by the Sequencer."
-        );
-        _setBatchTxData(_chainId, _batchIndex, _sliceIndex, _data, _end, true);
-
-        if (_end) {
-            emit SetBatchTxData(
-                msg.sender,
-                _chainId,
-                _batchIndex,
-                0,
-                true,
-                true
-            );
-        }
     }
 
     function setBatchTxDataForStake(
@@ -466,10 +440,10 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
 
             bytes32 hexSha256 = sha256(abi.encodePacked(startAt, split, totalElement, split, batchTime, split, txData));
             require(hexSha256 == queueBatchElement[_chainId][_batchIndex].txBatchHash, "tx data verify failed");
-            
+
             // verify total size
             require(queueBatchElement[_chainId][_batchIndex].txBatchSize == bytes(txData).length, "batch size does not match");
-            
+
             // save verified status
             queueTxData[_chainId][_batchIndex].verified = true;
         }
@@ -513,6 +487,11 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         if (queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0) {
             require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.PAYBACK, "there is a stake for this batch index");
         }
+
+        //check window
+        StateCommitmentChain stateChain = StateCommitmentChain(resolve("StateCommitmentChain"));
+        require(queueBatchElement[_chainId][_batchIndex].timestamp + stateChain.FRAUD_PROOF_WINDOW() > block.timestamp, "the batch is outside of the fraud proof window");
+
         queueTxDataRequestStake[_chainId][_batchIndex] = TxDataRequestStake({
             sender:    msg.sender,
             timestamp: block.timestamp,

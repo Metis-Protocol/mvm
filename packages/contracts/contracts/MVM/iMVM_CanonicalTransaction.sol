@@ -78,8 +78,9 @@ interface iMVM_CanonicalTransaction {
         uint40 shouldStartAtElement;
         uint24 totalElementsToAppend;
         uint256 txBatchSize;
-        uint256 txBatchTime;
+        uint256 txBatchTime; // sequencer client encode timestamp(ms)
         bytes32 txBatchHash;
+        uint256 timestamp; // block timestamp
     }
 
     /*******************************
@@ -114,12 +115,12 @@ interface iMVM_CanonicalTransaction {
      * @param _stakeUnitCost Stake cost for verifier.
      */
     function setStakeUnitCost(uint256 _stakeUnitCost) external;
-    
+
     /**
      * Gets the verifier stake unit cost of ETH for per storage unit.
      */
     function getStakeUnitCost() external view returns (uint256);
-    
+
     /**
      * Gets the verifier stake cost of ETH by batch index.
      */
@@ -183,16 +184,6 @@ interface iMVM_CanonicalTransaction {
      * @dev This function uses a custom encoding scheme for efficiency reasons.
      */
     function appendSequencerBatchByChainId() external;
-
-    /**
-     * Sets batch tx data.
-     * @param _chainId chain id.
-     * @param _batchIndex batch index of CTC.
-     * @param _sliceIndex slice index.
-     * @param _data tx data hex.
-     * @param _end sliceIndex is the end or not.
-    */
-    function setBatchTxData(uint256 _chainId, uint256 _batchIndex, uint256 _sliceIndex, string memory _data, bool _end) external;
 
     /**
      * Sets batch tx data for stake.
