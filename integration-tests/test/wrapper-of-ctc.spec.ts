@@ -47,11 +47,11 @@ describe('Mvm CTC wrapper Tests', async () => {
     
     result = await env.mvmCTC.getTxBatchSize()
     console.log(`mvm CTC setting: tx batch size is ${result}`)
-    expect(result).to.equal(90000*5)
+    expect(result).to.equal(90000*8)
     
     result = await env.mvmCTC.getTxDataSliceCount()
     console.log(`mvm CTC setting: tx data slice count is ${result}`)
-    expect(result).to.equal(5)
+    expect(result).to.equal(8)
 
     result = await env.mvmCTC.getStakeSeqSeconds()
     console.log(`mvm CTC setting: stake seq seconds is ${result}`)
