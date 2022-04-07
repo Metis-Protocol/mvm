@@ -21,7 +21,7 @@ export const handleEventsTransactionEnqueued: EventHandlerSet<
       gasLimit: event.args._gasLimit.toString(),
       origin: event.args._l1TxOrigin,
       blockNumber: BigNumber.from(event.blockNumber).toNumber(),
-      timestamp: event.args._timestamp.toNumber(),
+      timestamp: Math.floor(new Date().getTime()/1000), // event.args._timestamp.toNumber(),
       ctcIndex: null,
     }
   },

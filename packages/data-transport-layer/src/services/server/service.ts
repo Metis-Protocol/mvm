@@ -353,7 +353,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
 
         return {
           blockNumber: block.number,
-          timestamp: block.timestamp,
+          timestamp: Math.floor(new Date().getTime()/1000), // block.timestamp,
           blockHash: block.hash,
         }
       }
