@@ -40,3 +40,21 @@ export interface EventArgsSequencerBatchAppended {
   _numQueueElements: ethers.BigNumber
   _totalElements: ethers.BigNumber
 }
+
+export interface EventArgsVerifierStake {
+  _sender: string
+  _chainId: ethers.BigNumber
+  _batchIndex: ethers.BigNumber
+  _blockNumber: ethers.BigNumber
+  _amount: ethers.BigNumber
+}
+
+export interface EventArgsAppendBatchElement {
+  _chainId: ethers.BigNumber
+  _batchIndex: ethers.BigNumber
+  _shouldStartAtElement: number
+  _totalElementsToAppend: number
+  _txBatchSize: ethers.BigNumber
+  _txBatchTime: ethers.BigNumber
+  _root: string
+}

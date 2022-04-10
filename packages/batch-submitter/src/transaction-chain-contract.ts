@@ -19,6 +19,7 @@ interface AppendSequencerBatchParams {
     totalElementsToAppend: number;
     contexts: BatchContext[];
     transactions: string[];
+    blockNumbers: number[];
 }
 
 export { encodeAppendSequencerBatch, BatchContext, AppendSequencerBatchParams }
@@ -41,7 +42,7 @@ export class CanonicalTransactionChainContract extends Contract {
         from: await this.signer.getAddress(),
         data,
       })
-      
+
       if (opts?.useMinio) {
         console.info('encoded calldata with useMinio: ' + data)
       }

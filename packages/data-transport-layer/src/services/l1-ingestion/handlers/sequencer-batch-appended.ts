@@ -1,5 +1,6 @@
 /* Imports: External */
 import { BigNumber, ethers, constants } from 'ethers'
+import { MerkleTree } from 'merkletreejs'
 import { Logger } from '@eth-optimism/common-ts'
 import { getContractFactory } from '@metis.io/contracts'
 import {
@@ -115,6 +116,8 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     let transactionIndex = 0
     let enqueuedCount = 0
     let nextTxPointer = 47 + 16 * numContexts
+    const leafs = []
+    let rootFromCalldata = ''
     for (let i = 0; i < numContexts; i++) {
       const contextPointer = 47 + 16 * i
       const context = parseSequencerBatchContext(calldata, contextPointer)
@@ -126,14 +129,16 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         context.numSubsequentQueueTransactions === 0 &&
         context.numSequencedTransactions === 0
       ) {
-        const storageObject = calldata.slice(nextTxPointer).toString('hex')
+        // calldata = timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + markleRoot[64]
+        const storageObject = calldata.slice(nextTxPointer).toString('hex').slice(0, 86)
+        rootFromCalldata = storageObject.slice(22, 86)
         // console.info('calc storage object name', storageObject)
         const txData = await minioClient.readObject(storageObject, 2)
-        const verified = await minioClient.verifyObject(storageObject, txData, 2)
-        if (!verified) {
-          throw new Error(`verified calldata from storage error, storage object ${storageObject}`)
-        }
-        console.info('verified storage data', storageObject)
+        // const verified = await minioClient.verifyObject(storageObject, txData, 2)
+        // if (!verified) {
+        //   throw new Error(`verified calldata from storage error, storage object ${storageObject}`)
+        // }
+        console.info('got storage data', storageObject)
         calldata = Buffer.concat([
           calldata.slice(0, nextTxPointer),
           Buffer.from(txData, 'hex'),
@@ -168,7 +173,12 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           decoded,
           confirmed: true,
         })
-
+        leafs.push(ethers.utils.keccak256(
+          ethers.utils.solidityPack(['uint256', 'bytes'],
+          [
+            BigNumber.from(context.blockNumber).toNumber(),
+            parseMerkleLeafFromSequencerBatchTransaction(calldata, nextTxPointer)
+          ])))
         nextTxPointer += 3 + sequencerTransaction.length
         transactionIndex++
       }
@@ -182,14 +192,16 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         // event associated with this queue element has already been processed. So we'll ask
         // the api to fetch that data for itself later on and we use fake values for some
         // fields. The real TODO here is to make sure we fix this data structure to avoid ugly
-        // "dummy" fields.
+        // "dummy" fields. EXCEPT timestamp, which is set to local time when enqueued. this timestamp
+        // was submitted to CTC as part of the context. use the timestamp in the context otherwise
+        // the batch timestamp will be inconsistent with the main node.
         transactionEntries.push({
           index: extraData.prevTotalElements
             .add(BigNumber.from(transactionIndex))
             .toNumber(),
           batchIndex: extraData.batchIndex.toNumber(),
           blockNumber: BigNumber.from(0).toNumber(),
-          timestamp: BigNumber.from(0).toNumber(),
+          timestamp: BigNumber.from(context.timestamp).toNumber(),  //timestamp needs to be consistent
           gasLimit: BigNumber.from(0).toString(),
           target: constants.AddressZero,
           origin: constants.AddressZero,
@@ -205,6 +217,16 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         transactionIndex++
       }
     }
+
+    const hash = (el: Buffer | string): Buffer => {
+      return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
+    }
+    const tree = new MerkleTree(leafs, hash)
+    let merkleRoot = tree.getHexRoot()
+    if (merkleRoot.startsWith('0x')) {
+      merkleRoot = merkleRoot.slice(2)
+    }
+    console.info(`root from batch: ${rootFromCalldata}, re-calculate root: ${merkleRoot}, equals: ${rootFromCalldata == merkleRoot}`)
 
     const transactionBatchEntry: TransactionBatchEntry = {
       index: extraData.batchIndex.toNumber(),
@@ -278,6 +300,17 @@ const parseSequencerBatchContext = (
       calldata.slice(offset + 11, offset + 16)
     ).toNumber(),
   }
+}
+
+const parseMerkleLeafFromSequencerBatchTransaction = (
+  calldata: Buffer,
+  offset: number
+): Buffer => {
+  const transactionLength = BigNumber.from(
+    calldata.slice(offset, offset + 3)
+  ).toNumber()
+
+  return calldata.slice(offset, offset + 3 + transactionLength)
 }
 
 const parseSequencerBatchTransaction = (

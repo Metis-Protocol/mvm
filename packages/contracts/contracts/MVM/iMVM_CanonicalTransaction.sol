@@ -28,6 +28,7 @@ interface iMVM_CanonicalTransaction {
         address _sender,
         uint256 _chainId,
         uint256 _batchIndex,
+        uint256 _blockNumber,
         uint256 _amount
     );
 
@@ -38,6 +39,7 @@ interface iMVM_CanonicalTransaction {
         address _sender,
         uint256 _chainId,
         uint256 _batchIndex,
+        uint256 _blockNumber,
         uint256 _stakeAmount,
         bool _verified,
         bool _sequencer
@@ -50,7 +52,7 @@ interface iMVM_CanonicalTransaction {
         uint24 _totalElementsToAppend,
         uint256 _txBatchSize,
         uint256 _txBatchTime,
-        bytes32 _txBatchHash
+        bytes32 _root
     );
 
     /***********
@@ -60,14 +62,17 @@ interface iMVM_CanonicalTransaction {
     // locker the same sender for 30 min
     struct TxDataSlice {
         address sender;
+        uint256 blockNumber;
+        uint256 batchIndex;
         uint256 timestamp;
-        string[] txDataSlices;
+        bytes txData;
         bool verified;
-        bool end;
     }
 
     struct TxDataRequestStake {
         address sender;
+        uint256 blockNumber;
+        uint256 batchIndex;
         uint256 timestamp;
         uint256 endtime;
         uint256 amount;
@@ -79,7 +84,7 @@ interface iMVM_CanonicalTransaction {
         uint24 totalElementsToAppend;
         uint256 txBatchSize;
         uint256 txBatchTime; // sequencer client encode timestamp(ms)
-        bytes32 txBatchHash;
+        bytes32 root; // merkle hash root with [hash(txDataBytes + blockNumber)]
         uint256 timestamp; // block timestamp
     }
 
@@ -189,43 +194,48 @@ interface iMVM_CanonicalTransaction {
      * Sets batch tx data for stake.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
-     * @param _sliceIndex slice index.
+     * @param _blockNumber slice index.
      * @param _data tx data hex.
-     * @param _end sliceIndex is the end or not.
     */
-    function setBatchTxDataForStake(uint256 _chainId, uint256 _batchIndex, uint256 _sliceIndex, string memory _data, bool _end) external;
+    function setBatchTxDataForStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data, bytes32[] memory _proof) external;
 
     /**
      * Sets batch tx data for verifier.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
-     * @param _sliceIndex slice index.
+     * @param _blockNumber slice index.
      * @param _data tx data hex.
-     * @param _end sliceIndex is the end or not.
     */
-    function setBatchTxDataForVerifier(uint256 _chainId, uint256 _batchIndex, uint256 _sliceIndex, string memory _data, bool _end) external;
+    function setBatchTxDataForVerifier(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data) external;
 
     /**
      * Gets batch tx data.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
+     * @param _blockNumber block number.
      * @return txData
      * @return verified
     */
-    function getBatchTxData(uint256 _chainId, uint256 _batchIndex) external view returns (string memory txData, bool verified);
+    function getBatchTxData(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external view returns (bytes memory txData, bool verified);
+
+    function checkBatchTxHash(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data) external view returns (bytes32 txHash, bool verified);
+
+    function setBatchTxDataVerified(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bool _verified) external;
 
     /**
      * Stake by verifier.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
+     * @param _blockNumber block number.
     */
-    function verifierStake(uint256 _chainId, uint256 _batchIndex) external payable;
+    function verifierStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external payable;
 
     /**
      * Withdraw stake by verifier.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
+     * @param _blockNumber block number.
     */
-    function withdrawStake(uint256 _chainId, uint256 _batchIndex) external;
+    function withdrawStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external;
 
 }

@@ -42,6 +42,7 @@ export class MinioClient {
   }
 
   public async writeObject(
+    root: string,
     startAtElement: number,
     totalElements: number,
     encodedTransactionData: string,
@@ -58,12 +59,13 @@ export class MinioClient {
             'Content-Type': 'application/octet-stream',
             'x-metis-meta-tx-start': startAtElement,
             'x-metis-meta-tx-total': totalElements,
-            'x-metis-meta-tx-timestamp': calcHash[2]
+            'x-metis-meta-tx-timestamp': calcHash[2],
+            'x-metis-meta-tx-batch-hash': this.sha256Hash(calcHash.join('_')),
         }
-        // object key is timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + sha256(metaData+txData)
+        // object key is timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + root[64]
         // sizeOfTxData here is string length, if compare to sizeInBytes, should be encodedTransactionData.length/2
         const sizeOfTxData = encodeHex(encodedTransactionData.length, 8)
-        objectKey = `${encodeHex(calcHash[2], 13)}0${sizeOfTxData}${this.sha256Hash(calcHash.join('_'))}`
+        objectKey = `${encodeHex(calcHash[2], 13)}0${sizeOfTxData}${root}`
         const bucketName = await this.ensureBucket()
         await this.client.putObject(bucketName, objectKey, encodedTransactionData, null, metaData)
         console.info('write object successfully', objectKey)
@@ -75,7 +77,7 @@ export class MinioClient {
         }
         tryCount--
         await sleep(1000)
-        objectKey = await this.writeObject(startAtElement, totalElements, encodedTransactionData, tryCount)
+        objectKey = await this.writeObject(root, startAtElement, totalElements, encodedTransactionData, tryCount)
       }
       return objectKey
   }
@@ -143,7 +145,7 @@ export class MinioClient {
       // to verfiy
       const calcHash = [meta['x-metis-meta-tx-start'], meta['x-metis-meta-tx-total'], meta['x-metis-meta-tx-timestamp'], data]
       // hash from name
-      const hashFromName = objectName.substr(22)
+      const hashFromName = objectName.substr(22, 64)
       const hashFromCalc = this.sha256Hash(calcHash.join('_'))
       verified = hashFromName === hashFromCalc
       if (!verified) {
