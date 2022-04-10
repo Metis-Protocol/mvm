@@ -12,7 +12,7 @@ export const handleEventsAppendBatchElement: EventHandlerSet<
     return null
   },
   parseEvent: async (event) => {
-    console.log(`got event AppendBatchElement: ${JSON.stringify(event.args)}`)
+    // console.log(`got event AppendBatchElement: ${JSON.stringify(event.args)}`)
     const eventBlock = await event.getBlock()
     return {
       index: event.args._batchIndex.toNumber(),
@@ -28,7 +28,7 @@ export const handleEventsAppendBatchElement: EventHandlerSet<
     }
   },
   storeEvent: async (entry, db) => {
-    console.log(`start save AppendBatchElementEntry ${JSON.stringify(entry)}`)
+    // console.log(`start save AppendBatchElementEntry ${JSON.stringify(entry)}`)
     if (!entry) {
       return;
     }

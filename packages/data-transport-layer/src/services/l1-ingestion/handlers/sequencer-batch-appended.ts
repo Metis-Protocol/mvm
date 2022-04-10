@@ -173,12 +173,13 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           decoded,
           confirmed: true,
         })
-        // leafs.push(ethers.utils.keccak256(
-        //   ethers.utils.solidityPack(['uint256', 'bytes'],
-        //   [
-        //     extraData.prevTotalElements.add(BigNumber.from(transactionIndex)).toNumber(),
-        //     parseMerkleLeafFromSequencerBatchTransaction(calldata, nextTxPointer)
-        //   ])))
+        // block number = index + 1
+        leafs.push(ethers.utils.keccak256(
+          ethers.utils.solidityPack(['uint256', 'bytes'],
+          [
+            extraData.prevTotalElements.add(BigNumber.from(transactionIndex)).add(BigNumber.from(1)).toNumber(),
+            parseMerkleLeafFromSequencerBatchTransaction(calldata, nextTxPointer)
+          ])))
         nextTxPointer += 3 + sequencerTransaction.length
         transactionIndex++
       }
@@ -218,15 +219,18 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
       }
     }
 
-    // const hash = (el: Buffer | string): Buffer => {
-    //   return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
-    // }
-    // const tree = new MerkleTree(leafs, hash)
-    // let merkleRoot = tree.getHexRoot()
-    // if (merkleRoot.startsWith('0x')) {
-    //   merkleRoot = merkleRoot.slice(2)
-    // }
-    // console.info(`root from batch: ${rootFromCalldata}, re-calculate root: ${merkleRoot}, equals: ${rootFromCalldata == merkleRoot}`)
+    const hash = (el: Buffer | string): Buffer => {
+      return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
+    }
+    const tree = new MerkleTree(leafs, hash)
+    let merkleRoot = tree.getHexRoot()
+    if (merkleRoot.startsWith('0x')) {
+      merkleRoot = merkleRoot.slice(2)
+    }
+    console.info(`root from batch: ${rootFromCalldata}, re-calculate root: ${merkleRoot}, equals: ${rootFromCalldata == merkleRoot}`)
+    if (rootFromCalldata != merkleRoot) {
+      throw new Error(`verified calldata from storage error, batch index is ${extraData.batchIndex.toNumber()}`)
+    }
 
     const transactionBatchEntry: TransactionBatchEntry = {
       index: extraData.batchIndex.toNumber(),

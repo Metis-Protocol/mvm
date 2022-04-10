@@ -741,12 +741,24 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       queued: BatchElement[]
     }> = []
     for (const block of blocks) {
-      if (
-        (lastBlockIsSequencerTx === false && block.isSequencerTx === true) ||
-        groupedBlocks.length === 0 ||
-        (block.timestamp !== lastTimestamp && block.isSequencerTx === true) ||
-        (block.blockNumber !== lastBlockNumber && block.isSequencerTx === true)
-      ) {
+      // if (
+      //   (lastBlockIsSequencerTx === false && block.isSequencerTx === true) ||
+      //   groupedBlocks.length === 0 ||
+      //   (block.timestamp !== lastTimestamp && block.isSequencerTx === true) ||
+      //   (block.blockNumber !== lastBlockNumber && block.isSequencerTx === true)
+      // ) {
+      //   groupedBlocks.push({
+      //     sequenced: [],
+      //     queued: [],
+      //   })
+      // }
+      if (groupedBlocks.length === 0) {
+        groupedBlocks.push({
+          sequenced: [],
+          queued: [],
+        })
+      }
+      else if (block.isSequencerTx !== lastBlockIsSequencerTx) {
         groupedBlocks.push({
           sequenced: [],
           queued: [],

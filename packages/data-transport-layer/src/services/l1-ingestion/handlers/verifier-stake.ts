@@ -12,7 +12,7 @@ export const handleEventsVerifierStake: EventHandlerSet<
     return null
   },
   parseEvent: async (event) => {
-    console.log(`got event VerifierStake: ${JSON.stringify(event.args)}`)
+    // console.log(`got event VerifierStake: ${JSON.stringify(event.args)}`)
     const eventBlock = await event.getBlock()
     return {
       index: event.args._batchIndex.toNumber(),
@@ -26,7 +26,7 @@ export const handleEventsVerifierStake: EventHandlerSet<
     }
   },
   storeEvent: async (entry, db) => {
-    console.log(`start save VerifierStakeEntry ${JSON.stringify(entry)}`)
+    // console.log(`start save VerifierStakeEntry ${JSON.stringify(entry)}`)
     if (!entry) {
       return;
     }

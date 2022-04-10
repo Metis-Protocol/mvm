@@ -524,8 +524,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
         // check block number in batch range
-        //require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend + queueBatchElement[_chainId][_batchIndex].shouldStartAtElement > _blockNumber
-        //&& queueBatchElement[_chainId][_batchIndex].shouldStartAtElement <= _blockNumber, "block number is not in this batch");
+        require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend + queueBatchElement[_chainId][_batchIndex].shouldStartAtElement > _blockNumber && queueBatchElement[_chainId][_batchIndex].shouldStartAtElement <= _blockNumber, "block number is not in this batch");
         if (queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0) {
             require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.PAYBACK, "there is a stake for this batch index");
         }
