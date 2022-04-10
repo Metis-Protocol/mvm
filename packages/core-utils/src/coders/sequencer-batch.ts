@@ -1,6 +1,7 @@
 import { add0x, remove0x, encodeHex } from '../common'
 import { BigNumber, ethers } from 'ethers'
 import { MinioClient } from './minio-client'
+import { MerkleTree } from 'merkletreejs'
 
 export interface BatchContext {
   numSequencedTransactions: number
@@ -14,6 +15,7 @@ export interface AppendSequencerBatchParams {
   totalElementsToAppend: number // 3 bytes -- total_elements_to_append
   contexts: BatchContext[] // total_elements[fixed_size[]]
   transactions: string[] // total_size_bytes[],total_size_bytes[]
+  blockNumbers: number[]
 }
 
 export interface EncodeSequencerBatchOptions {
@@ -45,23 +47,40 @@ export const encodeAppendSequencerBatch = async (
     ).padStart(6, '0')
     return acc + encodedTxDataHeader + remove0x(cur)
   }, '')
-  
+
   console.info('input data', b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData.length)
 
   if (opts?.useMinio && opts?.minioClient) {
     const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
     console.info('storage tx data to minio', storagedObject, 'context length', contexts.length)
-    
+
     // the following 2 conditions except empty encodedTransactionData
     if (!storagedObject && encodedTransactionData && b.shouldStartAtElement >= 0 &&  b.totalElementsToAppend > 0) {
       throw new Error('Storage encoded transaction data failed!')
     }
 
+    // generate merkle root
+    const hash = (el: Buffer | string): Buffer => {
+      return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
+    }
+    const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)))
+    let leafs = []
+    for (let i = 0; i < b.transactions.length; i++){
+      const _blockNumber = b.blockNumbers[i]
+      const _cur = b.transactions[i]
+      const _encodedTxDataHeader = remove0x(
+        BigNumber.from(remove0x(_cur).length / 2).toHexString()
+      ).padStart(6, '0')
+      const _encodedTxData = _encodedTxDataHeader + remove0x(_cur)
+      leafs.push(ethers.utils.keccak256(ethers.utils.solidityPack(['uint256', 'bytes'], [_blockNumber, fromHexString(_encodedTxData)])))
+    }
+    const tree = new MerkleTree(leafs, hash)
+    const batchRoot = remove0x(tree.getHexRoot())
     if (
       storagedObject &&
       contexts.length > 0
     ) {
-      encodedTransactionData = storagedObject
+      encodedTransactionData = storagedObject + batchRoot
       contexts.unshift({
         numSequencedTransactions: 0,
         numSubsequentQueueTransactions: 0,
@@ -74,7 +93,7 @@ export const encodeAppendSequencerBatch = async (
   const encodedContextsHeader = encodeHex(contexts.length, 6)
   const encodedContexts = encodedContextsHeader +
     contexts.reduce((acc, cur) => acc + encodeBatchContext(cur), '')
-  
+
   console.info('sequencer batch result', encodeShouldStartAtElement, encodedTotalElementsToAppend, encodedContexts, encodedTransactionData)
 
   return (
@@ -159,6 +178,7 @@ export const decodeAppendSequencerBatch = async (
     totalElementsToAppend: parseInt(totalElementsToAppend, 16),
     contexts,
     transactions,
+    blockNumbers: [],
   }
 }
 

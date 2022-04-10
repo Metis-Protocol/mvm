@@ -7,6 +7,8 @@ import {
   TransactionEntry,
   StateRootBatchEntry,
   StateRootEntry,
+  VerifierStakeEntry,
+  AppendBatchElementEntry,
 } from './database-types'
 
 export type TypedEthersEvent<T> = Event & {

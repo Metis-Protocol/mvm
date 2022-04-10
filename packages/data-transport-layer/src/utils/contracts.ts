@@ -32,6 +32,7 @@ export interface OptimismContracts {
   Lib_AddressManager: Contract
   StateCommitmentChain: Contract
   CanonicalTransactionChain: Contract
+  Proxy__MVM_CanonicalTransaction: Contract
 }
 
 export const loadOptimismContracts = async (
@@ -53,6 +54,14 @@ export const loadOptimismContracts = async (
     {
       name: 'CanonicalTransactionChain',
       interface: 'ICanonicalTransactionChain',
+    },
+    {
+      name: 'CanonicalTransactionChain',
+      interface: 'ICanonicalTransactionChain',
+    },
+    {
+      name: 'Proxy__MVM_CanonicalTransaction',
+      interface: 'iMVM_CanonicalTransaction',
     },
   ]
 

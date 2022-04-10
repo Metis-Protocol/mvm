@@ -23,6 +23,8 @@ import {
   TransactionResponse,
   VerifierResultResponse,
   VerifierResultEntry,
+  VerifierStakeResponse,
+  AppendBatchElementResponse,
 } from '../../types'
 import { validators } from '../../utils'
 import { L1DataTransportServiceOptions } from '../main/service'
@@ -809,5 +811,68 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         }
       }
     )
+
+    this._registerRoute(
+      'get',
+      '/verifier/stake/latest/:chainId',
+      async (req): Promise<VerifierStakeResponse> => {
+        const chainId=BigNumber.from(req.params.chainId).toNumber()
+        const db=await this._getDb(chainId)
+        const result = await db.getLatestVerifierStake()
+
+        if (result === null) {
+          return {
+            verifierStake: null
+          }
+        }
+
+        return {
+          verifierStake: result
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/verifier/stake/index/:index/:chainId',
+      async (req): Promise<VerifierStakeResponse> => {
+        const chainId=BigNumber.from(req.params.chainId).toNumber()
+        const index=BigNumber.from(req.params.index).toNumber()
+        const db=await this._getDb(chainId)
+        const result = await db.getVerifierStakeByIndex(index)
+
+        if (result === null) {
+          return {
+            verifierStake: null
+          }
+        }
+
+        return {
+          verifierStake: result
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/batch/element/index/:index/:chainId',
+      async (req): Promise<AppendBatchElementResponse> => {
+        const chainId=BigNumber.from(req.params.chainId).toNumber()
+        const index=BigNumber.from(req.params.index).toNumber()
+        const db=await this._getDb(chainId)
+        const result = await db.getBatchElementByIndex(index)
+
+        if (result === null) {
+          return {
+            batchElement: null
+          }
+        }
+
+        return {
+          batchElement: result
+        }
+      }
+    )
+
   }
 }
