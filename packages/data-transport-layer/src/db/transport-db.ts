@@ -344,7 +344,7 @@ export class TransportDB {
         ...transaction,
         ...{
           blockNumber: enqueue.blockNumber,
-          timestamp: enqueue.timestamp,
+          timestamp: transaction.timestamp,
           gasLimit: enqueue.gasLimit,
           target: enqueue.target,
           origin: enqueue.origin,
@@ -383,7 +383,7 @@ export class TransportDB {
           ...transaction,
           ...{
             blockNumber: enqueue.blockNumber,
-            timestamp: enqueue.timestamp,
+            timestamp: transaction.timestamp,
             gasLimit: enqueue.gasLimit,
             target: enqueue.target,
             origin: enqueue.origin,
