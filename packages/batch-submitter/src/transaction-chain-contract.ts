@@ -43,10 +43,6 @@ export class CanonicalTransactionChainContract extends Contract {
         data,
       })
 
-      if (opts?.useMinio) {
-        console.info('encoded calldata with useMinio: ' + data)
-      }
-
       return {
         nonce,
         to,
