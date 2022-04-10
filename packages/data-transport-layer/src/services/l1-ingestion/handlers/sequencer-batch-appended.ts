@@ -192,14 +192,16 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         // event associated with this queue element has already been processed. So we'll ask
         // the api to fetch that data for itself later on and we use fake values for some
         // fields. The real TODO here is to make sure we fix this data structure to avoid ugly
-        // "dummy" fields.
+        // "dummy" fields. EXCEPT timestamp, which is set to local time when enqueued. this timestamp
+        // was submitted to CTC as part of the context. use the timestamp in the context otherwise
+        // the batch timestamp will be inconsistent with the main node.
         transactionEntries.push({
           index: extraData.prevTotalElements
             .add(BigNumber.from(transactionIndex))
             .toNumber(),
           batchIndex: extraData.batchIndex.toNumber(),
           blockNumber: BigNumber.from(0).toNumber(),
-          timestamp: BigNumber.from(0).toNumber(),
+          timestamp: BigNumber.from(context.timestamp).toNumber(),  //timestamp needs to be consistent
           gasLimit: BigNumber.from(0).toString(),
           target: constants.AddressZero,
           origin: constants.AddressZero,
