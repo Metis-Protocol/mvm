@@ -791,12 +791,15 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // Generate sequencer transactions
     const transactions: string[] = []
     const blockNumbers: number[] = []
+    let l2BlockNumber = shouldStartAtIndex
     for (const block of blocks) {
       if (!block.isSequencerTx) {
+        l2BlockNumber++
         continue
       }
       transactions.push(block.rawTransaction)
-      blockNumbers.push(block.blockNumber)
+      blockNumbers.push(l2BlockNumber)
+      l2BlockNumber++
     }
 
     return {

@@ -197,7 +197,7 @@ interface iMVM_CanonicalTransaction {
      * @param _blockNumber slice index.
      * @param _data tx data hex.
     */
-    function setBatchTxDataForStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data, bytes32[] memory _proof) external;
+    function setBatchTxDataForStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data, uint256 _leafIndex, uint256 _totalLeaves, bytes32[] memory _proof) external;
 
     /**
      * Sets batch tx data for verifier.

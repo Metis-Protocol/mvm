@@ -2,7 +2,6 @@
 pragma solidity ^0.8.9;
 
 /* Library Imports */
-import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { Lib_AddressResolver } from "../libraries/resolver/Lib_AddressResolver.sol";
 
 
@@ -11,6 +10,7 @@ import { iMVM_CanonicalTransaction } from "./iMVM_CanonicalTransaction.sol";
 import { ICanonicalTransactionChain } from "../L1/rollup/ICanonicalTransactionChain.sol";
 import { IChainStorageContainer } from "../L1/rollup/IChainStorageContainer.sol";
 import { StateCommitmentChain } from "../L1/rollup/StateCommitmentChain.sol";
+import { Lib_MerkleTree } from "../libraries/utils/Lib_MerkleTree.sol";
 
 contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResolver{
     /*************
@@ -285,6 +285,8 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         uint256 _batchIndex,
         uint256 _blockNumber,
         bytes memory _data,
+        uint256 _leafIndex,
+        uint256 _totalLeaves,
         bytes32[] memory _proof
     )
         override
@@ -301,7 +303,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // sequencer can submit at any time
         // require(queueTxDataRequestStake[_chainId][_blockNumber].endtime >= block.timestamp, "can not submit out of sequencer submit protection");
 
-        _setBatchTxData(_chainId, _batchIndex, _blockNumber, _data, _proof, true);
+        _setBatchTxData(_chainId, _batchIndex, _blockNumber, _data, _leafIndex, _totalLeaves,  _proof,  true);
 
         if (queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT) {
             require(
@@ -357,7 +359,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             require(queueTxDataRequestStake[_chainId][_blockNumber].endtime + stakeSeqSeconds < block.timestamp, "can not submit during staker submit protection");
         }
 
-        _setBatchTxData(_chainId, _batchIndex, _blockNumber, _data, new bytes32[](0), false);
+        _setBatchTxData(_chainId, _batchIndex, _blockNumber, _data, 0, 0, new bytes32[](0), false);
 
         if (queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT) {
             queueTxDataRequestStake[_chainId][_blockNumber].status = STAKESTATUS.VERIFIER_SET;
@@ -392,6 +394,8 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         uint256 _batchIndex,
         uint256 _blockNumber,
         bytes memory _data,
+        uint256 _leafIndex,
+        uint256 _totalLeaves,
         bytes32[] memory _proof,
         bool _requireVerify
     )
@@ -401,9 +405,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
         require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend > 0, "batch total element to append should not be zero");
-        if (_requireVerify) {
-            require(_proof.length > 0, "empty proof");
-        }
+       
         // sequencer protect
         if (queueTxData[_chainId][_blockNumber].timestamp > 0) {
             require(queueTxData[_chainId][_blockNumber].verified == false, "tx data verified");
@@ -436,7 +438,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         }
         if (_requireVerify) {
             bytes32 currLeaf = keccak256(abi.encodePacked(_blockNumber, _data));
-            bool verified = MerkleProof.verify(_proof, queueBatchElement[_chainId][_batchIndex].root, currLeaf);
+            bool verified = Lib_MerkleTree.verify(queueBatchElement[_chainId][_batchIndex].root, currLeaf, _leafIndex, _proof, _totalLeaves);
             require(verified == true, "tx data verify failed");
 
             // save verified status
@@ -522,8 +524,8 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
         // check block number in batch range
-        require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend + queueBatchElement[_chainId][_batchIndex].shouldStartAtElement > _blockNumber
-        && queueBatchElement[_chainId][_batchIndex].shouldStartAtElement <= _blockNumber, "block number is not in this batch");
+        //require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend + queueBatchElement[_chainId][_batchIndex].shouldStartAtElement > _blockNumber
+        //&& queueBatchElement[_chainId][_batchIndex].shouldStartAtElement <= _blockNumber, "block number is not in this batch");
         if (queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0) {
             require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.PAYBACK, "there is a stake for this batch index");
         }

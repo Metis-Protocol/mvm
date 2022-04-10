@@ -163,6 +163,15 @@ describe('Fee Payment Integration Tests', async () => {
       }
     )
     await res.wait()
+    const res2: TransactionResponse = await MVM_Coinbase.transfer(
+      PROXY_SEQUENCER_ENTRYPOINT_ADDRESS,
+      100,
+      {
+        gasPrice,
+        gasLimit
+      }
+    )
+    await res2.wait()
     // const postBalances = await getBalances()
     // console.log("l1 wallet balance:" + postBalances.l1UserBalance + ",l2 wallet balance" + postBalances.l2UserBalance + ",l1gateway balance" + postBalances.l1GatewayBalance + ",seq balance" + postBalances.sequencerBalance)
     const tx2 = await OVM_L1ETHGateway.depositETHByChainId(
