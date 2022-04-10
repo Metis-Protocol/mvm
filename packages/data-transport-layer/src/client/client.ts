@@ -7,6 +7,7 @@ declare var window: any
 const fetch = isNode ? require('node-fetch') : window.fetch
 
 import {
+  AppendBatchElementResponse,
   EnqueueResponse,
   StateRootBatchResponse,
   StateRootResponse,
@@ -14,6 +15,7 @@ import {
   TransactionBatchResponse,
   TransactionResponse,
   VerifierResultResponse,
+  VerifierStakeResponse,
 } from '../types'
 
 export class L1DataTransportClient {
@@ -80,6 +82,18 @@ export class L1DataTransportClient {
 
   public async setLatestVerifierResult(success: boolean, index: number, stateRoot: string, verifierRoot: string): Promise<VerifierResultResponse> {
     return this._get(`/verifier/set/${success}/${this._chainId}/${index}/${stateRoot}/${verifierRoot}`)
+  }
+
+  public async getLatestVerifierStake(): Promise<VerifierStakeResponse> {
+    return this._get(`/verifier/stake/latest/${this._chainId}`)
+  }
+
+  public async getVerifierStakeByIndex(index: number): Promise<VerifierStakeResponse> {
+    return this._get(`/verifier/stake/index/${index}/${this._chainId}`)
+  }
+
+  public async getBatchElementByIndex(index: number): Promise<AppendBatchElementResponse> {
+    return this._get(`/batch/element/index/${index}/${this._chainId}`)
   }
 
   private async _get<TResponse>(endpoint: string): Promise<TResponse> {

@@ -21,6 +21,8 @@ import { handleEventsSequencerBatchAppended } from './handlers/sequencer-batch-a
 import { handleEventsStateBatchAppended } from './handlers/state-batch-appended'
 import { L1DataTransportServiceOptions } from '../main/service'
 import { MissingElementError } from './handlers/errors'
+import { handleEventsVerifierStake } from './handlers/verifier-stake'
+import { handleEventsAppendBatchElement } from './handlers/append-batch-element'
 
 interface L1IngestionMetrics {
   highestSyncedL1Block: Gauge<string>
@@ -244,6 +246,22 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           highestSyncedL1Block,
           targetL1Block,
           handleEventsStateBatchAppended
+        )
+
+        await this._syncEvents(
+          'Proxy__MVM_CanonicalTransaction',
+          'VerifierStake',
+          highestSyncedL1Block,
+          targetL1Block,
+          handleEventsVerifierStake
+        )
+
+        await this._syncEvents(
+          'Proxy__MVM_CanonicalTransaction',
+          'AppendBatchElement',
+          highestSyncedL1Block,
+          targetL1Block,
+          handleEventsAppendBatchElement
         )
 
         await this.state.db.setHighestSyncedL1Block(targetL1Block)

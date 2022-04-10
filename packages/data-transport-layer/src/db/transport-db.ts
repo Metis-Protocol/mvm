@@ -11,6 +11,8 @@ import {
   TransactionBatchEntry,
   TransactionEntry,
   VerifierResultEntry,
+  VerifierStakeEntry,
+  AppendBatchElementEntry
 } from '../types/database-types'
 import { SimpleDB } from './simple-db'
 
@@ -28,7 +30,9 @@ const TRANSPORT_DB_KEYS = {
   HIGHEST_L2_BLOCK: `l2:highest`,
   HIGHEST_SYNCED_BLOCK: `synced:highest`,
   VERIFIER_FAILED: `verifier:failed`,
-  VERIFIER_SUCCESSFUL: `verifier:successful`
+  VERIFIER_SUCCESSFUL: `verifier:successful`,
+  MVM_CTC_VERIFIER_STAKE: `mvmctc:verifierstake`,
+  MVM_CTC_BATCH_ELEMENT: `mvmctc:batchelement`
 }
 
 interface Indexed {
@@ -128,6 +132,34 @@ export class TransportDB {
         value: entry,
       },
     ])
+  }
+
+  public async putBatchElementEntries(
+    entries: AppendBatchElementEntry[]
+  ): Promise<void> {
+    await this._putEntries(TRANSPORT_DB_KEYS.MVM_CTC_BATCH_ELEMENT, entries)
+  }
+
+  public async putVerifierStakeEntries(
+    entries: VerifierStakeEntry[]
+  ): Promise<void> {
+    await this._putEntries(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, entries)
+    if (entries.length > 0) {
+      this._putLatestEntryIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, entries[entries.length - 1].index)
+    }
+  }
+
+  public async getLatestVerifierStake(): Promise<VerifierStakeEntry> {
+    const index = await this._getLatestEntryIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE)
+    return this._getEntryByIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, index)
+  }
+
+  public async getVerifierStakeByIndex(index: number): Promise<VerifierStakeEntry> {
+    return this._getEntryByIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, index)
+  }
+
+  public async getBatchElementByIndex(index: number): Promise<AppendBatchElementEntry> {
+    return this._getEntryByIndex(TRANSPORT_DB_KEYS.MVM_CTC_BATCH_ELEMENT, index)
   }
 
   public async getLastVerifierEntry(

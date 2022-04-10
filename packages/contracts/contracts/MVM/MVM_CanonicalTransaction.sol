@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 /* Library Imports */
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { Lib_AddressResolver } from "../libraries/resolver/Lib_AddressResolver.sol";
 
 
@@ -215,6 +216,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         bytes32 batchHash;
         uint256 _dataSize;
         uint256 txSize;
+        bytes32 root;
         assembly {
             _dataSize             := calldatasize()
             _chainId              := calldataload(4)
@@ -229,13 +231,15 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         uint256 posTs =  47 + 16 * numContexts;
         if (_dataSize > posTs) {
             // when tx count = 0, there is no hash!
-            // string len: [13]{milliseconds}-[1]{0}-[8]{sizeOfData}-[64]{hash}
+            // string len: [13]{milliseconds}-[1]{0}-[8]{sizeOfData}-[64]{hash}-[64]{root}
             uint256 posTxSize = 7 + posTs;
             uint256 posHash =  11 + posTs;
+            uint256 posRoot =  43 + posTs;
             assembly {
                 batchTime := shr(204, calldataload(posTs))
                 txSize := shr(224, calldataload(posTxSize))
                 batchHash := calldataload(posHash)
+                root := calldataload(posRoot)
             }
 
             // check batch size
@@ -265,6 +269,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             txBatchSize:           txSize,
             txBatchTime:           batchTime,
             txBatchHash:           batchHash,
+            root:                  root,
             timestamp:             block.timestamp
         });
 
@@ -275,16 +280,17 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             totalElementsToAppend,
             txSize,
             batchTime,
-            batchHash
+            batchHash,
+            root
         );
     }
 
     function setBatchTxDataForStake(
         uint256 _chainId,
         uint256 _batchIndex,
-        uint256 _sliceIndex,
-        string memory _data,
-        bool _end
+        uint256 _blockNumber,
+        bytes memory _data,
+        bytes32[] memory _proof
     )
         override
         public
@@ -294,183 +300,198 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             "Function can only be called by the Sequencer."
         );
         // check stake
-        require(queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0, "there is no stake for this batch index");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.INIT, "not allowed to submit");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0, "there is no stake for this block number");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].batchIndex == _batchIndex, "incorrect batch index");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT, "not allowed to submit");
         // sequencer can submit at any time
-        // require(queueTxDataRequestStake[_chainId][_batchIndex].endtime >= block.timestamp, "can not submit out of sequencer submit protection");
+        // require(queueTxDataRequestStake[_chainId][_blockNumber].endtime >= block.timestamp, "can not submit out of sequencer submit protection");
 
-        _setBatchTxData(_chainId, _batchIndex, _sliceIndex, _data, _end, true);
+        _setBatchTxData(_chainId, _batchIndex, _blockNumber, _data, _proof, true);
 
-        if (_end) {
+        if (queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT) {
             require(
-                queueTxDataRequestStake[_chainId][_batchIndex].amount <= verifierStakes[queueTxDataRequestStake[_chainId][_batchIndex].sender],
+                queueTxDataRequestStake[_chainId][_blockNumber].amount <= verifierStakes[queueTxDataRequestStake[_chainId][_blockNumber].sender],
                 "insufficient stake"
             );
             require(
-                queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
+                queueTxDataRequestStake[_chainId][_blockNumber].amount <= address(this).balance,
                 "insufficient balance"
             );
-            queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.SEQ_SET;
-            verifierStakes[queueTxDataRequestStake[_chainId][_batchIndex].sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
+            queueTxDataRequestStake[_chainId][_blockNumber].status = STAKESTATUS.SEQ_SET;
+            verifierStakes[queueTxDataRequestStake[_chainId][_blockNumber].sender] -= queueTxDataRequestStake[_chainId][_blockNumber].amount;
             // transfer from contract to sender ETHER and record
-            (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+            (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
             require(success, "insufficient balance");
-
-            emit SetBatchTxData(
-                msg.sender,
-                _chainId,
-                _batchIndex,
-                queueTxDataRequestStake[_chainId][_batchIndex].amount,
-                true,
-                true
-            );
         }
+
+        emit SetBatchTxData(
+            msg.sender,
+            _chainId,
+            _batchIndex,
+            _blockNumber,
+            queueTxDataRequestStake[_chainId][_blockNumber].amount,
+            true,
+            true
+        );
     }
 
     function setBatchTxDataForVerifier(
         uint256 _chainId,
         uint256 _batchIndex,
-        uint256 _sliceIndex,
-        string memory _data,
-        bool _end
+        uint256 _blockNumber,
+        bytes memory _data
     )
         override
         public
     {
+         require(
+            msg.sender != resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
+            "Function can not be called by the Sequencer."
+        );
         // check stake
-        require(queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0, "there is no stake for this batch index");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.INIT, "not allowed to submit");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].sender == msg.sender, "can not submit with other's stake");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].endtime < block.timestamp, "can not submit during sequencer submit protection");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0, "there is no stake for this block number");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].batchIndex == _batchIndex, "incorrect batch index");
+        // require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT, "not allowed to submit");
+        // require(queueTxDataRequestStake[_chainId][_blockNumber].sender == msg.sender, "can not submit with other's stake");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].endtime < block.timestamp, "can not submit during sequencer submit protection");
+        if (queueTxDataRequestStake[_chainId][_blockNumber].sender != msg.sender) {
+            // other verifier can submit in double window times
+            require(queueTxDataRequestStake[_chainId][_blockNumber].endtime + stakeSeqSeconds < block.timestamp, "can not submit during staker submit protection");
+        }
 
-        _setBatchTxData(_chainId, _batchIndex, _sliceIndex, _data, _end, false);
+        _setBatchTxData(_chainId, _batchIndex, _blockNumber, _data, new bytes32[](0), false);
 
-        if (_end) {
-            queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.VERIFIER_SET;
+        if (queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT) {
+            queueTxDataRequestStake[_chainId][_blockNumber].status = STAKESTATUS.VERIFIER_SET;
 
-            if (queueTxDataRequestStake[_chainId][_batchIndex].amount <= verifierStakes[msg.sender]) {
+            address claimer = queueTxDataRequestStake[_chainId][_blockNumber].sender;
+            if (queueTxDataRequestStake[_chainId][_blockNumber].amount <= verifierStakes[claimer]) {
                 require(
-                    queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
+                    queueTxDataRequestStake[_chainId][_blockNumber].amount <= address(this).balance,
                     "insufficient balance"
                 );
-                verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
+                verifierStakes[claimer] -= queueTxDataRequestStake[_chainId][_blockNumber].amount;
                 // transfer from contract to sender ETHER and record
-                (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+                (bool success, ) = payable(claimer).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
                 require(success, "insufficient balance");
             }
-
-            emit SetBatchTxData(
-                msg.sender,
-                _chainId,
-                _batchIndex,
-                queueTxDataRequestStake[_chainId][_batchIndex].amount,
-                false,
-                false
-            );
         }
+
+        emit SetBatchTxData(
+            msg.sender,
+            _chainId,
+            _batchIndex,
+            _blockNumber,
+            queueTxDataRequestStake[_chainId][_blockNumber].amount,
+            false,
+            false
+        );
     }
 
     function _setBatchTxData(
         uint256 _chainId,
         uint256 _batchIndex,
-        uint256 _sliceIndex,
-        string memory _data,
-        bool _end,
+        uint256 _blockNumber,
+        bytes memory _data,
+        bytes32[] memory _proof,
         bool _requireVerify
     )
         internal
     {
-        require(txDataSliceSize > 0, "slice size not config yet");
-        require(bytes(_data).length > 0, "empty data");
+        require(_data.length > 0, "empty data");
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
-        require(queueBatchElement[_chainId][_batchIndex].txBatchSize > 0, "batch size should not be zero");
         require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend > 0, "batch total element to append should not be zero");
-
-        // slice data check, slice size in bytes
-        require(bytes(_data).length / 2 <= txDataSliceSize, "slice size of data is too large");
-        require(_sliceIndex < txDataSliceCount, "slice index is greater");
-        require(_sliceIndex <= queueTxData[_chainId][_batchIndex].txDataSlices.length, "incorrect slice index");
-
+        if (_requireVerify) {
+            require(_proof.length > 0, "empty proof");
+        }
         // sequencer protect
-        if (queueTxData[_chainId][_batchIndex].timestamp > 0) {
-            if (queueTxData[_chainId][_batchIndex].sender != msg.sender) {
-                require(queueTxData[_chainId][_batchIndex].timestamp + TXDATA_SUBMIT_TIMEOUT > block.timestamp, "in submitting");
-
-                // _sliceIndex should be zero
-                require(_sliceIndex == 0, "slice index should start from zero");
+        if (queueTxData[_chainId][_blockNumber].timestamp > 0) {
+            require(queueTxData[_chainId][_blockNumber].verified == false, "tx data verified");
+            if (queueTxData[_chainId][_blockNumber].sender != msg.sender) {
+                require(queueTxData[_chainId][_blockNumber].timestamp + TXDATA_SUBMIT_TIMEOUT > block.timestamp, "in submitting");
 
                 // change sumbitter
-                queueTxData[_chainId][_batchIndex].sender = msg.sender;
-                queueTxData[_chainId][_batchIndex].timestamp = block.timestamp;
-                queueTxData[_chainId][_batchIndex].txDataSlices = [_data];
-                queueTxData[_chainId][_batchIndex].verified = false;
-                queueTxData[_chainId][_batchIndex].end = _end;
+                queueTxData[_chainId][_blockNumber].sender = msg.sender;
+                queueTxData[_chainId][_blockNumber].blockNumber = _blockNumber;
+                queueTxData[_chainId][_blockNumber].batchIndex = _batchIndex;
+                queueTxData[_chainId][_blockNumber].timestamp = block.timestamp;
+                queueTxData[_chainId][_blockNumber].txData = _data;
+                queueTxData[_chainId][_blockNumber].verified = false;
             }
             else {
-                if (_sliceIndex < queueTxData[_chainId][_batchIndex].txDataSlices.length) {
-                    queueTxData[_chainId][_batchIndex].txDataSlices[_sliceIndex] = _data;
-                }
-                else {
-                    queueTxData[_chainId][_batchIndex].txDataSlices.push(_data);
-                }
+                queueTxData[_chainId][_blockNumber].txData = _data;
                 // verified restore to false
-                queueTxData[_chainId][_batchIndex].verified = false;
-                queueTxData[_chainId][_batchIndex].end = _end;
+                queueTxData[_chainId][_blockNumber].verified = false;
             }
         }
         else {
-            string[] memory dts = new string[](1);
-            dts[0] = _data;
-            queueTxData[_chainId][_batchIndex] = TxDataSlice({
+            queueTxData[_chainId][_blockNumber] = TxDataSlice({
                 sender:         msg.sender,
+                blockNumber:    _blockNumber,
+                batchIndex:    _batchIndex,
                 timestamp:      block.timestamp,
-                txDataSlices:   dts,
-                verified:       false,
-                end:            _end
+                txData:         _data,
+                verified:       false
             });
         }
-        if (_end && _requireVerify) {
-            string memory split = "_";
-            string memory startAt = uint2str(queueBatchElement[_chainId][_batchIndex].shouldStartAtElement);
-            string memory totalElement = uint2str(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend);
-            string memory batchTime = uint2str(queueBatchElement[_chainId][_batchIndex].txBatchTime);
-
-            string memory txData = concat(queueTxData[_chainId][_batchIndex].txDataSlices);
-
-            bytes32 hexSha256 = sha256(abi.encodePacked(startAt, split, totalElement, split, batchTime, split, txData));
-            require(hexSha256 == queueBatchElement[_chainId][_batchIndex].txBatchHash, "tx data verify failed");
-
-            // verify total size
-            require(queueBatchElement[_chainId][_batchIndex].txBatchSize == bytes(txData).length, "batch size does not match");
+        if (_requireVerify) {
+            bytes32 currLeaf = keccak256(abi.encodePacked(_blockNumber, _data));
+            bool verified = MerkleProof.verify(_proof, queueBatchElement[_chainId][_batchIndex].root, currLeaf);
+            require(verified == true, "tx data verify failed");
 
             // save verified status
-            queueTxData[_chainId][_batchIndex].verified = true;
+            queueTxData[_chainId][_blockNumber].verified = true;
         }
     }
 
     function getBatchTxData(
         uint256 _chainId,
-        uint256 _batchIndex
+        uint256 _batchIndex,
+        uint256 _blockNumber
     )
         override
         external
         view
         returns (
-            string memory txData,
+            bytes memory txData,
             bool verified
         )
     {
-        require(queueTxData[_chainId][_batchIndex].timestamp != 0, "tx data does not exist");
+        require(queueTxData[_chainId][_blockNumber].timestamp != 0, "tx data does not exist");
+        require(queueTxData[_chainId][_blockNumber].batchIndex == _batchIndex, "incorrect batch index");
         return (
-            concat(queueTxData[_chainId][_batchIndex].txDataSlices),
-            queueTxData[_chainId][_batchIndex].verified
+            queueTxData[_chainId][_blockNumber].txData,
+            queueTxData[_chainId][_blockNumber].verified
+        );
+    }
+
+    function checkBatchTxHash(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber,
+        bytes memory _data
+    )
+        override
+        external
+        view
+        returns (
+            bytes32 txHash,
+            bool verified
+        )
+    {
+        require(queueTxData[_chainId][_blockNumber].timestamp != 0, "tx data does not exist");
+        require(queueTxData[_chainId][_blockNumber].batchIndex == _batchIndex, "incorrect batch index");
+        return (
+            keccak256(abi.encodePacked(_blockNumber, _data)),
+            queueTxData[_chainId][_blockNumber].verified
         );
     }
 
     function verifierStake(
         uint256 _chainId,
-        uint256 _batchIndex
+        uint256 _batchIndex,
+        uint256 _blockNumber
     )
         override
         public
@@ -484,47 +505,53 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         require(stakeSeqSeconds > 0, "sequencer submit seconds not config yet");
         // check queue BatchElement
         require(queueBatchElement[_chainId][_batchIndex].txBatchTime > 0, "batch element does not exist");
-        if (queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0) {
-            require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.PAYBACK, "there is a stake for this batch index");
+        // check block number in batch range
+        require(queueBatchElement[_chainId][_batchIndex].totalElementsToAppend + queueBatchElement[_chainId][_batchIndex].shouldStartAtElement > _blockNumber
+        && queueBatchElement[_chainId][_batchIndex].shouldStartAtElement <= _blockNumber, "block number is not in this batch");
+        if (queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0) {
+            require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.PAYBACK, "there is a stake for this batch index");
         }
 
         //check window
         StateCommitmentChain stateChain = StateCommitmentChain(resolve("StateCommitmentChain"));
         require(queueBatchElement[_chainId][_batchIndex].timestamp + stateChain.FRAUD_PROOF_WINDOW() > block.timestamp, "the batch is outside of the fraud proof window");
 
-        queueTxDataRequestStake[_chainId][_batchIndex] = TxDataRequestStake({
-            sender:    msg.sender,
-            timestamp: block.timestamp,
-            endtime:   block.timestamp + stakeSeqSeconds,
-            amount:    _amount,
-            status:    STAKESTATUS.INIT
+        queueTxDataRequestStake[_chainId][_blockNumber] = TxDataRequestStake({
+            sender:      msg.sender,
+            blockNumber: _blockNumber,
+            batchIndex:  _batchIndex,
+            timestamp:   block.timestamp,
+            endtime:     block.timestamp + stakeSeqSeconds,
+            amount:      _amount,
+            status:      STAKESTATUS.INIT
         });
         verifierStakes[msg.sender] += _amount;
 
-        emit VerifierStake(msg.sender, _chainId, _batchIndex, _amount);
+        emit VerifierStake(msg.sender, _chainId, _batchIndex, _blockNumber, _amount);
     }
 
     function withdrawStake(
         uint256 _chainId,
-        uint256 _batchIndex
+        uint256 _batchIndex,
+        uint256 _blockNumber
     )
         override
         public
     {
-        require(queueTxDataRequestStake[_chainId][_batchIndex].timestamp > 0, "there is no stake for this batch index");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].status == STAKESTATUS.INIT, "withdrawals are not allowed");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].sender == msg.sender, "can not withdraw other's stake");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].endtime < block.timestamp, "can not withdraw during submit protection");
-        require(queueTxDataRequestStake[_chainId][_batchIndex].amount <= verifierStakes[msg.sender], "insufficient stake");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0, "there is no stake for this batch index");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT, "withdrawals are not allowed");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].sender == msg.sender, "can not withdraw other's stake");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].endtime < block.timestamp, "can not withdraw during submit protection");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].amount <= verifierStakes[msg.sender], "insufficient stake");
 
         require(
-            queueTxDataRequestStake[_chainId][_batchIndex].amount <= address(this).balance,
+            queueTxDataRequestStake[_chainId][_blockNumber].amount <= address(this).balance,
             "insufficient balance"
         );
-        queueTxDataRequestStake[_chainId][_batchIndex].status = STAKESTATUS.PAYBACK;
-        verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_batchIndex].amount;
+        queueTxDataRequestStake[_chainId][_blockNumber].status = STAKESTATUS.PAYBACK;
+        verifierStakes[msg.sender] -= queueTxDataRequestStake[_chainId][_blockNumber].amount;
         // transfer from contract to sender ETHER and record
-        (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_batchIndex].amount}("");
+        (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
         require(success, "insufficient balance");
     }
 
@@ -548,15 +575,5 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             _i /= 10;
         }
         return string(bstr);
-    }
-
-    function concat(string[] memory words) internal pure returns (string memory) {
-        bytes memory output;
-
-        for (uint256 i = 0; i < words.length; i++) {
-            output = abi.encodePacked(output, words[i]);
-        }
-
-        return string(output);
     }
 }

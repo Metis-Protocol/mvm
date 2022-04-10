@@ -790,11 +790,13 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
 
     // Generate sequencer transactions
     const transactions: string[] = []
+    const blockNumbers: number[] = []
     for (const block of blocks) {
       if (!block.isSequencerTx) {
         continue
       }
       transactions.push(block.rawTransaction)
+      blockNumbers.push(block.blockNumber)
     }
 
     return {
@@ -803,6 +805,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       totalElementsToAppend,
       contexts,
       transactions,
+      blockNumbers,
     }
   }
 

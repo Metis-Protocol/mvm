@@ -37,6 +37,12 @@ describe('Mvm CTC wrapper Tests', async () => {
     // console.log(`${env.mvmDiscountOracle.address} mapping chain id is ${res_chainId}`)
     // expect(res_chainId).to.equal(chainId)
 
+    let proofWindow = await env.scc.FRAUD_PROOF_WINDOW()
+    console.log(`scc FRAUD_PROOF_WINDOW is ${proofWindow}`)
+    if (proofWindow == 0) {
+      await env.scc.setFraudProofWindow(7*24*60*60)
+    }
+
     let result = await env.mvmCTC.getStakeBaseCost()
     console.log(`mvm CTC setting: stake base cost is ${result}`)
     expect(result).to.equal('100000000000000000')
@@ -44,11 +50,11 @@ describe('Mvm CTC wrapper Tests', async () => {
     result = await env.mvmCTC.getTxDataSliceSize()
     console.log(`mvm CTC setting: tx data slice size is ${result}`)
     expect(result).to.equal(90000)
-    
+
     result = await env.mvmCTC.getTxBatchSize()
     console.log(`mvm CTC setting: tx batch size is ${result}`)
     expect(result).to.equal(90000*8)
-    
+
     result = await env.mvmCTC.getTxDataSliceCount()
     console.log(`mvm CTC setting: tx data slice count is ${result}`)
     expect(result).to.equal(8)
@@ -179,24 +185,29 @@ describe('Mvm CTC wrapper Tests', async () => {
 
   it.skip(`should set batch tx data success`, async () => {
     // batchIndex = 0 with no tx data
+    const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
     console.log('seq balance 1 : ', (await l1WalletSequencer.getBalance()).toString())
     const mvmCtcSeq = env.mvmCTC.connect(l1WalletSequencer)
-    let tx: ContractTransaction = await mvmCtcSeq.setBatchTxDataForStake(chainId, 1, 0, '0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000', false)
+    let tx: ContractTransaction = await mvmCtcSeq.setBatchTxDataForStake(chainId, 1, 0, fromHexString( '0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000'), false)
     let receipt: ContractReceipt = await tx.wait()
     console.log(`set tx data slice 1: ${JSON.stringify(tx)}`)
-    tx = await mvmCtcSeq.setBatchTxDataForStake(chainId, 1, 1, '648208a4a007c88534a589c55a624a34751d026cc08527a66cb9461bb576269a34a1a254bfa04af0e8a6ea611a7d870bc9ed31096bd6e76f2b68665da0ff992150ae13ab9b3d', true)
+    tx = await mvmCtcSeq.setBatchTxDataForStake(chainId, 1, 1, fromHexString('000000000000648208a4a007c88534a589c55a624a34751d026cc08527a66cb9461bb576269a34a1a254bfa04af0e8a6ea611a7d870bc9ed31096bd6e76f2b68665da0ff992150ae13ab9b3d'), false)
     receipt = await tx.wait()
     console.log(`set tx data slice 2: ${JSON.stringify(tx)}`)
     console.log('seq balance 2 : ', (await l1WalletSequencer.getBalance()).toString())
   })
 
-  it.skip(`should get batch tx data`, async () => {
+  it(`should get batch tx data`, async () => {
     // batchIndex = 0 with no tx data
     const mvmCtcSeq = env.mvmCTC.connect(l1WalletSequencer)
+    let txDataSlice = await mvmCtcSeq.getBatchTxDataSlice(chainId, 1, 0)
+    console.log(`get tx data slice 0: ${txDataSlice}`)
+    txDataSlice = await mvmCtcSeq.getBatchTxDataSlice(chainId, 1, 1)
+    console.log(`get tx data slice 1: ${txDataSlice}`)
     let txData = await mvmCtcSeq.getBatchTxData(chainId, 1)
     console.log(`get tx data: ${txData}`)
     expect(txData[1]).to.true
-    expect(txData[0]).to.equal('0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000648208a4a007c88534a589c55a624a34751d026cc08527a66cb9461bb576269a34a1a254bfa04af0e8a6ea611a7d870bc9ed31096bd6e76f2b68665da0ff992150ae13ab9b3d')
+    expect(txData[0]).to.equal('0000adf8ab8083e4e1c08409f5222094deaddeaddeaddeaddeaddeaddeaddeaddead000080b844a9059cbb000000000000000000000000420000000000000000000000000000000000000400000000000000000000000000000000000000000000000000')
   })
 
   it.skip(`should set batch tx data for verify failed with during protection`, async () => {

@@ -126,7 +126,8 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         context.numSubsequentQueueTransactions === 0 &&
         context.numSequencedTransactions === 0
       ) {
-        const storageObject = calldata.slice(nextTxPointer).toString('hex')
+        // calldata = [86]{objectName} + [64]{merkleRoot}
+        const storageObject = calldata.slice(nextTxPointer).toString('hex').substr(0, 86)
         // console.info('calc storage object name', storageObject)
         const txData = await minioClient.readObject(storageObject, 2)
         const verified = await minioClient.verifyObject(storageObject, txData, 2)

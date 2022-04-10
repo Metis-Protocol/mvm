@@ -66,3 +66,28 @@ export interface VerifierResultEntry {
   verifierRoot: string,
   timestamp: number
 }
+
+export interface VerifierStakeEntry {
+  index: number,
+  sender: string,
+  chainId: number,
+  batchIndex: number,
+  blockNumber: number,
+  amount: string,
+  l1BlockNumber: number,
+  timestamp: number
+}
+
+export interface AppendBatchElementEntry {
+  index: number,
+  chainId: number,
+  batchIndex: number,
+  shouldStartAtElement: number,
+  totalElementsToAppend: number,
+  txBatchSize: number,
+  txBatchTime: number,
+  txBatchHash: string,
+  root: string,
+  l1BlockNumber: number,
+  timestamp: number
+}

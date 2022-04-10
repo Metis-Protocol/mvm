@@ -5,6 +5,8 @@ import {
   TransactionBatchEntry,
   TransactionEntry,
   VerifierResultEntry,
+  VerifierStakeEntry,
+  AppendBatchElementEntry,
 } from './database-types'
 
 export type EnqueueResponse = EnqueueEntry & {
@@ -58,3 +60,10 @@ export type SyncingResponse =
       syncing: false
       currentTransactionIndex: number
     }
+export interface VerifierStakeResponse {
+  verifierStake: VerifierStakeEntry
+}
+
+export interface AppendBatchElementResponse {
+  batchElement: AppendBatchElementEntry
+}
