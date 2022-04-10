@@ -213,7 +213,6 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         uint24 totalElementsToAppend;
         uint24 numContexts;
         uint256 batchTime;
-        bytes32 batchHash;
         uint256 _dataSize;
         uint256 txSize;
         bytes32 root;
@@ -233,12 +232,10 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             // when tx count = 0, there is no hash!
             // string len: [13]{milliseconds}-[1]{0}-[8]{sizeOfData}-[64]{hash}-[64]{root}
             uint256 posTxSize = 7 + posTs;
-            uint256 posHash =  11 + posTs;
-            uint256 posRoot =  43 + posTs;
+            uint256 posRoot =  11 + posTs;
             assembly {
                 batchTime := shr(204, calldataload(posTs))
                 txSize := shr(224, calldataload(posTxSize))
-                batchHash := calldataload(posHash)
                 root := calldataload(posRoot)
             }
 
@@ -268,7 +265,6 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             totalElementsToAppend: totalElementsToAppend,
             txBatchSize:           txSize,
             txBatchTime:           batchTime,
-            txBatchHash:           batchHash,
             root:                  root,
             timestamp:             block.timestamp
         });
@@ -280,7 +276,6 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             totalElementsToAppend,
             txSize,
             batchTime,
-            batchHash,
             root
         );
     }
@@ -318,10 +313,13 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
                 "insufficient balance"
             );
             queueTxDataRequestStake[_chainId][_blockNumber].status = STAKESTATUS.SEQ_SET;
-            verifierStakes[queueTxDataRequestStake[_chainId][_blockNumber].sender] -= queueTxDataRequestStake[_chainId][_blockNumber].amount;
-            // transfer from contract to sender ETHER and record
-            (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
-            require(success, "insufficient balance");
+            if (queueTxDataRequestStake[_chainId][_blockNumber].amount > 0){
+                verifierStakes[queueTxDataRequestStake[_chainId][_blockNumber].sender] -= queueTxDataRequestStake[_chainId][_blockNumber].amount;
+                // transfer from contract to sender ETHER and record
+                (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
+                require(success, "insufficient balance");
+                queueTxDataRequestStake[_chainId][_blockNumber].amount = 0;
+            }
         }
 
         emit SetBatchTxData(
@@ -365,7 +363,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             queueTxDataRequestStake[_chainId][_blockNumber].status = STAKESTATUS.VERIFIER_SET;
 
             address claimer = queueTxDataRequestStake[_chainId][_blockNumber].sender;
-            if (queueTxDataRequestStake[_chainId][_blockNumber].amount <= verifierStakes[claimer]) {
+            if (queueTxDataRequestStake[_chainId][_blockNumber].amount <= verifierStakes[claimer] && queueTxDataRequestStake[_chainId][_blockNumber].amount > 0) {
                 require(
                     queueTxDataRequestStake[_chainId][_blockNumber].amount <= address(this).balance,
                     "insufficient balance"
@@ -374,6 +372,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
                 // transfer from contract to sender ETHER and record
                 (bool success, ) = payable(claimer).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
                 require(success, "insufficient balance");
+                queueTxDataRequestStake[_chainId][_blockNumber].amount = 0;
             }
         }
 
@@ -488,6 +487,23 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         );
     }
 
+    function setBatchTxDataVerified(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber,
+        bool _verified
+    )
+        override
+        public
+        onlyManager
+    {
+        require(queueTxData[_chainId][_blockNumber].timestamp != 0, "tx data does not exist");
+        require(queueTxData[_chainId][_blockNumber].batchIndex == _batchIndex, "incorrect batch index");
+        require(queueTxData[_chainId][_blockNumber].verified != _verified, "verified status not change");
+
+        queueTxData[_chainId][_blockNumber].verified = _verified;
+    }
+
     function verifierStake(
         uint256 _chainId,
         uint256 _batchIndex,
@@ -539,6 +555,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         public
     {
         require(queueTxDataRequestStake[_chainId][_blockNumber].timestamp > 0, "there is no stake for this batch index");
+        require(queueTxDataRequestStake[_chainId][_blockNumber].amount > 0, "stake amount is zero");
         require(queueTxDataRequestStake[_chainId][_blockNumber].status == STAKESTATUS.INIT, "withdrawals are not allowed");
         require(queueTxDataRequestStake[_chainId][_blockNumber].sender == msg.sender, "can not withdraw other's stake");
         require(queueTxDataRequestStake[_chainId][_blockNumber].endtime < block.timestamp, "can not withdraw during submit protection");
@@ -553,6 +570,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         // transfer from contract to sender ETHER and record
         (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
         require(success, "insufficient balance");
+        queueTxDataRequestStake[_chainId][_blockNumber].amount = 0;
     }
 
     function uint2str(uint _i) internal pure returns (string memory _uintAsString) {

@@ -51,14 +51,6 @@ export const encodeAppendSequencerBatch = async (
   console.info('input data', b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData.length)
 
   if (opts?.useMinio && opts?.minioClient) {
-    const storagedObject = await opts?.minioClient?.writeObject(b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
-    console.info('storage tx data to minio', storagedObject, 'context length', contexts.length)
-
-    // the following 2 conditions except empty encodedTransactionData
-    if (!storagedObject && encodedTransactionData && b.shouldStartAtElement >= 0 &&  b.totalElementsToAppend > 0) {
-      throw new Error('Storage encoded transaction data failed!')
-    }
-
     // generate merkle root
     const hash = (el: Buffer | string): Buffer => {
       return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
@@ -76,11 +68,20 @@ export const encodeAppendSequencerBatch = async (
     }
     const tree = new MerkleTree(leafs, hash)
     const batchRoot = remove0x(tree.getHexRoot())
+
+    const storagedObject = await opts?.minioClient?.writeObject(batchRoot, b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
+    console.info('storage tx data to minio', storagedObject, 'context length', contexts.length)
+
+    // the following 2 conditions except empty encodedTransactionData
+    if (!storagedObject && encodedTransactionData && b.shouldStartAtElement >= 0 &&  b.totalElementsToAppend > 0) {
+      throw new Error('Storage encoded transaction data failed!')
+    }
+
     if (
       storagedObject &&
       contexts.length > 0
     ) {
-      encodedTransactionData = storagedObject + batchRoot
+      encodedTransactionData = storagedObject
       contexts.unshift({
         numSequencedTransactions: 0,
         numSubsequentQueueTransactions: 0,

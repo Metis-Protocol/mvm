@@ -52,7 +52,6 @@ interface iMVM_CanonicalTransaction {
         uint24 _totalElementsToAppend,
         uint256 _txBatchSize,
         uint256 _txBatchTime,
-        bytes32 _txBatchHash,
         bytes32 _root
     );
 
@@ -85,7 +84,6 @@ interface iMVM_CanonicalTransaction {
         uint24 totalElementsToAppend;
         uint256 txBatchSize;
         uint256 txBatchTime; // sequencer client encode timestamp(ms)
-        bytes32 txBatchHash;
         bytes32 root; // merkle hash root with [hash(txDataBytes + blockNumber)]
         uint256 timestamp; // block timestamp
     }
@@ -221,6 +219,8 @@ interface iMVM_CanonicalTransaction {
     function getBatchTxData(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external view returns (bytes memory txData, bool verified);
 
     function checkBatchTxHash(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data) external view returns (bytes32 txHash, bool verified);
+
+    function setBatchTxDataVerified(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bool _verified) external;
 
     /**
      * Stake by verifier.

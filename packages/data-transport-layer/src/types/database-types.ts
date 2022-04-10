@@ -86,7 +86,6 @@ export interface AppendBatchElementEntry {
   totalElementsToAppend: number,
   txBatchSize: number,
   txBatchTime: number,
-  txBatchHash: string,
   root: string,
   l1BlockNumber: number,
   timestamp: number

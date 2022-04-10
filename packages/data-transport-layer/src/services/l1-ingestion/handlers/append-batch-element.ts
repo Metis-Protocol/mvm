@@ -22,7 +22,6 @@ export const handleEventsAppendBatchElement: EventHandlerSet<
       totalElementsToAppend: event.args._totalElementsToAppend,
       txBatchSize: event.args._txBatchSize.toNumber(),
       txBatchTime: event.args._txBatchTime.toNumber(),
-      txBatchHash: event.args._txBatchHash,
       root: event.args._root,
       l1BlockNumber: BigNumber.from(event.blockNumber).toNumber(),
       timestamp: eventBlock.timestamp,

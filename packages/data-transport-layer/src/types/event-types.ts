@@ -56,6 +56,5 @@ export interface EventArgsAppendBatchElement {
   _totalElementsToAppend: number
   _txBatchSize: ethers.BigNumber
   _txBatchTime: ethers.BigNumber
-  _txBatchHash: string
   _root: string
 }
