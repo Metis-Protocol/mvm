@@ -118,6 +118,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     let nextTxPointer = 47 + 16 * numContexts
     const leafs = []
     let rootFromCalldata = ''
+    let fromStorage = false
     for (let i = 0; i < numContexts; i++) {
       const contextPointer = 47 + 16 * i
       const context = parseSequencerBatchContext(calldata, contextPointer)
@@ -132,12 +133,16 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         // calldata = timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + markleRoot[64]
         const storageObject = calldata.slice(nextTxPointer).toString('hex').slice(0, 86)
         rootFromCalldata = storageObject.slice(22, 86)
+        fromStorage = true
         // console.info('calc storage object name', storageObject)
         const txData = await minioClient.readObject(storageObject, 2)
         // const verified = await minioClient.verifyObject(storageObject, txData, 2)
         // if (!verified) {
         //   throw new Error(`verified calldata from storage error, storage object ${storageObject}`)
         // }
+        if (!txData) {
+          throw new Error(`got calldata from storage error, storage object ${storageObject}`)
+        }
         console.info('got storage data', storageObject)
         calldata = Buffer.concat([
           calldata.slice(0, nextTxPointer),
@@ -228,7 +233,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
       merkleRoot = merkleRoot.slice(2)
     }
     console.info(`root from batch: ${rootFromCalldata}, re-calculate root: ${merkleRoot}, equals: ${rootFromCalldata == merkleRoot}`)
-    if (rootFromCalldata != merkleRoot) {
+    if (fromStorage && rootFromCalldata != merkleRoot) {
       throw new Error(`verified calldata from storage error, batch index is ${extraData.batchIndex.toNumber()}`)
     }
 
