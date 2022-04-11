@@ -2,12 +2,27 @@
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 /* Imports: Internal */
-import { registerAddress } from '../src/hardhat-deploy-ethers'
+import { registerAddress, getDeployedContract } from '../src/hardhat-deploy-ethers'
 import { predeploys } from '../src/predeploys'
 
 
 const deployFn: DeployFunction = async (hre) => {
-
+  const { deployer } = await hre.getNamedAccounts()
+  const contract = await getDeployedContract(
+    hre,
+    'Proxy__MVM_CanonicalTransaction',
+    {
+      iface: 'MVM_CanonicalTransaction',
+      signerOrProvider: deployer,
+    }
+  )
+  
+  await registerAddress({
+    hre,
+    name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
+    address: contract.address,
+  })
+  
   // L2CrossDomainMessenger is the address of the predeploy on L2. We can refactor off-chain
   // services such that we can remove the need to set this address, but for now it's easier
   // to simply keep setting the address.
