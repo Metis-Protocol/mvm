@@ -20,6 +20,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['Proxy__MVM_CanonicalTransaction', 'storage','upgrade4']
+deployFn.tags = ['Proxy__MVM_CanonicalTransaction', 'storage','andromeda-predeploy']
 
 export default deployFn

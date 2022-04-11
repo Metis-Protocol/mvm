@@ -21,8 +21,8 @@ const deployFn: DeployFunction = async (hre) => {
   const txDataSliceSize = 90000
   const stakeSeqSeconds = 24 * 60 * 60
 
-  const txBatchSize = 90000 * 8
-  const txDataSliceCount = 8
+  const txBatchSize = 90000 * 100
+  const txDataSliceCount = 100
 
   const stakeBaseCost = '100000000000000000'
   const stakeUnitCost = '1000000000'
@@ -192,12 +192,6 @@ const deployFn: DeployFunction = async (hre) => {
     args: [Lib_AddressManager.address, txDataSliceSize, stakeSeqSeconds, stakeBaseCost, stakeUnitCost],
   })
 
-  await registerAddress({
-    hre,
-    name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
-    address: proxy.address,
-  })
-
   /**
   const MVM_DiscountOracle = await getDeployedContract(
     hre,
@@ -218,6 +212,6 @@ const deployFn: DeployFunction = async (hre) => {
   */
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade6', 'storage']
+deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade6', 'storage', 'andromeda-predeploy']
 
 export default deployFn
