@@ -53,7 +53,7 @@ const deployFn: DeployFunction = async (hre) => {
   const managerCode = managerArtifact.deployedBytecode
 
   console.log(`Setting verifier code...`)
-  await proxy.setCode(managerCode)
+  //await proxy.setCode(managerCode)
 
   console.log(`Confirming that verifier code is correct...`)
   await waitUntilTrue(async () => {
