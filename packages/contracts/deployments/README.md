@@ -107,6 +107,7 @@ Network : __mainnet (chain id: 1)__
 |MVM_Verifier|[0x9Ed4739afd706122591E75F215208ecF522C0Fd3](https://etherscan.io/address/0x9Ed4739afd706122591E75F215208ecF522C0Fd3)|
 |MVM_Verifier_for_verification_only|[0x73DF4aDEa53baa753e82bc998Cd70bCD3A9aa6bC](https://etherscan.io/address/0x73DF4aDEa53baa753e82bc998Cd70bCD3A9aa6bC)|
 |OVM_L1CrossDomainMessenger|[0x8bF439ef7167023F009E24b21719Ca5f768Ecb36](https://etherscan.io/address/0x8bF439ef7167023F009E24b21719Ca5f768Ecb36)|
+|Proxy__MVM_CanonicalTransaction|[0x6A1DB7d799FBA381F2a518cA859ED30cB8E1d41a](https://etherscan.io/address/0x6A1DB7d799FBA381F2a518cA859ED30cB8E1d41a)|
 |Proxy__MVM_ChainManager|[0xf3d58D1794f2634d6649a978f2dc093898FEEBc0](https://etherscan.io/address/0xf3d58D1794f2634d6649a978f2dc093898FEEBc0)|
 |Proxy__MVM_Verifier|[0x461c688CA13E30FE5EF9FF30dC82A906Da87CBd6](https://etherscan.io/address/0x461c688CA13E30FE5EF9FF30dC82A906Da87CBd6)|
 |Proxy__OVM_L1CrossDomainMessenger|[0x081D1101855bD523bA69A9794e0217F0DB6323ff](https://etherscan.io/address/0x081D1101855bD523bA69A9794e0217F0DB6323ff)|

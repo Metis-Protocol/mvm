@@ -26,7 +26,7 @@ npx hardhat deploy \
   --scc-fraud-proof-window 10 \
   --scc-sequencer-publish-window 12592000 \
   --network andromeda \
-  --num-deploy-confirmations 12 \
+  --num-deploy-confirmations 1 \
   --mvm-metis-address 0x9E32b13ce7f2E80A01932B42553652E053D6ed8e \
   --mvm-metis-manager 0x48fE1f85ff8Ad9D088863A42Af54d06a1328cF21 \
   --l2chainid 1088 \

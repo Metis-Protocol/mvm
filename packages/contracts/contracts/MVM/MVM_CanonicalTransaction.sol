@@ -66,22 +66,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
      * Constructor *
      ***************/
 
-    constructor(
-        address _libAddressManager,
-        uint256 _txDataSliceSize,
-        uint256 _stakeSeqSeconds,
-        uint256 _stakeBaseCost,
-        uint256 _stakeUnitCost
-    ) Lib_AddressResolver(_libAddressManager)
-    {
-        txDataSliceSize = _txDataSliceSize;
-        stakeSeqSeconds = _stakeSeqSeconds;
-        stakeBaseCost = _stakeBaseCost;
-        stakeUnitCost = _stakeUnitCost;
-        useWhiteList = true;
-        txDataSliceCount = 5;
-        txBatchSize = _txDataSliceSize * 5;
-    }
+    constructor() Lib_AddressResolver(address(0)) {}
 
     /**********************
      * Function Modifiers *

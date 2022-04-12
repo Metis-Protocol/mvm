@@ -94,14 +94,9 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     constructor(
-      address _addressManager,
-      address _metis
     )
-      Lib_AddressResolver(_addressManager)
+      Lib_AddressResolver(address(0))
     {
-       minStake = 200 ether;  // 200 metis
-       metis = _metis;
-       useWhiteList = true;
     }
 
     // add stake as a verifier

@@ -20,6 +20,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['Proxy__MVM_Verifier', 'andromeda-0331']
+deployFn.tags = ['Proxy__MVM_Verifier', 'andromeda-0331', 'andromeda-predeploy']
 
 export default deployFn

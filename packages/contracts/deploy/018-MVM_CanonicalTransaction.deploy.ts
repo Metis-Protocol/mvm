@@ -143,7 +143,7 @@ const deployFn: DeployFunction = async (hre) => {
     hre.ethers.utils.hexZeroPad('0x04', 32),
     hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(txDataSliceCount), 32)
   )
-
+  
   console.log(`Confirming that txDataSliceCount was correctly set...`)
   await waitUntilTrue(async () => {
     return await contract.txDataSliceCount() == txDataSliceCount
@@ -161,6 +161,16 @@ const deployFn: DeployFunction = async (hre) => {
   console.log(`Confirming that txBatchSize was correctly set...`)
   await waitUntilTrue(async () => {
     return await contract.txBatchSize() == txBatchSize
+  })
+  
+  console.log(
+    `Setting WhiteList ${(hre as any).deployConfig.mvmMetisManager}...`
+  )
+  await contract.setWhiteList((hre as any).deployConfig.mvmMetisManager, true)
+  
+  console.log(`Confirming that whitelist setting...`)
+  await waitUntilTrue(async () => {
+    return await contract.isWhiteListed((hre as any).deployConfig.mvmMetisManager) == true
   })
 
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
@@ -183,13 +193,19 @@ const deployFn: DeployFunction = async (hre) => {
     name: (hre as any).deployConfig.l2chainid + '_MVM_CanonicalTransaction',
     address: contract.address,
   })
+  
+  await registerAddress({
+    hre,
+    name: 'METIS_MANAGER',
+    address: (hre as any).deployConfig.mvmMetisManager,
+  })
 
   console.log(`Deploying MVM_CanonicalTransaction...`)
   await deployAndRegister({
     hre,
     name: 'MVM_CanonicalTransaction_for_verification_only',
     contract: 'MVM_CanonicalTransaction',
-    args: [Lib_AddressManager.address, txDataSliceSize, stakeSeqSeconds, stakeBaseCost, stakeUnitCost],
+    args: [],
   })
 
   /**
