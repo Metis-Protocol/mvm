@@ -7,6 +7,8 @@ import {
   TransactionEntry,
   StateRootBatchEntry,
   StateRootEntry,
+  VerifierStakeEntry,
+  AppendBatchElementEntry,
 } from './database-types'
 
 export type TypedEthersEvent<T> = Event & {
@@ -21,8 +23,9 @@ export type GetExtraDataHandler<TEventArgs, TExtraData> = (
 export type ParseEventHandler<TEventArgs, TExtraData, TParsedEvent> = (
   event: TypedEthersEvent<TEventArgs>,
   extraData: TExtraData,
-  l2ChainId: number
-) => TParsedEvent
+  l2ChainId: number,
+  options: any
+) => Promise<TParsedEvent>
 
 export type StoreEventHandler<TParsedEvent> = (
   parsedEvent: TParsedEvent,

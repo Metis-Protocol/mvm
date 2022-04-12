@@ -4,7 +4,7 @@ import * as rlp from 'rlp'
 import { MerkleTree } from 'merkletreejs'
 
 /* Imports: Internal */
-import { fromHexString, sleep } from '@eth-optimism/core-utils'
+import { fromHexString, sleep } from '@metis.io/core-utils'
 import { Logger, BaseService, Metrics } from '@eth-optimism/common-ts'
 
 import {
@@ -355,7 +355,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           return false
         }
       })
-      
+
       this.state.eventCache = this.state.eventCache.concat(filteredEvents)
       //this.state.eventCache = this.state.eventCache.concat(events)
       startingBlock += this.options.getLogsInterval
@@ -506,7 +506,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         elements.push(ethers.utils.keccak256('0x' + '00'.repeat(32)))
       }
     }
-    
+
     const hash = (el: Buffer | string): Buffer => {
       return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
     }
@@ -514,7 +514,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     const leaves = elements.map((element) => {
       return fromHexString(element)
     })
-    
+
     const tree = new MerkleTree(leaves, hash)
     const index =
       message.parentTransactionIndex - header.batch.prevTotalElements.toNumber()
@@ -594,11 +594,49 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         status: receipt.status,
       })
     } catch (err) {
-      this.logger.error('Real relay attempt failed, skipping.', {
+      this.logger.error('Real relay attempt failed, retry in 180 seconds.', {
         message: err.toString(),
         stack: err.stack,
         code: err.code,
       })
+      await sleep(180*1000)
+      
+      // retry once
+      const result2 = await this.state.L1CrossDomainMessenger.connect(
+        this.options.l1Wallet
+      ).relayMessageViaChainId(
+        this.options.l2ChainId,
+        message.target,
+        message.sender,
+        message.message,
+        message.messageNonce,
+        proof,
+        {
+          gasLimit: this.options.relayGasLimit,
+        }
+      )
+  
+      this.logger.info('Relay message transaction of retry sent', {
+        transactionHash: result2,
+      })
+  
+      try {
+        const receipt2 = await result2.wait()
+  
+        this.logger.info('Relay message included in block', {
+          transactionHash: receipt2.transactionHash,
+          blockNumber: receipt2.blockNumber,
+          gasUsed: receipt2.gasUsed.toString(),
+          confirmations: receipt2.confirmations,
+          status: receipt2.status,
+        })
+      } catch (err2) {
+        this.logger.error('Real relay attempt failed, skipping.', {
+          message: err2.toString(),
+          stack: err2.stack,
+          code: err2.code,
+        })
+      }
       return
     }
     this.logger.info('Message successfully relayed to Layer 1!')

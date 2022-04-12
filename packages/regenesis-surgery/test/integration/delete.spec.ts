@@ -1,5 +1,5 @@
 import { KECCAK256_RLP_S, KECCAK256_NULL_S } from 'ethereumjs-util'
-import { add0x } from '@eth-optimism/core-utils'
+import { add0x } from '@metis.io/core-utils'
 import { ethers } from 'ethers'
 import { expect, env } from '../setup'
 import { AccountType } from '../../scripts/types'

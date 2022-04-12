@@ -1,5 +1,5 @@
 /* Internal Imports */
-import { remove0x, toHexString } from '@eth-optimism/core-utils'
+import { remove0x, toHexString } from '@metis.io/core-utils'
 import { ethers } from 'ethers'
 import { predeploys } from '../../../../../src'
 import {

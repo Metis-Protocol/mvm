@@ -20,17 +20,21 @@ npx hardhat deploy \
   --ctc-l2-gas-discount-divisor 32 \
   --l1-block-time-seconds 15 \
   --ovm-address-manager-owner 0x67bE001A254B81Dc44EaB9F5a7C66889a5c009AE \
-  --ovm-sequencer-address 0x3eed73C8EBee49EAd992c3c9A9544DaB80037553 \
-  --ovm-proposer-address 0x7b1F56BF23360D9a8e036901937Ff5D9C1d3bc81 \
+  --ovm-sequencer-address 0x2897cb2D1d32871F01ea23850Ef8b592Dd65D595 \
+  --ovm-proposer-address 0xc6903bfF3452a7adBFfCe597d36f36C3dE8aC060 \
   --scc-fraud-proof-window 10 \
   --scc-sequencer-publish-window 12592000 \
   --network stardust \
   --num-deploy-confirmations 0 \
   --mvm-metis-address 0xe552Fb52a4F19e44ef5A967632DBc320B0820639 \
   --mvm-metis-manager 0x67bE001A254B81Dc44EaB9F5a7C66889a5c009AE \
-  --l2chainid 666 
+  --l2chainid 588 \
+  "$@"
   
+CONTRACTS_TARGET_NETWORK=stardust \
 yarn autogen:markdown
+
+CONTRACTS_TARGET_NETWORK=stardust \
 yarn build:dumpaddr
 
 cd ./dist/dumps

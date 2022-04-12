@@ -1,5 +1,5 @@
 /* Imports: External */
-import { fromHexString, FallbackProvider } from '@eth-optimism/core-utils'
+import { fromHexString, FallbackProvider } from '@metis.io/core-utils'
 import { BaseService, Metrics } from '@eth-optimism/common-ts'
 import { BaseProvider } from '@ethersproject/providers'
 import { LevelUp } from 'levelup'
@@ -21,6 +21,8 @@ import { handleEventsSequencerBatchAppended } from './handlers/sequencer-batch-a
 import { handleEventsStateBatchAppended } from './handlers/state-batch-appended'
 import { L1DataTransportServiceOptions } from '../main/service'
 import { MissingElementError } from './handlers/errors'
+import { handleEventsVerifierStake } from './handlers/verifier-stake'
+import { handleEventsAppendBatchElement } from './handlers/append-batch-element'
 
 interface L1IngestionMetrics {
   highestSyncedL1Block: Gauge<string>
@@ -246,6 +248,22 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           handleEventsStateBatchAppended
         )
 
+        await this._syncEvents(
+          'Proxy__MVM_CanonicalTransaction',
+          'VerifierStake',
+          highestSyncedL1Block,
+          targetL1Block,
+          handleEventsVerifierStake
+        )
+
+        await this._syncEvents(
+          'Proxy__MVM_CanonicalTransaction',
+          'AppendBatchElement',
+          highestSyncedL1Block,
+          targetL1Block,
+          handleEventsAppendBatchElement
+        )
+
         await this.state.db.setHighestSyncedL1Block(targetL1Block)
 
         this.l1IngestionMetrics.highestSyncedL1Block.set(targetL1Block)
@@ -408,13 +426,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
             event,
             this.state.l1RpcProvider
           )
+	        // filter chainId
+          var chainId = event.args._chainId.toNumber()
           const parsedEvent = await handlers.parseEvent(
             event,
             extraData,
-            this.options.l2ChainId
+            chainId,
+            this.options
           )
-	  // filter chainId
-          var chainId = event.args._chainId.toNumber()
           var db=this.state.db
           if(chainId&&chainId!=0){
              db = await this.options.dbs.getTransportDbByChainId(chainId)

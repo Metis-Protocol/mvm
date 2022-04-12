@@ -1,6 +1,6 @@
 /* Imports: External */
 import { getContractFactory } from '@metis.io/contracts'
-//import { EventArgsStateBatchAppended } from '@eth-optimism/core-utils'
+//import { EventArgsStateBatchAppended } from '@metis.io/core-utils'
 import { BigNumber } from 'ethers'
 
 /* Imports: Internal */
@@ -31,7 +31,7 @@ export const handleEventsStateBatchAppended: EventHandlerSet<
       l1TransactionData: l1Transaction.data,
     }
   },
-  parseEvent: (event, extraData) => {
+  parseEvent: async (event, extraData) => {
     const stateRoots = getContractFactory(
       'StateCommitmentChain'
     ).interface.decodeFunctionData(

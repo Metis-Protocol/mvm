@@ -13,11 +13,12 @@
     "test:integration": "hardhat --network optimism test",
     "test:integration:live": "IS_LIVE_NETWORK=true hardhat --network optimism test",
     "test:sync": "hardhat --network optimism test sync-tests/*.spec.ts --no-compile",
+    "test:demo": "hardhat --network optimism test test/demo.spec.ts --no-compile",
     "clean": "rimraf cache artifacts"
   },
   "devDependencies": {
     "@metis.io/contracts": "^1.2.1",
-    "@eth-optimism/core-utils": "^0.6.0",
+    "@metis.io/core-utils": "^0.6.1",
     "@eth-optimism/message-relayer": "^0.1.13",
     "@ethersproject/providers": "^5.4.5",
     "@ethersproject/transactions": "^5.4.0",

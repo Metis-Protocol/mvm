@@ -1,6 +1,6 @@
 import { Wallet, providers } from 'ethers'
 import { MessageRelayerService } from '../service'
-import { Bcfg } from '@eth-optimism/core-utils'
+import { Bcfg } from '@metis.io/core-utils'
 import { Logger, LoggerOptions } from '@eth-optimism/common-ts'
 import * as Sentry from '@sentry/node'
 import * as dotenv from 'dotenv'

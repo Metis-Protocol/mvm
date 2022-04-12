@@ -11,7 +11,7 @@ import {
   TransactionResponse,
 } from '@ethersproject/abstract-provider'
 import { Gauge, Histogram, Counter } from 'prom-client'
-import { RollupInfo, sleep } from '@eth-optimism/core-utils'
+import { RollupInfo, sleep } from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 import { getContractFactory } from 'old-contracts'
 /* Internal Imports */
@@ -133,6 +133,7 @@ export abstract class BatchSubmitter {
   protected async _getChainAddresses(): Promise<{
     ctcAddress: string
     sccAddress: string
+    mvmCtcAddress: string
   }> {
     const addressManager = (
       await getContractFactory('Lib_AddressManager', this.signer)
@@ -141,9 +142,13 @@ export abstract class BatchSubmitter {
     const ctcAddress = await addressManager.getAddress(
       'CanonicalTransactionChain'
     )
+    const mvmCtcAddress = await addressManager.getAddress(
+      'Proxy__MVM_CanonicalTransaction'
+    )
     return {
       ctcAddress,
       sccAddress,
+      mvmCtcAddress,
     }
   }
 

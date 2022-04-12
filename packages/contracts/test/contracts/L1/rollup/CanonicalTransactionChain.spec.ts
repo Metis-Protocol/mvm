@@ -8,7 +8,7 @@ import {
   AppendSequencerBatchParams,
   encodeAppendSequencerBatch,
   remove0x,
-} from '@eth-optimism/core-utils'
+} from '@metis.io/core-utils'
 import { TransactionResponse } from '@ethersproject/abstract-provider'
 import { keccak256 } from 'ethers/lib/utils'
 import _ from 'lodash'

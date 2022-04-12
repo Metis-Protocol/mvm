@@ -53,7 +53,7 @@ const deployFn: DeployFunction = async (hre) => {
   const managerCode = managerArtifact.deployedBytecode
 
   console.log(`Setting verifier code...`)
-  await proxy.setCode(managerCode)
+  //await proxy.setCode(managerCode)
 
   console.log(`Confirming that verifier code is correct...`)
   await waitUntilTrue(async () => {
@@ -99,7 +99,31 @@ const deployFn: DeployFunction = async (hre) => {
       (hre as any).deployConfig.mvmMetisAddress
     )
   })
+  
+  //temporarily setting the metis manager to deployer
+  await registerAddress({
+    hre,
+    name: 'METIS_MANAGER',
+    address: deployer,
+  })
+  
+  //setting the whitelist
+  console.log(
+    `Setting WhiteList ${(hre as any).deployConfig.mvmMetisManager}...`
+  )
+  await contract.setWhiteList((hre as any).deployConfig.mvmMetisManager, true)
+  
+  console.log(`Confirming that whitelist setting...`)
+  await waitUntilTrue(async () => {
+    return await contract.isWhiteListed((hre as any).deployConfig.mvmMetisManager) == true
+  })
 
+  //setting the whitelist
+  console.log(
+    `Setting minStake ...`
+  )
+  await contract.setMinStake("200000000000000000000")
+  
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
   const owner = (hre as any).deployConfig.mvmMetisManager
   console.log(`Setting owner address to ${owner}...`)
@@ -127,10 +151,10 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     name: 'MVM_Verifier_for_verification_only',
     contract: 'MVM_Verifier',
-    args: [Lib_AddressManager.address, (hre as any).deployConfig.mvmMetisAddress],
+    args: [],
   })
 }
 
-deployFn.tags = ['MVM_Verifier', 'upgrade']
+deployFn.tags = ['MVM_Verifier', 'upgrade2', 'andromeda-predeploy']
 
 export default deployFn

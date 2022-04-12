@@ -10,7 +10,10 @@ import {
   BatchElement,
   Batch,
   QueueOrigin,
-} from '@eth-optimism/core-utils'
+  EncodeSequencerBatchOptions,
+  MinioClient,
+  MinioConfig
+} from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
 /* Internal Imports */
@@ -23,6 +26,7 @@ import {
 
 import { BlockRange, BatchSubmitter } from '.'
 import { TransactionSubmitter } from '../utils'
+import { hrtime } from 'process'
 
 export interface AutoFixBatchOptions {
   fixDoublePlayedDeposits: boolean
@@ -32,12 +36,16 @@ export interface AutoFixBatchOptions {
 
 export class TransactionBatchSubmitter extends BatchSubmitter {
   protected chainContract: CanonicalTransactionChainContract
+  protected mvmCtcContract: CanonicalTransactionChainContract
   protected l2ChainId: number
   protected syncing: boolean
   private autoFixBatchOptions: AutoFixBatchOptions
   private validateBatch: boolean
   private transactionSubmitter: TransactionSubmitter
   private gasThresholdInGwei: number
+  private useMinio: boolean
+  private minioConfig: MinioConfig
+  private encodeSequencerBatchOptions?: EncodeSequencerBatchOptions
 
   constructor(
     signer: Signer,
@@ -60,7 +68,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       fixDoublePlayedDeposits: false,
       fixMonotonicity: false,
       fixSkippedDeposits: false,
-    } // TODO: Remove this
+    }, // TODO: Remove this
+    useMinio: boolean,
+    minioConfig: MinioConfig
   ) {
     super(
       signer,
@@ -82,6 +92,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.autoFixBatchOptions = autoFixBatchOptions
     this.gasThresholdInGwei = gasThresholdInGwei
     this.transactionSubmitter = transactionSubmitter
+    this.useMinio = useMinio
+    this.minioConfig = minioConfig
 
     this.logger.info('Batch validation options', {
       autoFixBatchOptions,
@@ -104,13 +116,24 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.syncing = info.syncing
     const addrs = await this._getChainAddresses()
     const ctcAddress = addrs.ctcAddress
+    const mvmCtcAddress = addrs.mvmCtcAddress
+
+    if (mvmCtcAddress == ethers.constants.AddressZero) {
+      this.logger.error(
+        'MVM_CanonicalTransaction contract load failed'
+      )
+      process.exit(1)
+    }
 
     if (
       typeof this.chainContract !== 'undefined' &&
-      ctcAddress === this.chainContract.address
+      ctcAddress === this.chainContract.address &&
+      typeof this.mvmCtcContract !== 'undefined' &&
+      mvmCtcAddress === this.mvmCtcContract.address
     ) {
       this.logger.debug('Chain contract already initialized', {
         ctcAddress,
+        mvmCtcAddress,
       })
       return
     }
@@ -126,6 +149,19 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     )
     this.logger.info('Initialized new CTC', {
       address: this.chainContract.address,
+    })
+
+    const unwrapped_MVM_CanonicalTransaction = (
+      await getContractFactory('MVM_CanonicalTransaction', this.signer)
+    ).attach(mvmCtcAddress)
+
+    this.mvmCtcContract = new CanonicalTransactionChainContract(
+      unwrapped_MVM_CanonicalTransaction.address,
+      getContractInterface('MVM_CanonicalTransaction'),
+      this.signer
+    )
+    this.logger.info('Initialized new mvmCTC', {
+      address: this.mvmCtcContract.address,
     })
     return
   }
@@ -211,7 +247,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     }
 
     const [batchParams, wasBatchTruncated] = params
-    const batchSizeInBytes = encodeAppendSequencerBatch(batchParams).length / 2
+    // encodeBatch of calldata for _shouldSubmitBatch
+    const encodeBatch = await encodeAppendSequencerBatch(batchParams, null)
+    const batchSizeInBytes = encodeBatch.length / 2
     this.logger.debug('Sequencer batch generated', {
       batchSizeInBytes,
     })
@@ -237,12 +275,38 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
    * Private Functions *
    ********************/
 
+  private async getEncodeAppendSequencerBatchOptions() {
+    if (!this.encodeSequencerBatchOptions) {
+      if (!this.l2ChainId) {
+        this.l2ChainId = await this._getL2ChainId()
+      }
+      if (this.minioConfig) {
+        this.minioConfig.l2ChainId = this.l2ChainId
+      }
+
+      this.encodeSequencerBatchOptions = {
+        useMinio: this.useMinio,
+        minioClient: this.minioConfig ? new MinioClient(this.minioConfig) : null
+      }
+    }
+  }
+
   private async submitAppendSequencerBatch(
     batchParams: AppendSequencerBatchParams
   ): Promise<TransactionReceipt> {
+    await this.getEncodeAppendSequencerBatchOptions()
+    // if (this.encodeSequencerBatchOptions?.useMinio) {
+    //   this.logger.info('encode batch options minioClient if null: ' + (this.encodeSequencerBatchOptions?.minioClient == null).toString())
+    // }
+    // const tx =
+    //   await this.chainContract.customPopulateTransaction.appendSequencerBatch(
+    //     batchParams,
+    //     this.encodeSequencerBatchOptions
+    //   )
     const tx =
-      await this.chainContract.customPopulateTransaction.appendSequencerBatch(
-        batchParams
+      await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
+        batchParams,
+        this.encodeSequencerBatchOptions
       )
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(
@@ -270,6 +334,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       { concurrency: 100 }
     )
 
+    // fix max batch size with env and mvmCtc
+    const mvmMaxBatchSize = await this.mvmCtcContract.getTxBatchSize()
+    const fixedMaxTxSize = Math.min(this.maxTxSize, mvmMaxBatchSize)
+
     // Fix our batches if we are configured to. This will not
     // modify the batch unless an autoFixBatchOption is set
     batch = await this._fixBatch(batch)
@@ -286,9 +354,11 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       batch
     )
     let wasBatchTruncated = false
-    let encoded = encodeAppendSequencerBatch(sequencerBatchParams)
-    while (encoded.length / 2 > this.maxTxSize) {
-      this.logger.debug('Splicing batch...', {
+    // This method checks encoded length without options anyway
+    // it will set raw calldata to CTC if needs fraud proof
+    let encoded = await encodeAppendSequencerBatch(sequencerBatchParams, null)
+    while (encoded.length / 2 > fixedMaxTxSize) {
+      this.logger.info('Splicing batch...', {
         batchSizeInBytes: encoded.length / 2,
       })
       batch.splice(Math.ceil((batch.length * 2) / 3)) // Delete 1/3rd of all of the batch elements
@@ -296,7 +366,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         startBlock,
         batch
       )
-      encoded = encodeAppendSequencerBatch(sequencerBatchParams)
+      encoded = await encodeAppendSequencerBatch(sequencerBatchParams, null)
       //  This is to prevent against the case where a batch is oversized,
       //  but then gets truncated to the point where it is under the minimum size.
       //  In this case, we want to submit regardless of the batch's size.
@@ -671,12 +741,24 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       queued: BatchElement[]
     }> = []
     for (const block of blocks) {
-      if (
-        (lastBlockIsSequencerTx === false && block.isSequencerTx === true) ||
-        groupedBlocks.length === 0 ||
-        (block.timestamp !== lastTimestamp && block.isSequencerTx === true) ||
-        (block.blockNumber !== lastBlockNumber && block.isSequencerTx === true)
-      ) {
+      // if (
+      //   (lastBlockIsSequencerTx === false && block.isSequencerTx === true) ||
+      //   groupedBlocks.length === 0 ||
+      //   (block.timestamp !== lastTimestamp && block.isSequencerTx === true) ||
+      //   (block.blockNumber !== lastBlockNumber && block.isSequencerTx === true)
+      // ) {
+      //   groupedBlocks.push({
+      //     sequenced: [],
+      //     queued: [],
+      //   })
+      // }
+      if (groupedBlocks.length === 0) {
+        groupedBlocks.push({
+          sequenced: [],
+          queued: [],
+        })
+      }
+      else if (block.isSequencerTx !== lastBlockIsSequencerTx) {
         groupedBlocks.push({
           sequenced: [],
           queued: [],
@@ -699,7 +781,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
           'Attempted to generate batch context with 0 queued and 0 sequenced txs!'
         )
       }
-      this.logger.warn('Fetched L2 block', 
+      this.logger.warn('Fetched L2 block',
       {
         seqLen:groupedBlock.sequenced.length,
         queLen:groupedBlock.queued.length
@@ -720,11 +802,16 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
 
     // Generate sequencer transactions
     const transactions: string[] = []
+    const blockNumbers: number[] = []
+    let l2BlockNumber = shouldStartAtIndex
     for (const block of blocks) {
       if (!block.isSequencerTx) {
+        l2BlockNumber++
         continue
       }
       transactions.push(block.rawTransaction)
+      blockNumbers.push(l2BlockNumber)
+      l2BlockNumber++
     }
 
     return {
@@ -733,6 +820,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       totalElementsToAppend,
       contexts,
       transactions,
+      blockNumbers,
     }
   }
 

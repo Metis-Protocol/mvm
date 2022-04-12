@@ -1,11 +1,10 @@
 package rcfg
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"os"
 	"strconv"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // UsingOVM is used to enable or disable functionality necessary for the OVM.

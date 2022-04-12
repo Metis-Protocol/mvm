@@ -1,5 +1,5 @@
 /* Imports: External */
-import { sleep } from '@eth-optimism/core-utils'
+import { sleep } from '@metis.io/core-utils'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 import {
   defaultHardhatNetworkHdAccountsConfigParams,

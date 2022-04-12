@@ -2,7 +2,7 @@ import { expect } from 'chai'
 
 /* Imports: External */
 import { Contract, ContractFactory } from 'ethers'
-import { applyL1ToL2Alias, sleep } from '@eth-optimism/core-utils'
+import { applyL1ToL2Alias, sleep } from '@metis.io/core-utils'
 
 /* Imports: Internal */
 import simpleStorageJson from '../artifacts/contracts/SimpleStorage.sol/SimpleStorage.json'

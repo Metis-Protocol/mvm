@@ -94,14 +94,9 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     constructor(
-      address _addressManager,
-      address _metis
     )
-      Lib_AddressResolver(_addressManager)
+      Lib_AddressResolver(address(0))
     {
-       minStake = 200 ether;  // 200 metis
-       metis = _metis;
-       useWhiteList = true;
     }
 
     // add stake as a verifier
@@ -136,7 +131,7 @@ contract MVM_Verifier is Lib_AddressResolver{
 
        uint tempIndex = chain_under_challenge[chainID] - 1;
        require(tempIndex == 0 || block.timestamp - challenges[tempIndex].timestamp > verifyWindow * 2, "there is an ongoing challenge");
-       if (tempIndex != 0) {
+       if (tempIndex > 0) {
           finalize(tempIndex);
        }
        IStateCommitmentChain stateChain = IStateCommitmentChain(resolve("StateCommitmentChain"));
@@ -352,7 +347,8 @@ contract MVM_Verifier is Lib_AddressResolver{
        require(balance >= amount, "insufficient stake to withdraw");
 
        if (balance - amount < minStake && balance >= minStake) {
-          numQualifiedVerifiers--;
+           numQualifiedVerifiers--;
+           deleteVerifier(msg.sender);
        }
        verifier_stakes[msg.sender] -= amount;
 
@@ -367,10 +363,20 @@ contract MVM_Verifier is Lib_AddressResolver{
     {
         minStake = _minStake;
         uint num = 0;
-        for (uint i = 0; i < verifiers.length; ++i) {
-          if (verifier_stakes[verifiers[i]] >= minStake) {
-             num++;
-          }
+        if (verifiers.length > 0) {
+            address[] memory arr = new address[](verifiers.length);
+            for (uint i = 0; i < verifiers.length; ++i) {
+                if (verifier_stakes[verifiers[i]] >= minStake) {
+                    arr[num] = verifiers[i];
+                    num++;
+                }
+            }
+            if (num < verifiers.length) {
+                delete verifiers;
+                for (uint i = 0; i < num; i++) {
+                    verifiers.push(arr[i]);
+                }
+            }
         }
         numQualifiedVerifiers = num;
     }
@@ -386,11 +392,6 @@ contract MVM_Verifier is Lib_AddressResolver{
     // set the length of the time windows for each verification phase
     function setVerifyWindow (uint256 window) onlyManager public {
         verifyWindow = window;
-    }
-
-    // set the length of the time windows for each verification phase
-    function resetNumVerifiers (uint256 num) onlyManager public {
-        numQualifiedVerifiers = num;
     }
 
     // add the verifier to the whitelist
@@ -499,9 +500,28 @@ contract MVM_Verifier is Lib_AddressResolver{
         uint256 stake = verifier_stakes[target];
         verifier_stakes[target] = 0;
         numQualifiedVerifiers--;
+        deleteVerifier(target);
         emit Penalize(target, stake);
 
         return stake;
+    }
+
+    function deleteVerifier(address target) internal {
+        bool hasVerifier = false;
+        uint pos = 0;
+        for (uint i = 0; i < verifiers.length; i++){
+            if (verifiers[i] == target) {
+                hasVerifier = true;
+                pos = i;
+                break;
+            }
+        }
+        if (hasVerifier) {
+            for (uint i = pos; i < verifiers.length-1; i++) {
+                verifiers[i] = verifiers[i+1];
+            }
+            verifiers.pop();
+        }
     }
 
 }

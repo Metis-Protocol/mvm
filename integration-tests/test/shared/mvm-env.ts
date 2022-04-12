@@ -2,7 +2,7 @@
 import { Contract, utils, Wallet, providers } from 'ethers'
 import { TransactionResponse } from '@ethersproject/providers'
 import { getContractFactory, predeploys } from '@metis.io/contracts'
-import { Watcher } from '@eth-optimism/core-utils'
+import { Watcher } from '@metis.io/core-utils'
 import { getMessagesAndProofsForL2Transaction } from '@eth-optimism/message-relayer'
 
 /* Imports: Internal */
@@ -14,6 +14,7 @@ import {
   l2Wallet,
   l1Wallet2,
   l2Wallet2,
+  l1WalletSequencer,
   fundUser,
   getOvmEth,
   getL1Bridge,
@@ -36,6 +37,9 @@ export class MvmEnv {
   l1Messenger: Contract
   ctc: Contract
   scc: Contract
+  mvmVerifer: Contract
+  mvmCTC: Contract
+  mvmDiscountOracle: Contract
 
   // L2 Contracts
   ovmEth: Contract
@@ -43,7 +47,6 @@ export class MvmEnv {
   l2Messenger: Contract
   gasPriceOracle: Contract
   sequencerFeeVault: Contract
-  mvmVerifer: Contract
 
   // The L1 <> L2 State watcher
   watcher: Watcher
@@ -53,6 +56,7 @@ export class MvmEnv {
   l2Wallet: Wallet
   l1Wallet2: Wallet
   l2Wallet2: Wallet
+  l1WalletSequencer: Wallet
 
   // The providers
   l1Provider: providers.JsonRpcProvider
@@ -68,11 +72,14 @@ export class MvmEnv {
     this.gasPriceOracle = args.gasPriceOracle
     this.sequencerFeeVault = args.sequencerFeeVault
     this.mvmVerifer = args.mvmVerifer
+    this.mvmCTC = args.mvmCTC
+    this.mvmDiscountOracle = args.mvmDiscountOracle
     this.watcher = args.watcher
     this.l1Wallet = args.l1Wallet
     this.l2Wallet = args.l2Wallet
     this.l1Wallet2 = args.l1Wallet2
     this.l2Wallet2 = args.l2Wallet2
+    this.l1WalletSequencer = args.l1WalletSequencer
     this.l1Provider = args.l1Provider
     this.l2Provider = args.l2Provider
     this.ctc = args.ctc
@@ -121,9 +128,24 @@ export class MvmEnv {
     const verifierAddress = await addressManager.getAddress(
       'MVM_Verifier_for_verification_only'
     )
+    const mvmCtcAddress = await addressManager.getAddress(
+      'Proxy__MVM_CanonicalTransaction'
+    )
+    const mvmDiscountOracleAddress = await addressManager.getAddress(
+      'MVM_DiscountOracle'
+    )
+
     const mvmVerifer = getContractFactory('MVM_Verifier')
       .connect(l1Wallet)
       .attach(verifierAddress)
+
+    const mvmCTC = getContractFactory('MVM_CanonicalTransaction')
+      .connect(l1Wallet)
+      .attach(mvmCtcAddress)
+      
+    const mvmDiscountOracle = getContractFactory('MVM_DiscountOracle')
+      .connect(l1Wallet)
+      .attach(mvmDiscountOracleAddress)
 
     return new MvmEnv({
       addressManager,
@@ -135,6 +157,8 @@ export class MvmEnv {
       gasPriceOracle,
       sequencerFeeVault,
       mvmVerifer,
+      mvmCTC,
+      mvmDiscountOracle,
       l2Bridge,
       l2Messenger,
       watcher,
@@ -142,6 +166,7 @@ export class MvmEnv {
       l2Wallet,
       l1Wallet2,
       l2Wallet2,
+      l1WalletSequencer,
       l1Provider,
       l2Provider,
     })

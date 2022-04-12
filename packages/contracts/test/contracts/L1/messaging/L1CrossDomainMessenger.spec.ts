@@ -8,7 +8,7 @@ import {
   remove0x,
   toHexString,
   applyL1ToL2Alias,
-} from '@eth-optimism/core-utils'
+} from '@metis.io/core-utils'
 
 /* Internal Imports */
 import {
