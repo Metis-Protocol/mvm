@@ -1120,21 +1120,17 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 }
 
 func (s *SyncService) verifyStateRoot(tx *types.Transaction, batchRoot common.Hash) (uint64, string, string, error) {
-	localStateRoot := s.bc.CurrentBlock().Root()
-	// log.Debug("Test: local stateroot", "stateroot", localStateRoot)
-
 	emptyHash := common.Hash{}
 	txIndex := *(tx.GetMeta().Index)
+	localStateRoot := s.bc.GetBlockByNumber(txIndex + 1).Root()
 	// retry 10 hours
 	for i := 0; i < 36000; i++ {
-		// log.Debug("Test: Fetching stateroot", "i", i, "index", *(tx.GetMeta().Index))
 		stateRootHash, err := s.client.GetStateRoot(txIndex)
-		// log.Debug("Test: Fetched stateroot", "i", i, "index", *(tx.GetMeta().Index), "hash", stateRootHash)
 		if err != nil {
 			return txIndex, "", localStateRoot.Hex(), fmt.Errorf("Fetch stateroot failed: %w", err)
 		}
 		if stateRootHash == emptyHash {
-			log.Info("Fetch stateroot nil, retry in 1000ms", "i", i, "index", txIndex)
+			log.Debug("Fetch stateroot nil, retry in 1000ms", "i", i, "index", txIndex)
 			// delay 1000ms
 			time.Sleep(time.Duration(1000) * time.Millisecond)
 			continue

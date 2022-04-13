@@ -383,7 +383,7 @@ export class TransportDB {
           ...transaction,
           ...{
             blockNumber: enqueue.blockNumber,
-            timestamp: transaction.timestamp, //verifier will take the context time.
+            timestamp: transaction.timestamp || enqueue.timestamp, //verifier will take the context time.
             gasLimit: enqueue.gasLimit,
             target: enqueue.target,
             origin: enqueue.origin,
@@ -391,7 +391,7 @@ export class TransportDB {
           },
         })
       } else {
-        fullTransactions.push(transaction)
+        fullTransactions.push({...transaction, ...{origin: transaction.origin || '0x0000000000000000000000000000000000000000'}})
       }
     }
 
