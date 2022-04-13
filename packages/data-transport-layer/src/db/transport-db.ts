@@ -2,6 +2,8 @@
 import { LevelUp } from 'levelup'
 import level from 'level'
 import { BigNumber } from 'ethers'
+// 1088 patch only
+import patch01 from './patch-01'
 
 /* Imports: Internal */
 import {
@@ -352,6 +354,11 @@ export class TransportDB {
         },
       }
     } else {
+      const txBlockNumber = (transaction.index+1).toString()
+      if (patch01[txBlockNumber]) {
+        transaction.blockNumber = patch01[txBlockNumber][0]
+        transaction.timestamp = patch01[txBlockNumber][1]
+      }
       return transaction
     }
   }
@@ -391,7 +398,13 @@ export class TransportDB {
           },
         })
       } else {
-        fullTransactions.push({...transaction, ...{origin: transaction.origin || '0x0000000000000000000000000000000000000000'}})
+        const txBlockNumber = (transaction.index+1).toString()
+        if (patch01[txBlockNumber]) {
+          transaction.blockNumber = patch01[txBlockNumber][0]
+          transaction.timestamp = patch01[txBlockNumber][1]
+        }
+        transaction.origin = transaction.origin || '0x0000000000000000000000000000000000000000'
+        fullTransactions.push(transaction)
       }
     }
 
