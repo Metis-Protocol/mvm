@@ -764,6 +764,12 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
           queued: [],
         })
       }
+      else if (block.timestamp !== lastTimestamp || block.blockNumber !== lastBlockNumber){
+        groupedBlocks.push({
+          sequenced: [],
+          queued: [],
+        })
+      }
       const cur = groupedBlocks.length - 1
       block.isSequencerTx
         ? groupedBlocks[cur].sequenced.push(block)
