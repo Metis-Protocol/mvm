@@ -380,29 +380,42 @@ export class TransportDB {
 
     const fullTransactions = []
     for (const transaction of transactions) {
+      const txBlockNumber = (transaction.index+1).toString()
+      if (patch01[txBlockNumber]) {
+        transaction.blockNumber = patch01[txBlockNumber][0]
+        transaction.timestamp = patch01[txBlockNumber][1]
+      }
       if (transaction.queueOrigin === 'l1') {
         const enqueue = await this.getEnqueueByIndex(transaction.queueIndex)
         if (enqueue === null) {
           return null
         }
-
-        fullTransactions.push({
-          ...transaction,
-          ...{
-            blockNumber: enqueue.blockNumber,
-            timestamp: transaction.timestamp || enqueue.timestamp, //verifier will take the context time.
-            gasLimit: enqueue.gasLimit,
-            target: enqueue.target,
-            origin: enqueue.origin,
-            data: enqueue.data,
-          },
-        })
-      } else {
-        const txBlockNumber = (transaction.index+1).toString()
+        
         if (patch01[txBlockNumber]) {
-          transaction.blockNumber = patch01[txBlockNumber][0]
-          transaction.timestamp = patch01[txBlockNumber][1]
+          fullTransactions.push({
+            ...transaction,
+            ...{
+              gasLimit: enqueue.gasLimit,
+              target: enqueue.target,
+              origin: enqueue.origin,
+              data: enqueue.data,
+            },
+          })
         }
+        else {
+          fullTransactions.push({
+            ...transaction,
+            ...{
+              blockNumber: enqueue.blockNumber,
+              timestamp: transaction.timestamp || enqueue.timestamp, //verifier will take the context time.
+              gasLimit: enqueue.gasLimit,
+              target: enqueue.target,
+              origin: enqueue.origin,
+              data: enqueue.data,
+            },
+          })
+        }
+      } else {
         transaction.origin = transaction.origin || '0x0000000000000000000000000000000000000000'
         fullTransactions.push(transaction)
       }
