@@ -19,12 +19,12 @@ package core
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/rollup/dump"
-	"github.com/ethereum/go-ethereum/rollup/rcfg"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/consensus"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
+	"github.com/ethereum-optimism/optimism/l2geth/core/vm"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/dump"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
 // ChainContext supports retrieving headers and consensus parameters from the
@@ -48,7 +48,6 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 	}
 	if rcfg.UsingOVM {
 		// When using the OVM, we must:
-		// - Set the BlockNumber to be the msg.L1BlockNumber
 		// - Set the Time to be the msg.L1Timestamp
 		return vm.Context{
 			CanTransfer:   CanTransfer,

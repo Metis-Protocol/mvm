@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/common/hexutil"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
+	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -395,7 +395,15 @@ func batchedTransactionToTransaction(res *transaction, signer *types.EIP155Signe
 		sig := make([]byte, crypto.SignatureLength)
 		copy(sig[32-len(r):32], r)
 		copy(sig[64-len(s):64], s)
-		sig[64] = byte(res.Decoded.Signature.V)
+
+		var signer types.Signer
+		if res.Decoded.Signature.V == 27 || res.Decoded.Signature.V == 28 {
+			signer = types.HomesteadSigner{}
+			sig[64] = byte(res.Decoded.Signature.V - 27)
+		} else {
+			signer = types.NewEIP155Signer(chainID)
+			sig[64] = byte(res.Decoded.Signature.V)
+		}
 
 		tx, err := tx.WithSignature(signer, sig[:])
 		if err != nil {

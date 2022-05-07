@@ -25,15 +25,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum-optimism/optimism/l2geth/event"
+	"github.com/ethereum-optimism/optimism/l2geth/p2p/enode"
+	"github.com/ethereum-optimism/optimism/l2geth/rlp"
 )
-
-// type newBlockData2 struct {
-// 	Block *types.Block
-// 	TD    *big.Int
-// }
 
 // Msg defines the structure of a p2p message.
 //

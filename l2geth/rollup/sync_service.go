@@ -10,20 +10,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/core"
+	"github.com/ethereum-optimism/optimism/l2geth/core/state"
+	"github.com/ethereum-optimism/optimism/l2geth/ethdb"
+	"github.com/ethereum-optimism/optimism/l2geth/event"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
 
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum-optimism/optimism/l2geth/core/rawdb"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
 
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/ethereum/go-ethereum/eth/gasprice"
-	"github.com/ethereum/go-ethereum/rollup/fees"
-	"github.com/ethereum/go-ethereum/rollup/rcfg"
+	"github.com/ethereum-optimism/optimism/l2geth/eth/gasprice"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/fees"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
 var (
@@ -264,17 +263,16 @@ func (s *SyncService) Start() error {
 	if s.verifier {
 		go s.VerifierLoop()
 	} else {
-		// The sequencer must sync the transactions to the tip and the
-		// pending queue transactions on start before setting sync status
-		// to false and opening up the RPC to accept transactions.
-		if err := s.syncTransactionsToTip(); err != nil {
-			return fmt.Errorf("Sequencer cannot sync transactions to tip: %w", err)
-		}
-		if err := s.syncQueueToTip(); err != nil {
-			return fmt.Errorf("Sequencer cannot sync queue to tip: %w", err)
-		}
-		s.setSyncStatus(false)
-		go s.SequencerLoop()
+		go func() {
+			if err := s.syncTransactionsToTip(); err != nil {
+				log.Crit("Sequencer cannot sync transactions to tip", "err", err)
+			}
+			if err := s.syncQueueToTip(); err != nil {
+				log.Crit("Sequencer cannot sync queue to tip", "err", err)
+			}
+			s.setSyncStatus(false)
+			go s.SequencerLoop()
+		}()
 	}
 	return nil
 }
@@ -1120,17 +1118,21 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 }
 
 func (s *SyncService) verifyStateRoot(tx *types.Transaction, batchRoot common.Hash) (uint64, string, string, error) {
+	localStateRoot := s.bc.CurrentBlock().Root()
+	// log.Debug("Test: local stateroot", "stateroot", localStateRoot)
+
 	emptyHash := common.Hash{}
 	txIndex := *(tx.GetMeta().Index)
-	localStateRoot := s.bc.GetBlockByNumber(txIndex + 1).Root()
 	// retry 10 hours
 	for i := 0; i < 36000; i++ {
+		// log.Debug("Test: Fetching stateroot", "i", i, "index", *(tx.GetMeta().Index))
 		stateRootHash, err := s.client.GetStateRoot(txIndex)
+		// log.Debug("Test: Fetched stateroot", "i", i, "index", *(tx.GetMeta().Index), "hash", stateRootHash)
 		if err != nil {
 			return txIndex, "", localStateRoot.Hex(), fmt.Errorf("Fetch stateroot failed: %w", err)
 		}
 		if stateRootHash == emptyHash {
-			log.Debug("Fetch stateroot nil, retry in 1000ms", "i", i, "index", txIndex)
+			log.Info("Fetch stateroot nil, retry in 1000ms", "i", i, "index", txIndex)
 			// delay 1000ms
 			time.Sleep(time.Duration(1000) * time.Millisecond)
 			continue
