@@ -872,6 +872,14 @@ var (
 		Usage:  "HTTP endpoint for the sequencer client",
 		EnvVar: "SEQUENCER_CLIENT_HTTP",
 	}
+
+	// metis flag
+	L2UrlFlag = cli.StringFlag{
+		Name:   "l2_url",
+		Usage:  "L2 main node RPC url, peer will submit tx via it",
+		Value:  "",
+		EnvVar: "L2_URL",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating

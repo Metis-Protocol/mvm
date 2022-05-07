@@ -51,6 +51,7 @@ import (
 )
 
 var (
+	errOVMUnsupported  = errors.New("OVM: Unsupported RPC Method")
 	errNoSequencerURL  = errors.New("sequencer transaction forwarding not configured")
 	errStillSyncing    = errors.New("sequencer still syncing, cannot accept transactions")
 	errBlockNotIndexed = errors.New("block in range not indexed, this should never happen")
@@ -1059,7 +1060,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	executable := func(gas uint64) (bool, []byte, error) {
 		args.Gas = (*hexutil.Uint64)(&gas)
 
-		res, _, failed, err := DoCall(ctx, b, args, blockNrOrHash, nil, vm.Config{}, 0, gasCap)
+		res, _, failed, err := DoCall(ctx, b, args, blockNrOrHash, nil, &vm.Config{}, 0, gasCap)
 		if err != nil || failed {
 			if err == vm.ErrOutOfGas { //special case: increase gas
 				return false, res, nil

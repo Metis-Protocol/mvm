@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/eth/downloader"
 	"github.com/ethereum-optimism/optimism/l2geth/eth/filters"
 	"github.com/ethereum-optimism/optimism/l2geth/eth/gasprice"
+	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
 	"github.com/ethereum-optimism/optimism/l2geth/ethdb"
 	"github.com/ethereum-optimism/optimism/l2geth/event"
 	"github.com/ethereum-optimism/optimism/l2geth/internal/ethapi"
@@ -68,6 +69,10 @@ type LesServer interface {
 // Ethereum implements the Ethereum full node service.
 type Ethereum struct {
 	config *Config
+
+	// Node config for check if rollup on
+	nodeRpcModules []string
+
 	rpcClient *ethclient.Client
 
 	// Channel for shutting down the service
@@ -218,7 +223,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, eth.nodeRpcModules); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)

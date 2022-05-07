@@ -18,13 +18,13 @@ package node
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	//"fmt"
+	//"strings"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common/hexutil"
 	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 	"github.com/ethereum-optimism/optimism/l2geth/p2p"
-	"github.com/ethereum-optimism/optimism/l2geth/p2p/enode"
+	//"github.com/ethereum-optimism/optimism/l2geth/p2p/enode"
 	"github.com/ethereum-optimism/optimism/l2geth/rpc"
 )
 

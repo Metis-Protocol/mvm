@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/eth/downloader"
 	"github.com/ethereum-optimism/optimism/l2geth/eth/filters"
 	"github.com/ethereum-optimism/optimism/l2geth/eth/gasprice"
+	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
 	"github.com/ethereum-optimism/optimism/l2geth/event"
 	"github.com/ethereum-optimism/optimism/l2geth/internal/ethapi"
 	"github.com/ethereum-optimism/optimism/l2geth/les/checkpointoracle"
