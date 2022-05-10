@@ -52,8 +52,11 @@ const deployFn: DeployFunction = async (hre) => {
   const managerArtifact = getContractDefinition('MVM_Verifier')
   const managerCode = managerArtifact.deployedBytecode
 
+  
   console.log(`Setting verifier code...`)
-  //await proxy.setCode(managerCode)
+  //commit setCode when deploy
+  //use it when unit test
+  await proxy.setCode(managerCode)
 
   console.log(`Confirming that verifier code is correct...`)
   await waitUntilTrue(async () => {
