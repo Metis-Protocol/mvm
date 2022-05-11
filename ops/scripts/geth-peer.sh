@@ -60,6 +60,7 @@ touch $(echo $DATADIR)/static-nodes.json
 
 echo "[\"$NODE_ENODE\"]" > $(echo $DATADIR)/static-nodes.json
 
+export EMERGENCY_FORK020222_NUMBER='750000'
 
 # start the geth peer node
 echo "Starting Geth peer node"

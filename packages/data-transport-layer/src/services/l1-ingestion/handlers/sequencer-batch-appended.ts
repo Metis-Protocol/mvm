@@ -207,7 +207,9 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
             .toNumber(),
           batchIndex: extraData.batchIndex.toNumber(),
           blockNumber: BigNumber.from(0).toNumber(),
-          timestamp: BigNumber.from(context.timestamp).toNumber(),  //timestamp needs to be consistent
+          timestamp: extraData.prevTotalElements
+            .add(BigNumber.from(transactionIndex))
+            .toNumber()<=2287472 ? BigNumber.from(0).toNumber() : BigNumber.from(context.timestamp).toNumber(),  //timestamp needs to be consistent
           gasLimit: BigNumber.from(0).toString(),
           target: constants.AddressZero,
           origin: constants.AddressZero,
