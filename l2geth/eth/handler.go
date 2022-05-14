@@ -280,7 +280,7 @@ func (pm *ProtocolManager) startFetcherTicker() {
 			}
 
 			ts := time.Now().Unix()
-			if pm.peerSyncTime > 0 && ts-pm.peerSyncTime > 300 {
+			if rcfg.PeerHealthCheckSeconds > 0 && pm.peerSyncTime > 0 && ts-pm.peerSyncTime > rcfg.PeerHealthCheckSeconds {
 				// restart peer connection
 				log.Info("Need reconnect peers", "seconds", ts-pm.peerSyncTime, "peers len", pm.peers.Len())
 
