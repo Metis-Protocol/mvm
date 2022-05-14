@@ -40,6 +40,8 @@ geth account import --password ./password ./key.prv
 echo "Initializing Geth node"
 geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
+export EMERGENCY_FORK020222_NUMBER='750000'
+
 # start the geth node
 echo "Starting Geth node"
 exec geth \
