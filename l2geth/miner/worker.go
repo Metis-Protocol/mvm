@@ -958,18 +958,7 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	// Preserve liveliness as best as possible. Must panic on L1 to L2
 	// transactions as the timestamp cannot be malleated
 	if parent.Time() > tx.L1Timestamp() {
-		log.Error("Monotonicity violation", "index", num)
-		if tx.QueueOrigin() == types.QueueOriginSequencer {
-			tx.SetL1Timestamp(parent.Time())
-			prev := parent.Transactions()
-			if len(prev) == 1 {
-				tx.SetL1BlockNumber(prev[0].L1BlockNumber().Uint64())
-			} else {
-				log.Error("Cannot recover L1 Blocknumber")
-			}
-		} else {
-			log.Error("Cannot recover from monotonicity violation")
-		}
+		log.Error("Monotonicity violation", "index", num, "parent", parent.Time(), "tx", tx.L1Timestamp())
 	}
 
 	// Fill in the index field in the tx meta if it is `nil`.
@@ -1158,10 +1147,6 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 			}
 			feesEth := new(big.Float).Quo(new(big.Float).SetInt(feesWei), new(big.Float).SetInt(big.NewInt(params.Ether)))
 
-			txs := block.Transactions()
-			if len(txs) != 1 {
-				return fmt.Errorf("Block created with not %d transactions at %d", len(txs), block.NumberU64())
-			}
 			tx := txs[0]
 			bn := tx.L1BlockNumber()
 			if bn == nil {

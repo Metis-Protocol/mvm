@@ -352,8 +352,6 @@ func ReadTransactionMeta(db ethdb.Reader, number uint64) *types.TransactionMeta 
 		log.Error("Invalid raw tx meta ", "number", number, "err", err)
 		return nil
 	}
-	// NOTE 20210724
-	// log.Debug("Test: Read Tx Meta", "meta L1Timestamp", meta.L1Timestamp, "L1MessageSender", meta.L1MessageSender, "Index", meta.Index)
 
 	return meta
 }
