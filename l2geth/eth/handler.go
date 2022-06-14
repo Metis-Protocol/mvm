@@ -103,6 +103,7 @@ type ProtocolManager struct {
 
 	// NOTE 20210724, a ticker for fetcher
 	tickerFetcherSync *time.Ticker
+	peerSyncTime      int64
 	// Node config for check if rollup on
 	nodeHTTPModules                []string
 	rollupGpo                      *gasprice.RollupOracle
@@ -277,6 +278,20 @@ func (pm *ProtocolManager) startFetcherTicker() {
 			if pm.fetcher != nil {
 				pm.fetcher.EnsureQueueInsert()
 			}
+
+			ts := time.Now().Unix()
+			if rcfg.PeerHealthCheckSeconds > 0 && pm.peerSyncTime > 0 && ts-pm.peerSyncTime > rcfg.PeerHealthCheckSeconds {
+				// restart peer connection
+				log.Info("Need reconnect peers", "seconds", ts-pm.peerSyncTime, "peers len", pm.peers.Len())
+
+				peerList := pm.peers.PeersWithoutTx(common.Hash{})
+				for _, p := range peerList {
+					pm.removePeer(p.id)
+					pm.handle(p)
+				}
+				pm.peerSyncTime = 0
+				log.Info("All peers reconnecting", "peers len", pm.peers.Len())
+			}
 		}
 	}
 }
@@ -423,6 +438,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	if pm.HasRPCModule("rollup") {
 		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
 			return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
+		}
+	} else {
+		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
+			pm.peerSyncTime = time.Now().Unix()
 		}
 	}
 
