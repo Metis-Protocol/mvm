@@ -782,6 +782,9 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 	if *index < next {
 		return s.applyHistoricalTransaction(tx)
 	}
+	batchIndex := *s.GetLatestBatchIndex() - 30
+	s.SetLatestBatchIndex(&batchIndex)
+	log.Info("Reset latest batch index to smaller next", "index", batchIndex)
 	return fmt.Errorf("Received tx at index %d when looking for %d", *index, next)
 }
 
@@ -1229,7 +1232,7 @@ func (s *SyncService) verifyStateRoot(tx *types.Transaction, batchRoot common.Ha
 			continue
 		}
 		if stateRootHash != localStateRoot {
-			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: remote %w, local %w, batch-root %w", stateRootHash.Hex(), localStateRoot.Hex(), batchRoot.Hex())
+			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: tx index %d, remote %w, local %w, batch-root %w", txIndex, stateRootHash.Hex(), localStateRoot.Hex(), batchRoot.Hex())
 		}
 		log.Info("Verified tx with stateroot ok", "i", i, "index", txIndex, "batch-root", batchRoot.Hex())
 		return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), nil
