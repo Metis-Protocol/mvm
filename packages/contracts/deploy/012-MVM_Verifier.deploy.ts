@@ -54,8 +54,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   
   console.log(`Setting verifier code...`)
-  //commit setCode when deploy
-  //use it when unit test
+
   await proxy.setCode(managerCode)
 
   console.log(`Confirming that verifier code is correct...`)

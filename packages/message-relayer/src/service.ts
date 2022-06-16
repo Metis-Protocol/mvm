@@ -557,12 +557,40 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
 
       this.logger.info('Proof should succeed. Submitting for real this time...')
     } catch (err) {
-      this.logger.error('Proof would fail, skipping', {
+      this.logger.error('Proof would fail, retry in 180 seconds', {
         message: err.toString(),
         stack: err.stack,
         code: err.code,
       })
-      return
+      await sleep(180*1000)
+      
+      // retry once
+      try {
+        this.logger.info('Dry-run retry, checking to make sure proof would succeed...')
+  
+        await this.state.L1CrossDomainMessenger.connect(
+          this.options.l1Wallet
+        ).callStatic.relayMessageViaChainId(
+          this.options.l2ChainId,
+          message.target,
+          message.sender,
+          message.message,
+          message.messageNonce,
+          proof,
+          {
+            gasLimit: this.options.relayGasLimit,
+          }
+        )
+  
+        this.logger.info('Proof should succeed when retry. Submitting for real this time...')
+      } catch (err2) {
+        this.logger.error('Proof would fail, skipping', {
+          message: err2.toString(),
+          stack: err2.stack,
+          code: err2.code,
+        })
+        return
+      }
     }
 
     const result = await this.state.L1CrossDomainMessenger.connect(
@@ -636,8 +664,8 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           stack: err2.stack,
           code: err2.code,
         })
+        return
       }
-      return
     }
     this.logger.info('Message successfully relayed to Layer 1!')
   }

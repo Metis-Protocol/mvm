@@ -9,8 +9,9 @@ import (
 
 // UsingOVM is used to enable or disable functionality necessary for the OVM.
 var (
-	UsingOVM          bool
-	SuicideForkNumber uint64
+	UsingOVM               bool
+	SuicideForkNumber      uint64
+	PeerHealthCheckSeconds int64
 )
 
 var (
@@ -51,5 +52,16 @@ func init() {
 			panic(err)
 		}
 		SuicideForkNumber = parsed
+	}
+
+	peerHealthCheck := os.Getenv("PEER_HEALTH_CHECK")
+	if peerHealthCheck == "" {
+		PeerHealthCheckSeconds = ^int64(0)
+	} else {
+		parsed, err := strconv.ParseInt(peerHealthCheck, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		PeerHealthCheckSeconds = parsed
 	}
 }
