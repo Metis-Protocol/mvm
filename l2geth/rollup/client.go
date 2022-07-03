@@ -345,7 +345,7 @@ func (c *Client) GetLatestTransactionBatchIndex() (*uint64, error) {
 
 // batchedTransactionToTransaction converts a transaction into a
 // types.Transaction that can be consumed by the SyncService
-func batchedTransactionToTransaction(res *transaction, signer *types.EIP155Signer) (*types.Transaction, error) {
+func batchedTransactionToTransaction(res *transaction, signerChain *types.EIP155Signer) (*types.Transaction, error) {
 	// `nil` transactions are not found
 	if res == nil {
 		return nil, errElementNotFound
@@ -397,16 +397,14 @@ func batchedTransactionToTransaction(res *transaction, signer *types.EIP155Signe
 		copy(sig[32-len(r):32], r)
 		copy(sig[64-len(s):64], s)
 
-		/*
-			var signer types.Signer
-			if res.Decoded.Signature.V == 27 || res.Decoded.Signature.V == 28 {
-				signer = types.HomesteadSigner{}
-				sig[64] = byte(res.Decoded.Signature.V - 27)
-			} else {
-				signer = types.NewEIP155Signer(chainID)
-				sig[64] = byte(res.Decoded.Signature.V)
-			}
-		*/
+		var signer types.Signer
+		if res.Decoded.Signature.V == 27 || res.Decoded.Signature.V == 28 {
+			signer = types.HomesteadSigner{}
+			sig[64] = byte(res.Decoded.Signature.V - 27)
+		} else {
+			signer = signerChain
+			sig[64] = byte(res.Decoded.Signature.V)
+		}
 
 		tx, err := tx.WithSignature(signer, sig[:])
 		if err != nil {

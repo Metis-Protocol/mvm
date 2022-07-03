@@ -270,7 +270,6 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
       }
     }
 
-    await db.putTransactionBatchEntries([entry.transactionBatchEntry])
     await db.putTransactionEntries(entry.transactionEntries)
 
     // Add an additional field to the enqueued transactions in the database
@@ -283,6 +282,8 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         )
       }
     }
+    
+    await db.putTransactionBatchEntries([entry.transactionBatchEntry])
   },
 }
 

@@ -849,20 +849,25 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	// network split.
 	// Note that it should never be possible for the timestamp to be set to
 	// 0 when running as a verifier.
-	shouldMalleateTimestamp := !s.verifier && tx.QueueOrigin() == types.QueueOriginL1ToL2
-	if tx.L1Timestamp() == 0 || shouldMalleateTimestamp {
-		// Get the latest known timestamp
-		current := time.Unix(int64(ts), 0)
-		// Get the current clocktime
-		now := time.Now()
-		// If enough time has passed, then assign the
-		// transaction to have the timestamp now. Otherwise,
-		// use the current timestamp
-		if now.Sub(current) > s.timestampRefreshThreshold {
-			current = now
-		}
-		log.Info("Updating latest timestamp", "timestamp", current, "unix", current.Unix())
-		tx.SetL1Timestamp(uint64(current.Unix()))
+
+	// NOTE 20220703: metis Andromeda adds the l1timestamp in DTL, keeps it
+	// log.Info("applying tx", "l1Timestamp", tx.L1Timestamp(), "queueOrigin", tx.QueueOrigin())
+	if tx.L1Timestamp() == 0 {
+		tx.SetL1Timestamp(ts)
+		// shouldMalleateTimestamp := !s.verifier && tx.QueueOrigin() == types.QueueOriginL1ToL2
+		// if tx.L1Timestamp() == 0 || shouldMalleateTimestamp {
+		// 	// Get the latest known timestamp
+		// 	current := time.Unix(int64(ts), 0)
+		// 	// Get the current clocktime
+		// 	now := time.Now()
+		// 	// If enough time has passed, then assign the
+		// 	// transaction to have the timestamp now. Otherwise,
+		// 	// use the current timestamp
+		// 	if now.Sub(current) > s.timestampRefreshThreshold {
+		// 		current = now
+		// 	}
+		// 	log.Info("Updating latest timestamp", "timestamp", current, "unix", current.Unix())
+		// 	tx.SetL1Timestamp(uint64(current.Unix()))
 	} else if tx.L1Timestamp() == 0 && s.verifier {
 		// This should never happen
 		log.Error("No tx timestamp found when running as verifier", "hash", tx.Hash().Hex())
