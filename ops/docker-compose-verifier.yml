@@ -22,7 +22,6 @@ services:
         DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: https://andromeda.metis.io/?owner=1088
         DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
         DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 1088
-        DATA_TRANSPORT_LAYER__L1_START_HEIGHT: 13640000
     ports:
       - ${DTL_PORT:-7878}:7878
 

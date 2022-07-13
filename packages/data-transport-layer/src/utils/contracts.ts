@@ -55,10 +55,10 @@ export const loadOptimismContracts = async (
       name: 'CanonicalTransactionChain',
       interface: 'ICanonicalTransactionChain',
     },
-    {
-      name: 'CanonicalTransactionChain',
-      interface: 'ICanonicalTransactionChain',
-    },
+    // {
+    //   name: 'CanonicalTransactionChain',
+    //   interface: 'ICanonicalTransactionChain',
+    // },
     {
       name: 'Proxy__MVM_CanonicalTransaction',
       interface: 'iMVM_CanonicalTransaction',
