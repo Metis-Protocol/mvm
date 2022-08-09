@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/common/hexutil"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
+	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -120,6 +120,7 @@ type RollupClient interface {
 	GetEnqueue(index uint64) (*types.Transaction, error)
 	GetLatestEnqueue() (*types.Transaction, error)
 	GetLatestEnqueueIndex() (*uint64, error)
+	GetRawTransaction(uint64, Backend) (*TransactionResponse, error)
 	GetTransaction(uint64, Backend) (*types.Transaction, error)
 	GetLatestTransaction(Backend) (*types.Transaction, error)
 	GetLatestTransactionIndex(Backend) (*uint64, error)
@@ -344,7 +345,7 @@ func (c *Client) GetLatestTransactionBatchIndex() (*uint64, error) {
 
 // batchedTransactionToTransaction converts a transaction into a
 // types.Transaction that can be consumed by the SyncService
-func batchedTransactionToTransaction(res *transaction, signer *types.EIP155Signer) (*types.Transaction, error) {
+func batchedTransactionToTransaction(res *transaction, signerChain *types.EIP155Signer) (*types.Transaction, error) {
 	// `nil` transactions are not found
 	if res == nil {
 		return nil, errElementNotFound
@@ -395,7 +396,15 @@ func batchedTransactionToTransaction(res *transaction, signer *types.EIP155Signe
 		sig := make([]byte, crypto.SignatureLength)
 		copy(sig[32-len(r):32], r)
 		copy(sig[64-len(s):64], s)
-		sig[64] = byte(res.Decoded.Signature.V)
+
+		var signer types.Signer
+		if res.Decoded.Signature.V == 27 || res.Decoded.Signature.V == 28 {
+			signer = types.HomesteadSigner{}
+			sig[64] = byte(res.Decoded.Signature.V - 27)
+		} else {
+			signer = signerChain
+			sig[64] = byte(res.Decoded.Signature.V)
+		}
 
 		tx, err := tx.WithSignature(signer, sig[:])
 		if err != nil {
@@ -434,7 +443,7 @@ func batchedTransactionToTransaction(res *transaction, signer *types.EIP155Signe
 }
 
 // GetTransaction will get a transaction by Canonical Transaction Chain index
-func (c *Client) GetTransaction(index uint64, backend Backend) (*types.Transaction, error) {
+func (c *Client) GetRawTransaction(index uint64, backend Backend) (*TransactionResponse, error) {
 	str := strconv.FormatUint(index, 10)
 	response, err := c.client.R().
 		SetPathParams(map[string]string{
@@ -453,6 +462,15 @@ func (c *Client) GetTransaction(index uint64, backend Backend) (*types.Transacti
 	res, ok := response.Result().(*TransactionResponse)
 	if !ok {
 		return nil, fmt.Errorf("could not get tx with index %d", index)
+	}
+	return res, nil
+}
+
+// GetTransaction will get a transaction by Canonical Transaction Chain index
+func (c *Client) GetTransaction(index uint64, backend Backend) (*types.Transaction, error) {
+	res, err := c.GetRawTransaction(index, backend)
+	if err != nil {
+		return nil, err
 	}
 	return batchedTransactionToTransaction(res.Transaction, c.signer)
 }

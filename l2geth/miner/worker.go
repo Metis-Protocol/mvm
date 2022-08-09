@@ -26,16 +26,17 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rollup/rcfg"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/consensus"
+	"github.com/ethereum-optimism/optimism/l2geth/consensus/misc"
+	"github.com/ethereum-optimism/optimism/l2geth/core"
+	"github.com/ethereum-optimism/optimism/l2geth/core/state"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
+	"github.com/ethereum-optimism/optimism/l2geth/event"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
+	"github.com/ethereum-optimism/optimism/l2geth/metrics"
+	"github.com/ethereum-optimism/optimism/l2geth/params"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
 const (
@@ -78,6 +79,23 @@ const (
 	staleThreshold = 7
 )
 
+var (
+	// ErrCannotCommitTxn signals that the transaction execution failed
+	// when attempting to mine a transaction.
+	//
+	// NOTE: This error is not expected to occur in regular operation of
+	// l2geth, rather the actual execution error should be returned to the
+	// user.
+	ErrCannotCommitTxn = errors.New("Cannot commit transaction in miner")
+
+	// rollup apply transaction metrics
+	accountReadTimer   = metrics.NewRegisteredTimer("rollup/tx/account/reads", nil)
+	accountUpdateTimer = metrics.NewRegisteredTimer("rollup/tx/account/updates", nil)
+	storageReadTimer   = metrics.NewRegisteredTimer("rollup/tx/storage/reads", nil)
+	storageUpdateTimer = metrics.NewRegisteredTimer("rollup/tx/storage/updates", nil)
+	txExecutionTimer   = metrics.NewRegisteredTimer("rollup/tx/execution", nil)
+)
+
 // environment is the worker's current environment and holds all of the current state information.
 type environment struct {
 	signer types.Signer
@@ -111,7 +129,6 @@ const (
 // newWorkReq represents a request for new sealing work submitting with relative interrupt notifier.
 type newWorkReq struct {
 	interrupt *int32
-	noempty   bool
 	timestamp int64
 }
 
@@ -308,12 +325,12 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 	<-timer.C // discard the initial tick
 
 	// commit aborts in-flight transaction execution with given signal and resubmits a new one.
-	commit := func(noempty bool, s int32) {
+	commit := func(s int32) {
 		if interrupt != nil {
 			atomic.StoreInt32(interrupt, s)
 		}
 		interrupt = new(int32)
-		w.newWorkCh <- &newWorkReq{interrupt: interrupt, noempty: noempty, timestamp: timestamp}
+		w.newWorkCh <- &newWorkReq{interrupt: interrupt, timestamp: timestamp}
 		timer.Reset(recommit)
 		atomic.StoreInt32(&w.newTxs, 0)
 	}
@@ -353,7 +370,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		select {
 		case <-w.startCh:
 			clearPending(w.chain.CurrentBlock().NumberU64())
-			commit(false, commitInterruptNewHead)
+			commit(commitInterruptNewHead)
 
 		// Remove this code for the OVM implementation. It is responsible for
 		// cleaning up memory with the call to `clearPending`, so be sure to
@@ -362,7 +379,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			case <-w.chainHeadCh:
 				clearPending(head.Block.NumberU64())
 				timestamp = time.Now().Unix()
-				commit(false, commitInterruptNewHead)
+				commit(commitInterruptNewHead)
 		*/
 
 		case <-timer.C:
@@ -374,7 +391,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					timer.Reset(recommit)
 					continue
 				}
-				commit(true, commitInterruptResubmit)
+				commit(commitInterruptResubmit)
 			}
 
 		case interval := <-w.resubmitIntervalCh:
@@ -422,7 +439,7 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case req := <-w.newWorkCh:
-			w.commitNewWork(req.interrupt, req.noempty, req.timestamp)
+			w.commitNewWork(req.interrupt, req.timestamp)
 
 		case ev := <-w.chainSideCh:
 			// Short circuit for duplicate side blocks
@@ -459,7 +476,7 @@ func (w *worker) mainLoop() {
 						uncles = append(uncles, uncle.Header())
 						return false
 					})
-					w.commit(uncles, nil, true, start)
+					w.commit(uncles, nil, start)
 				}
 			}
 		// Read from the sync service and mine single txs
@@ -550,10 +567,11 @@ func (w *worker) mainLoop() {
 				// If clique is running in dev mode(period is 0), disable
 				// advance sealing here.
 				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
-					w.commitNewWork(nil, true, time.Now().Unix())
+					w.commitNewWork(nil, time.Now().Unix())
 				}
 			}
 			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
+
 		// System stopped
 		case <-w.exitCh:
 			return
@@ -774,6 +792,7 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 	}
 	snap := w.current.state.Snapshot()
 
+	start := time.Now()
 	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig())
 	if err != nil {
 		w.current.state.RevertToSnapshot(snap)
@@ -782,13 +801,19 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 	w.current.txs = append(w.current.txs, tx)
 	w.current.receipts = append(w.current.receipts, receipt)
 
+	updateTransactionStateMetrics(start, w.current.state)
+
 	return receipt.Logs, nil
 }
 
 func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
+	return w.commitTransactionsWithError(txs, coinbase, interrupt) != nil
+}
+
+func (w *worker) commitTransactionsWithError(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) error {
 	// Short circuit if current is nil
 	if w.current == nil {
-		return true
+		return ErrCannotCommitTxn
 	}
 
 	if w.current.gasPool == nil {
@@ -796,11 +821,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	}
 
 	var coalescedLogs []*types.Log
-	// UsingOVM
-	// Keep track of the number of transactions being added to the block.
-	// Blocks should only have a single transaction. This value is used to
-	// compute a success return value
-	var txCount int
 
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
@@ -821,7 +841,11 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 					inc:   true,
 				}
 			}
-			return atomic.LoadInt32(interrupt) == commitInterruptNewHead
+			if w.current.tcount == 0 ||
+				atomic.LoadInt32(interrupt) == commitInterruptNewHead {
+				return ErrCannotCommitTxn
+			}
+			return nil
 		}
 		// If we don't have enough gas for any further transactions then we're done
 		if w.current.gasPool.Gas() < params.TxGas {
@@ -833,8 +857,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		if tx == nil {
 			break
 		}
-
-		txCount++
 
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
@@ -866,7 +888,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 
 		case core.ErrNonceTooHigh:
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
+			log.Trace("Skipping account with high nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 
 		case nil:
@@ -884,6 +906,14 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			} else {
 				txs.Shift()
 			}
+		}
+		// UsingOVM
+		// Return specific execution errors directly to the user to
+		// avoid returning the generic ErrCannotCommitTxnErr. It is safe
+		// to return the error directly since l2geth only processes at
+		// most one transaction per block.
+		if err != nil {
+			return err
 		}
 	}
 
@@ -907,7 +937,10 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	if interrupt != nil {
 		w.resubmitAdjustCh <- &intervalAdjust{inc: false}
 	}
-	return txCount == 0
+	if w.current.tcount == 0 {
+		return ErrCannotCommitTxn
+	}
+	return nil
 }
 
 // commitNewTx is an OVM addition that mines a block with a single tx in it.
@@ -925,18 +958,7 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	// Preserve liveliness as best as possible. Must panic on L1 to L2
 	// transactions as the timestamp cannot be malleated
 	if parent.Time() > tx.L1Timestamp() {
-		log.Error("Monotonicity violation", "index", num)
-		if tx.QueueOrigin() == types.QueueOriginSequencer {
-			tx.SetL1Timestamp(parent.Time())
-			prev := parent.Transactions()
-			if len(prev) == 1 {
-				tx.SetL1BlockNumber(prev[0].L1BlockNumber().Uint64())
-			} else {
-				log.Error("Cannot recover L1 Blocknumber")
-			}
-		} else {
-			log.Error("Cannot recover from monotonicity violation")
-		}
+		log.Error("Monotonicity violation", "index", num, "parent", parent.Time(), "tx", tx.L1Timestamp())
 	}
 
 	// Fill in the index field in the tx meta if it is `nil`.
@@ -969,14 +991,14 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	acc, _ := types.Sender(w.current.signer, tx)
 	transactions[acc] = types.Transactions{tx}
 	txs := types.NewTransactionsByPriceAndNonce(w.current.signer, transactions)
-	if w.commitTransactions(txs, w.coinbase, nil) {
-		return errors.New("Cannot commit transaction in miner")
+	if err := w.commitTransactionsWithError(txs, w.coinbase, nil); err != nil {
+		return err
 	}
-	return w.commit(nil, w.fullTaskHook, true, tstart)
+	return w.commit(nil, w.fullTaskHook, tstart)
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
-func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
+func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -1052,12 +1074,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
 
-	if !noempty {
-		// Create an empty block based on temporary copied state for sealing in advance without waiting block
-		// execution finished.
-		w.commit(uncles, nil, false, tstart)
-	}
-
 	// Fill the block with all available pending transactions.
 	pending, err := w.eth.TxPool().Pending()
 	if err != nil {
@@ -1089,12 +1105,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			return
 		}
 	}
-	w.commit(uncles, w.fullTaskHook, true, tstart)
+	w.commit(uncles, w.fullTaskHook, tstart)
 }
 
 // commit runs any post-transaction state modifications, assembles the final block
 // and commits new work if consensus engine is running.
-func (w *worker) commit(uncles []*types.Header, interval func(), update bool, start time.Time) error {
+func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := make([]*types.Receipt, len(w.current.receipts))
 	for i, l := range w.current.receipts {
@@ -1106,6 +1122,15 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	if err != nil {
 		return err
 	}
+
+	// As a sanity check, ensure all new blocks have exactly one
+	// transaction. This check is done here just in case any of our
+	// higher-evel checks failed to catch empty blocks passed to commit.
+	txs := block.Transactions()
+	if len(txs) != 1 {
+		return fmt.Errorf("Block created with %d transactions rather than 1 at %d", len(txs), block.NumberU64())
+	}
+
 	if w.isRunning() {
 		if interval != nil {
 			interval()
@@ -1122,10 +1147,6 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			}
 			feesEth := new(big.Float).Quo(new(big.Float).SetInt(feesWei), new(big.Float).SetInt(big.NewInt(params.Ether)))
 
-			txs := block.Transactions()
-			if len(txs) != 1 {
-				return fmt.Errorf("Block created with not %d transactions at %d", len(txs), block.NumberU64())
-			}
 			tx := txs[0]
 			bn := tx.L1BlockNumber()
 			if bn == nil {
@@ -1138,9 +1159,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			log.Info("Worker has exited")
 		}
 	}
-	if update {
-		w.updateSnapshot()
-	}
+	w.updateSnapshot()
 	return nil
 }
 
@@ -1150,6 +1169,16 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 	case w.chainSideCh <- event:
 	case <-w.exitCh:
 	}
+}
+
+func updateTransactionStateMetrics(start time.Time, state *state.StateDB) {
+	accountReadTimer.Update(state.AccountReads)
+	storageReadTimer.Update(state.StorageReads)
+	accountUpdateTimer.Update(state.AccountUpdates)
+	storageUpdateTimer.Update(state.StorageUpdates)
+
+	triehash := state.AccountHashes + state.StorageHashes
+	txExecutionTimer.Update(time.Since(start) - triehash)
 }
 
 // make empty chainheadevent to prevent rollupCh deadlock

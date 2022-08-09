@@ -92,7 +92,6 @@ while (( "$#" )); do
                 exit 1
             fi
             ;;
-
         --rollup.clienthttp)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
                 ROLLUP_CLIENT_HTTP="$2"
@@ -177,11 +176,17 @@ cmd="$cmd --ws"
 cmd="$cmd --wsaddr 0.0.0.0"
 cmd="$cmd --wsport $WS_PORT"
 cmd="$cmd --wsorigins '*'"
-cmd="$cmd --rpcapi 'eth,net,rollup,web3,debug'"
+cmd="$cmd --rpcapi eth,net,rollup,web3,debug,personal"
 cmd="$cmd --gasprice 0"
 cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
+cmd="$cmd --mine"
+cmd="$cmd --password=$DATADIR/password"
+cmd="$cmd --allow-insecure-unlock"
+cmd="$cmd --unlock=$BLOCK_SIGNER_ADDRESS"
+cmd="$cmd --miner.etherbase=$BLOCK_SIGNER_ADDRESS"
+cmd="$cmd --txpool.pricelimit 0"
 if [[ ! -z "$IS_VERIFIER" ]]; then
     cmd="$cmd --rollup.verifier"
 fi

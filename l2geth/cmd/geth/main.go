@@ -29,19 +29,19 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/console"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/internal/debug"
-	"github.com/ethereum/go-ethereum/les"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum-optimism/optimism/l2geth/accounts"
+	"github.com/ethereum-optimism/optimism/l2geth/accounts/keystore"
+	"github.com/ethereum-optimism/optimism/l2geth/cmd/utils"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/console"
+	"github.com/ethereum-optimism/optimism/l2geth/eth"
+	"github.com/ethereum-optimism/optimism/l2geth/eth/downloader"
+	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
+	"github.com/ethereum-optimism/optimism/l2geth/internal/debug"
+	"github.com/ethereum-optimism/optimism/l2geth/les"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
+	"github.com/ethereum-optimism/optimism/l2geth/metrics"
+	"github.com/ethereum-optimism/optimism/l2geth/node"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -154,7 +154,6 @@ var (
 	optimismFlags = []cli.Flag{
 		utils.Eth1SyncServiceEnable,
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
-
 		utils.RollupClientHttpFlag,
 		utils.RollupEnableVerifierFlag,
 		utils.RollupTimstampRefreshFlag,
@@ -164,6 +163,8 @@ var (
 		utils.RollupEnforceFeesFlag,
 		utils.RollupFeeThresholdDownFlag,
 		utils.RollupFeeThresholdUpFlag,
+		utils.RollupGenesisTimeoutSecondsFlag,
+		utils.SequencerClientHttpFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -218,6 +219,7 @@ func init() {
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
+		dumpChainCfgCommand,
 		importCommand,
 		exportCommand,
 		importPreimagesCommand,

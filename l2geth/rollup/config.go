@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
 )
 
 type Config struct {
@@ -32,10 +32,11 @@ type Config struct {
 	Backend Backend
 	// Only accept transactions with fees
 	EnforceFees bool
-
 	// Allow fees within a buffer upwards or downwards
 	// to take fee volatility into account between being
 	// quoted and the transaction being executed
 	FeeThresholdDown *big.Float
 	FeeThresholdUp   *big.Float
+	// HTTP endpoint of the sequencer
+	SequencerClientHttp string
 }

@@ -1,12 +1,12 @@
 import { Contract, ContractFactory, Wallet } from 'ethers'
-import { ethers } from 'hardhat'
-import { TxGasLimit, TxGasPrice } from '@metis.io/core-utils'
+//import { TxGasLimit, TxGasPrice } from '@metis.io/core-utils'
 import chai, { expect } from 'chai'
 import { GWEI } from './shared/utils'
 import { OptimismEnv } from './shared/env'
 import { solidity } from 'ethereum-waffle'
 import { JsonRpcProvider, TransactionResponse } from '@ethersproject/providers'
 import { Watcher } from '@metis.io/core-utils'
+const { ethers } = require("hardhat");
 
 chai.use(solidity)
 
@@ -87,12 +87,12 @@ describe('Basic ERC20 interactions', async () => {
     console.log(ERC20.address)
   })
 
-  it.skip('should set the total supply', async () => {
+  it('should set the total supply', async () => {
     const totalSupply = await ERC20.totalSupply()
     expect(totalSupply.toNumber()).to.equal(initialAmount)
   })
 
-  it.skip('should get the token name', async () => {
+  it('should get the token name', async () => {
     const name = await ERC20.name()
     expect(name).to.equal(tokenName)
 
@@ -100,12 +100,12 @@ describe('Basic ERC20 interactions', async () => {
     console.log(await peerErc20.name())
   })
 
-  it.skip('should get the token decimals', async () => {
+  it('should get the token decimals', async () => {
     const decimals = await ERC20.decimals()
     expect(decimals).to.equal(tokenDecimals)
   })
 
-  it.skip('should get the token symbol', async () => {
+  it('should get the token symbol', async () => {
     const symbol = await ERC20.symbol()
     expect(symbol).to.equal(TokenSymbol)
   })
@@ -115,7 +115,7 @@ describe('Basic ERC20 interactions', async () => {
     expect(balance.toNumber()).to.equal(initialAmount)
   })
 
-  it.skip('should transfer amount to destination account', async () => {
+  it('should transfer amount to destination account', async () => {
 
     const peerErc20=Factory__ERC20.connect(l2PeerWallet).attach(ERC20.address)
     console.log("token:"+await ERC20.balanceOf(l2Wallet.address)+","+await peerErc20.balanceOf(l2PeerWallet.address))

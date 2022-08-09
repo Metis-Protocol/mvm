@@ -17,11 +17,11 @@
     "clean": "rimraf cache artifacts"
   },
   "devDependencies": {
-    "@metis.io/contracts": "^1.2.1",
-    "@metis.io/core-utils": "^0.6.1",
     "@eth-optimism/message-relayer": "^0.1.13",
     "@ethersproject/providers": "^5.4.5",
     "@ethersproject/transactions": "^5.4.0",
+    "@metis.io/contracts": "^1.2.1",
+    "@metis.io/core-utils": "^0.6.1",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@types/chai": "^4.2.18",
@@ -48,11 +48,14 @@
     "eslint-plugin-unicorn": "^32.0.1",
     "ethereum-waffle": "^3.3.0",
     "ethers": "^5.4.5",
-    "hardhat": "^2.3.0",
+    "hardhat": "^2.9.3",
     "hardhat-gas-reporter": "^1.0.4",
     "mocha": "^8.4.0",
     "rimraf": "^3.0.2",
     "shelljs": "^0.8.4",
     "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "hardhat": "^2.9.3"
   }
 }

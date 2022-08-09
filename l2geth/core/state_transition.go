@@ -21,14 +21,14 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rollup/fees"
-	"github.com/ethereum/go-ethereum/rollup/rcfg"
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/common/hexutil"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
+	"github.com/ethereum-optimism/optimism/l2geth/core/vm"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
+	"github.com/ethereum-optimism/optimism/l2geth/params"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/fees"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
 var (
@@ -79,6 +79,7 @@ type Message interface {
 	Nonce() uint64
 	CheckNonce() bool
 	Data() []byte
+	AccessList() types.AccessList
 
 	L1Timestamp() uint64
 	L1BlockNumber() *big.Int
@@ -206,14 +207,13 @@ func (st *StateTransition) preCheck() error {
 	log.Debug("preCheck", "checknonce", st.msg.CheckNonce(), "gas", st.msg.Gas())
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
+		if rcfg.UsingOVM {
+			if st.msg.QueueOrigin() == types.QueueOriginL1ToL2 {
+				return st.buyGas()
+			}
+		}
 		nonce := st.state.GetNonce(st.msg.From())
 		if nonce < st.msg.Nonce() {
-			if rcfg.UsingOVM {
-				// The nonce never increments for L1ToL2 txs
-				if st.msg.QueueOrigin() == types.QueueOriginL1ToL2 {
-					return st.buyGas()
-				}
-			}
 			return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {
 			return ErrNonceTooLow
@@ -258,6 +258,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+	// The access list gets created here
+	if rules := st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber); rules.IsBerlin {
+		st.state.PrepareAccessList(msg.From(), msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+	}
+	
 	// take the l1fee from the gas pool first. it is important to show user the actual cost when estimate
 	// it is also important to take it out before the vm call so that the state wont be changed
 	vmerr = st.useGas(st.l1FeeInL2)
@@ -298,7 +303,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 }
 
 func (st *StateTransition) refundGas() {
-
 	// Apply refund counter, capped to half of the used gas.
 	refund := st.gasUsed() / 2
 	if refund > st.state.GetRefund() {
@@ -317,6 +321,5 @@ func (st *StateTransition) refundGas() {
 
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
-
 	return st.initialGas - st.gas
 }

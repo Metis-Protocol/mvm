@@ -35,12 +35,12 @@ const config: HardhatUserConfig = {
       },
     },
   },
-  gasReporter: {
-    enabled: enableGasReport,
-    currency: 'USD',
-    gasPrice: 100,
-    outputFile: process.env.CI ? 'gas-report.txt' : undefined,
-  },
+  // gasReporter: {
+  //   enabled: enableGasReport,
+  //   currency: 'USD',
+  //   gasPrice: 100,
+  //   outputFile: process.env.CI ? 'gas-report.txt' : undefined,
+  // },
 }
 
 export default config
