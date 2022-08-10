@@ -42,6 +42,9 @@ geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 export EMERGENCY_FORK020222_NUMBER='750000'
 
+# remove static-node
+rm $(echo $DATADIR)/static-nodes.json
+
 # start the geth node
 echo "Starting Geth node"
 exec geth \

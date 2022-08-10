@@ -1671,6 +1671,16 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		return common.Hash{}, errors.New("Not support submit transaction")
 	}
 
+	if b.IsRpcProxySupport() {
+		tx.SetL2Tx(2)
+		errRpc := b.ProxyTransaction(ctx, tx)
+		tx.SetL2Tx(1)
+		if errRpc == nil {
+			return tx.Hash(), nil
+		}
+		return common.Hash{}, errRpc
+	}
+
 	canSubmit := false
 	for _, httpModule := range nodeHTTPModules {
 		if httpModule == "rollup" {
@@ -1678,18 +1688,8 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 			break
 		}
 	}
-	if !canSubmit {
-		// check RPC proxy and do proxy
-		if b.IsRpcProxySupport() {
-			tx.SetL2Tx(2)
-			errRpc := b.ProxyTransaction(ctx, tx)
-			tx.SetL2Tx(1)
-			if errRpc == nil {
-				return tx.Hash(), nil
-			}
-			return common.Hash{}, errRpc
-		}
 
+	if !canSubmit {
 		return common.Hash{}, errors.New("Not support submit transaction")
 	}
 
@@ -1770,7 +1770,7 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
-	if s.b.IsVerifier() {
+	if s.b.IsVerifier() && !s.b.IsRpcProxySupport() {
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}
 
