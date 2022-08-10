@@ -12,6 +12,7 @@ var (
 	UsingOVM               bool
 	SuicideForkNumber      uint64
 	PeerHealthCheckSeconds int64
+	ChainID                uint64
 )
 
 var (
@@ -63,5 +64,16 @@ func init() {
 			panic(err)
 		}
 		PeerHealthCheckSeconds = parsed
+	}
+
+	envChainID := os.Getenv("CHAIN_ID")
+	if envChainID == "" {
+		ChainID = ^uint64(0)
+	} else {
+		parsed, err := strconv.ParseUint(envChainID, 0, 64)
+		if err != nil {
+			panic(err)
+		}
+		ChainID = parsed
 	}
 }

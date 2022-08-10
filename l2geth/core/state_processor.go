@@ -108,7 +108,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 
 	// Apply the transaction to the current state (included in the env)
-	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	// ApplyMessage(vmenv, msg, gp)
+	_, gas, failed, err := ApplyMessageWithBlockNumber(vmenv, msg, gp, header.Number.Uint64())
 	if err != nil {
 		return nil, err
 	}

@@ -159,7 +159,7 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 
 	// create ethclient
 	l2Url := ctx.L2Url()
-	if l2Url != "" && !ctx.IsRollupNode() {
+	if l2Url != "" {
 		leth.rpcClient, err = ethclient.Dial(l2Url)
 		if err != nil {
 			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)

@@ -160,6 +160,10 @@ func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, 
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
+func ApplyMessageWithBlockNumber(evm *vm.EVM, msg Message, gp *GasPool, blockNumber uint64) ([]byte, uint64, bool, error) {
+	return NewStateTransition(evm, msg, gp).TransitionDbWithBlockNumber(blockNumber)
+}
+
 // to returns the recipient of the message.
 func (st *StateTransition) to() common.Address {
 	if st.msg == nil || st.msg.To() == nil /* contract creation */ {
@@ -225,7 +229,12 @@ func (st *StateTransition) preCheck() error {
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
+
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
+	return st.TransitionDbWithBlockNumber(0)
+}
+
+func (st *StateTransition) TransitionDbWithBlockNumber(blockNumber uint64) (ret []byte, usedGas uint64, failed bool, err error) {
 	if err = st.preCheck(); err != nil {
 		return
 	}
@@ -262,7 +271,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if rules := st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber); rules.IsBerlin {
 		st.state.PrepareAccessList(msg.From(), msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
 	}
-	
+
 	// take the l1fee from the gas pool first. it is important to show user the actual cost when estimate
 	// it is also important to take it out before the vm call so that the state wont be changed
 	vmerr = st.useGas(st.l1FeeInL2)
@@ -275,6 +284,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// no need to advance nonce here because checknonce is false
 		log.Debug("zero address with value called. skipping vm execution")
 	} else {
+		// NOTE: andromeda peer & replica
+		if rcfg.ChainID == 1088 && (blockNumber == 3247675 || blockNumber == 3247681) {
+			_ = st.useGas(100000)
+		}
 		log.Debug("getting in vm", "gas", st.gas, "value", st.value, "sender", msg.From(), "gasprice", st.gasPrice)
 		if contractCreation {
 			ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
