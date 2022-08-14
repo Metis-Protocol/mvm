@@ -386,7 +386,12 @@ export class TransportDB {
         transaction.timestamp = patch01[txBlockNumber][1]
       }
       if (transaction.queueOrigin === 'l1') {
-        const enqueue = await this.getEnqueueByIndex(transaction.queueIndex)
+        // Andromeda failed 20397 queue, skip one for verifier batch only
+        let queueIndex = transaction.queueIndex;
+        if (queueIndex >= 20397) {
+            queueIndex++;
+        }
+        const enqueue = await this.getEnqueueByIndex(queueIndex)
         if (enqueue === null) {
           return null
         }
@@ -399,6 +404,7 @@ export class TransportDB {
               target: enqueue.target,
               origin: enqueue.origin,
               data: enqueue.data,
+              queueIndex: queueIndex,
             },
           })
         }
@@ -412,6 +418,7 @@ export class TransportDB {
               target: enqueue.target,
               origin: enqueue.origin,
               data: enqueue.data,
+              queueIndex: queueIndex,
             },
           })
         }
