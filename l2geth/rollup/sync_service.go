@@ -782,9 +782,9 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 	if *index < next {
 		return s.applyHistoricalTransaction(tx)
 	}
-	batchIndex := *s.GetLatestBatchIndex() - 30
-	s.SetLatestBatchIndex(&batchIndex)
-	log.Info("Reset latest batch index to smaller next", "index", batchIndex)
+	// batchIndex := *s.GetLatestBatchIndex() - 30
+	// s.SetLatestBatchIndex(&batchIndex)
+	// log.Info("Reset latest batch index to smaller next", "index", batchIndex)
 	return fmt.Errorf("Received tx at index %d when looking for %d", *index, next)
 }
 
@@ -907,6 +907,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	// the case where the index is updated but the
 	// transaction isn't yet added to the chain
 	s.SetLatestIndex(tx.GetMeta().Index)
+	s.SetLatestVerifiedIndex(tx.GetMeta().Index)
 	if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
 		s.SetLatestEnqueueIndex(queueIndex)
 	}
@@ -927,6 +928,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 		s.SetLatestL1Timestamp(ts)
 		s.SetLatestL1BlockNumber(bn)
 		s.SetLatestIndex(index)
+		s.SetLatestVerifiedIndex(index)
 		return err
 	case <-s.chainHeadCh:
 		// Update the cache when the transaction is from the owner
@@ -938,6 +940,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 				s.SetLatestL1Timestamp(ts)
 				s.SetLatestL1BlockNumber(bn)
 				s.SetLatestIndex(index)
+				s.SetLatestVerifiedIndex(index)
 				return err
 			}
 		}
@@ -947,6 +950,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 		s.SetLatestL1Timestamp(ts)
 		s.SetLatestL1BlockNumber(bn)
 		s.SetLatestIndex(index)
+		s.SetLatestVerifiedIndex(index)
 		return txApplyErr
 	}
 }
@@ -968,7 +972,7 @@ func (s *SyncService) applyBatchedTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("Cannot apply batched transaction: %w", err)
 	}
-	s.SetLatestVerifiedIndex(index)
+	// s.SetLatestVerifiedIndex(index)
 	return nil
 }
 
@@ -1197,7 +1201,13 @@ func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 		if err != nil {
 			return fmt.Errorf("Cannot get transaction batch: %w", err)
 		}
+		next := s.GetNextIndex()
 		for _, tx := range txs {
+			index := tx.GetMeta().Index
+			if *index < next {
+				log.Info("Tx indexed, continue", "index", *index)
+				continue
+			}
 			if err := s.applyBatchedTransaction(tx); err != nil {
 				return fmt.Errorf("cannot apply batched transaction: %w", err)
 			}
@@ -1260,11 +1270,20 @@ func (s *SyncService) syncQueue() (*uint64, error) {
 func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 	log.Info("Syncing enqueue transactions range", "start", start, "end", end)
 	for i := start; i <= end; i++ {
+		// NOTE, andromeda queue lost 20397
+		if rcfg.ChainID == 1088 && i == 20397 {
+			continue
+		}
 		tx, err := s.client.GetEnqueue(i)
 		if err != nil {
 			return fmt.Errorf("Canot get enqueue transaction; %w", err)
 		}
 		if err := s.applyTransaction(tx); err != nil {
+			// retry when enqueue error
+			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
+				restoreIndex := *queueIndex - 1
+				s.SetLatestEnqueueIndex(&restoreIndex)
+			}
 			return fmt.Errorf("Cannot apply transaction: %w", err)
 		}
 	}

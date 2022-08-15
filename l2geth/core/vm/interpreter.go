@@ -96,6 +96,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 		switch {
 		case evm.chainRules.IsBerlin:
 			jt = berlinInstructionSet
+			// log.Info("Use berlin InstructionSet")
 		case evm.chainRules.IsIstanbul:
 			jt = istanbulInstructionSet
 			if rcfg.UsingOVM {
