@@ -72,6 +72,18 @@ var SystemAddressDeployers = map[uint64]SystemAddressDeployer{
 		common.HexToAddress("0xc30276833798867c1dbc5c468bf51ca900b44e4c"),
 		common.HexToAddress("0x5c679a57e018f5f146838138d3e032ef4913d551"),
 	},
+
+	// Stardust
+	588: {
+		common.HexToAddress("0xcDf02971871B7736874E20B8487c019D28090019"),
+		common.HexToAddress("0x9cB01d516D930EF49591a05B09e0D33E6286689D"),
+	},
+
+	// Andromeda
+	1088: {
+		common.HexToAddress("0xcDf02971871B7736874E20B8487c019D28090019"),
+		common.HexToAddress("0x9cB01d516D930EF49591a05B09e0D33E6286689D"),
+	},
 }
 
 var envSystemAddressDeployer SystemAddressDeployer

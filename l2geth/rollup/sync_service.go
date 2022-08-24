@@ -380,7 +380,7 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			tx := txs[0]
 			qi := tx.GetMeta().QueueIndex
 			// When the queue index is set
-			if qi != nil {
+			if qi != nil && *qi != 0 {
 				if *qi == *queueIndex {
 					log.Info("Found correct staring queue index", "queue-index", *qi)
 				} else {
@@ -634,14 +634,17 @@ func (s *SyncService) GasPriceOracleOwnerAddress() *common.Address {
 /// Update the execution context's timestamp and blocknumber
 /// over time. This is only necessary for the sequencer.
 func (s *SyncService) updateL1BlockNumber() error {
+
 	context, err := s.client.GetLatestEthContext()
 	if err != nil {
 		return fmt.Errorf("Cannot get eth context: %w", err)
 	}
-	latest := s.GetLatestL1BlockNumber()
-	if context.BlockNumber > latest {
-		log.Info("Updating L1 block number", "blocknumber", context.BlockNumber)
+	current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
+	next := time.Unix(int64(context.Timestamp), 0)
+	if next.Sub(current) > s.timestampRefreshThreshold {
+		log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
 		s.SetLatestL1BlockNumber(context.BlockNumber)
+		s.SetLatestL1Timestamp(context.Timestamp)
 	}
 	return nil
 }
