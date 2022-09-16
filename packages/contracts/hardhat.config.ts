@@ -46,6 +46,11 @@ const config: HardhatUserConfig = {
       url: 'https://stardust.metis.io/?owner=588',
       accounts: [privateKey],
     },
+    goerli: {
+      chainId: 599,
+      url: 'https://goerli.metis.io/?owner=589',
+      accounts: [privateKey],
+    },
     trial: {
       chainId: 666,
       url: 'https://dev.metis.io/?owner=666',

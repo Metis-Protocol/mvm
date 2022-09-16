@@ -85,6 +85,36 @@ Use their proxied counterparts seen above.
 
 -->
 ---
+## GOERLI
+
+Network : __goerli (chain id: 5)__
+
+|Contract|Address|
+|--|--|
+|BondManager|[0x68c39fc25cd754009C87B3160D5Fc9c155A6dFb9](https://goerli.etherscan.io/address/0x68c39fc25cd754009C87B3160D5Fc9c155A6dFb9)|
+|CanonicalTransactionChain|[0x6Aec60fc997B4e2931b892398517b56F7b3C48Dd](https://goerli.etherscan.io/address/0x6Aec60fc997B4e2931b892398517b56F7b3C48Dd)|
+|ChainStorageContainer-CTC-batches|[0x6782E5641Ba2D8036Db827B42744f0a93Dd45f07](https://goerli.etherscan.io/address/0x6782E5641Ba2D8036Db827B42744f0a93Dd45f07)|
+|ChainStorageContainer-CTC-queue|[0x65d84E31C6958D6b46686DDfe894Dd35B8876F11](https://goerli.etherscan.io/address/0x65d84E31C6958D6b46686DDfe894Dd35B8876F11)|
+|ChainStorageContainer-SCC-batches|[0x553417fEB2B366c7a4f9aAa2C8B9330CAFfd95E4](https://goerli.etherscan.io/address/0x553417fEB2B366c7a4f9aAa2C8B9330CAFfd95E4)|
+|L1StandardBridge_for_verification_only|[0x55d3fE19b97D5f948aE277056c1F96fe18E8B0c0](https://goerli.etherscan.io/address/0x55d3fE19b97D5f948aE277056c1F96fe18E8B0c0)|
+|Lib_AddressManager|[0x0C40f1f7A3B348F8e223F25e9d5808eA5FB43349](https://goerli.etherscan.io/address/0x0C40f1f7A3B348F8e223F25e9d5808eA5FB43349)|
+|MVM_CanonicalTransaction_for_verification_only|[0x174eADC85E3B39F48bD378bc63301247854E9385](https://goerli.etherscan.io/address/0x174eADC85E3B39F48bD378bc63301247854E9385)|
+|MVM_DiscountOracle|[0xd6274CEA1fD5a84b30bbC851DF6c73A5D1A78A32](https://goerli.etherscan.io/address/0xd6274CEA1fD5a84b30bbC851DF6c73A5D1A78A32)|
+|MVM_L2ChainManagerOnL1_for_verification_only|[0x828c94303251ee2A66d4aEC2714500384453307F](https://goerli.etherscan.io/address/0x828c94303251ee2A66d4aEC2714500384453307F)|
+|MVM_Verifier_for_verification_only|[0x538c6E5C076f8d752F5fBad308a381A370092579](https://goerli.etherscan.io/address/0x538c6E5C076f8d752F5fBad308a381A370092579)|
+|OVM_L1CrossDomainMessenger|[0x2562Fbe25611C70e7674fb6bc1268F26D484C8F8](https://goerli.etherscan.io/address/0x2562Fbe25611C70e7674fb6bc1268F26D484C8F8)|
+|Proxy__MVM_CanonicalTransaction|[0x9257d9d478fb71B98Cc2d1866B1A8C504a8B64C7](https://goerli.etherscan.io/address/0x9257d9d478fb71B98Cc2d1866B1A8C504a8B64C7)|
+|Proxy__MVM_ChainManager|[0xE11986E6dDE546294b43f1eCc7181749322E89bf](https://goerli.etherscan.io/address/0xE11986E6dDE546294b43f1eCc7181749322E89bf)|
+|Proxy__MVM_Verifier|[0x7ae231F97dd9EFFBE1F84474c050F124074Fb45e](https://goerli.etherscan.io/address/0x7ae231F97dd9EFFBE1F84474c050F124074Fb45e)|
+|Proxy__OVM_L1CrossDomainMessenger|[0x914Aed79Cd083B5043C75A90616CC2A0477bf86c](https://goerli.etherscan.io/address/0x914Aed79Cd083B5043C75A90616CC2A0477bf86c)|
+|Proxy__OVM_L1StandardBridge|[0xCF7257A86A5dBba34bAbcd2680f209eb9a05b2d2](https://goerli.etherscan.io/address/0xCF7257A86A5dBba34bAbcd2680f209eb9a05b2d2)|
+|StateCommitmentChain|[0xd7344Cd0cC2C1A4c208B87fF227aDd1A576ac397](https://goerli.etherscan.io/address/0xd7344Cd0cC2C1A4c208B87fF227aDd1A576ac397)|
+<!--
+Implementation addresses. DO NOT use these addresses directly.
+Use their proxied counterparts seen above.
+
+-->
+---
 ## ANDROMEDA
 
 Network : __mainnet (chain id: 1)__
