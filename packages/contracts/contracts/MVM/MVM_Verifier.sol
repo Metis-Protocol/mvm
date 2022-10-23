@@ -220,6 +220,8 @@ contract MVM_Verifier is Lib_AddressResolver{
         uint numAgrees = 0;
         address[] memory disagrees = new address[](challenge.verifiers.length);
         uint numDisagrees = 0;
+        address[] memory penalized = new address[](challenge.verifiers.length);
+        uint numPenalized = 0;
 
         for (uint256 i = 0; i < verifiers.length; i++) {
             if (!isSufficientlyStaked(verifiers[i]) || !isWhiteListed(verifiers[i])) {
@@ -239,7 +241,9 @@ contract MVM_Verifier is Lib_AddressResolver{
                 //absent
                 absence_strikes[verifiers[i]] += 2;
                 if (absence_strikes[verifiers[i]] > ABSENCE_THRESHOLD) {
-                    reward += penalize(verifiers[i]);
+                    reward += verifier_stakes[verifiers[i]];
+                    penalized[numPenalized] = verifiers[i];
+                    numPenalized++;
                 }
             } else {
                 //disagree with the challenger
@@ -249,6 +253,9 @@ contract MVM_Verifier is Lib_AddressResolver{
                 disagrees[numDisagrees] = verifiers[i];
                 numDisagrees++;
             }
+        }
+        for (uint256 i = 0; i < numPenalized; i++) {
+            penalize(penalized[i]);
         }
 
         if (Lib_OVMCodec.hashBatchHeader(challenge.header) !=
