@@ -27,4 +27,5 @@ interface iMVM_DiscountOracle{
     function getMinL2Gas() view external returns(uint256);
     function getDiscount() view external returns(uint256);
     function processL2SeqGas(address sender, uint256 _chainId) external payable;
+    function withdrawToSeq(uint256 _amount, uint256 _chainId) external;
 }

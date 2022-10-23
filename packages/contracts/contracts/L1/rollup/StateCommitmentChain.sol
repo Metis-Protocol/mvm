@@ -94,8 +94,9 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
      * @inheritdoc IStateCommitmentChain
      */
     function appendStateBatch(bytes32[] memory _batch, uint256 _shouldStartAtElement) public {
-        require (1==0, "don't use");
-        //appendStateBatchByChainId(DEFAULT_CHAINID, _batch, _shouldStartAtElement, "1088_MVM_Proposer");
+        //require (1==0, "don't use");
+        string memory proposer = string(abi.encodePacked(uint2str(DEFAULT_CHAINID), "_MVM_Proposer"));
+        appendStateBatchByChainId(DEFAULT_CHAINID, _batch, _shouldStartAtElement, proposer);
     }
     
     /**
@@ -237,9 +238,9 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
      */
     function appendStateBatchByChainId(
         uint256 _chainId,
-        bytes32[] calldata _batch,
+        bytes32[] memory _batch,
         uint256 _shouldStartAtElement,
-        string calldata proposer
+        string memory proposer
     )
         override
         public
@@ -257,6 +258,12 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
         require(
             IBondManager(resolve("BondManager")).isCollateralizedByChainId(_chainId,msg.sender,proposerAddr),
             "Proposer does not have enough collateral posted"
+        );
+        
+        require(
+            msg.sender == resolve(
+              string(abi.encodePacked(uint2str(_chainId),"_MVM_Proposer"))),
+            "Sender does not match this chain proposer."
         );
 
         require(

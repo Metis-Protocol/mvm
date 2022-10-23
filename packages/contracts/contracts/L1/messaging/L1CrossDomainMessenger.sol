@@ -103,6 +103,13 @@ contract L1CrossDomainMessenger is
     }
 
     /**
+     * Unpause relaying.
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
      * Block a message.
      * @param _xDomainCalldataHash Hash of the message to block.
      */
@@ -214,7 +221,7 @@ contract L1CrossDomainMessenger is
         bytes memory _message,
         uint256 _messageNonce,
         L2MessageInclusionProof memory _proof
-    ) public nonReentrant whenNotPaused {
+    ) public whenNotPaused {
         relayMessageViaChainId(DEFAULT_CHAINID, _target, _sender,
                                _message, _messageNonce, _proof);
     }

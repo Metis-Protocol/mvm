@@ -17,6 +17,8 @@ import { IChainStorageContainer } from "./IChainStorageContainer.sol";
  * writing them to the 'CTC:batches' instance of the Chain Storage Container.
  * The CTC also allows any account to 'enqueue' an L2 transaction, which will require that the
  * Sequencer will eventually append it to the rollup state.
+ * The manager can add, delete and update the transactions data, update queue data, 
+ * when a fraud proof accepted in challege.
  *
  * Runtime target: EVM
  */
@@ -637,6 +639,32 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             _gasLimit >= MIN_ROLLUP_TX_GAS,
             "Transaction gas limit too low to enqueue."
         );
+        
+        // Transactions submitted to the queue lack a method for paying gas fees to the Sequencer.
+        // So we need to prevent spam attacks by ensuring that the cost of enqueueing a transaction
+        // from L1 to L2 is not underpriced. For transaction with a high L2 gas limit, we do this by
+        // burning some extra gas on L1. Of course there is also some intrinsic cost to enqueueing a
+        // transaction, so we want to make sure not to over-charge (by burning too much L1 gas).
+        // Therefore, we define 'enqueueL2GasPrepaid' as the L2 gas limit above which we must burn
+        // additional gas on L1. This threshold is the product of two inputs:
+        // 1. enqueueGasCost: the base cost of calling this function.
+        // 2. l2GasDiscountDivisor: the ratio between the cost of gas on L1 and L2. This is a
+        //    positive integer, meaning we assume L2 gas is always less costly.
+        // The calculation below for gasToConsume can be seen as converting the difference (between
+        // the specified L2 gas limit and the prepaid L2 gas limit) to an L1 gas amount.
+        if (_gasLimit > enqueueL2GasPrepaid) {
+            uint256 gasToConsume = (_gasLimit - enqueueL2GasPrepaid) / l2GasDiscountDivisor;
+            uint256 startingGas = gasleft();
+
+            // Although this check is not necessary (burn below will run out of gas if not true), it
+            // gives the user an explicit reason as to why the enqueue attempt failed.
+            require(startingGas > gasToConsume, "Insufficient gas for L2 rate limiting burn.");
+
+            uint256 i;
+            while (startingGas - gasleft() < gasToConsume) {
+                i++;
+            }
+        }
         
         // Apply an aliasing unless msg.sender == tx.origin. This prevents an attack in which a
         // contract on L1 has the same address as a contract on L2 but doesn't have the same code.

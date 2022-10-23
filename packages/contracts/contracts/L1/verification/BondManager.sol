@@ -41,10 +41,10 @@ contract BondManager is IBondManager, Lib_AddressResolver {
         //return bonds[_who].state == State.COLLATERALIZED;
     }
     
-    function registerSequencerByChainId(
-        uint256 _chainId,
-        address _sequencer,
-        address _proposer
-    ) public {
-    }
+    // function registerSequencerByChainId(
+    //    uint256 _chainId,
+    //    address _sequencer,
+    //    address _proposer
+    //) public {
+    //}
 }

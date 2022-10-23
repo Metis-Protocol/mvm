@@ -108,6 +108,25 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     public payable override {
         require(isXDomainSenderAllowed(sender), "sender is not whitelisted");
     }
+    
+    function withdrawToSeq(
+        uint256 _amount,
+        uint256 _chainId
+    ) 
+        public
+        override
+        onlyManager
+    {
+        require(_amount > 0, "incorrect amount");
+        require(
+            _amount <= address(this).balance,
+            "insufficient balance"
+        );
+        require(_chainId > 0, "incorrect chainId");
+        address _to = resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper")));
+        require(_to != address(0) && _to != address(this), "unknown sequencer address");
+        _to.call{value: _amount}("");
+    }
 
 
     function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
