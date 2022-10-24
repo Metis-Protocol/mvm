@@ -57,7 +57,7 @@ func (s *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 		CheckOrigin:     wsHandshakeValidator(allowedOrigins),
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    	// health check
+		// health check
 		if r.Method == http.MethodGet && r.URL.Path == "/healthz" {
 			return
 		}

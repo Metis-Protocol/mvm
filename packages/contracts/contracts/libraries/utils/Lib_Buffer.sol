@@ -199,6 +199,8 @@ library Lib_Buffer {
     )
         internal
     {
+        BufferContext memory ctx = _self.getContext();
+        require(_index < ctx.length, "Index out of bounds.");
         _self.buf[_index] = _value;
     }
 }

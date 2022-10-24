@@ -151,7 +151,9 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * the deposit.
      * @param _from Account to pull the deposit from on L1.
      * @param _to Account to give the deposit to on L2.
-     * @param _l2Gas Gas limit required to complete the deposit on L2.
+     * @param _l2Gas Gas limit required to complete the deposit on L2, 
+     *        it should equal to or large than oracle.getMinL2Gas(),
+     *        user should send at least _l2Gas * oracle.getDiscount().
      * @param _data Optional data to forward to L2. This data is provided
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
@@ -165,6 +167,19 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
         _initiateETHDepositByChainId(DEFAULT_CHAINID, _from, _to, _l2Gas, _data);
     }
     
+    /**
+     * @dev Performs the logic for deposits by storing the ETH and informing the L2 ETH Gateway of
+     * the deposit.
+     * @param _chainId L2 chain id.
+     * @param _from Account to pull the deposit from on L1.
+     * @param _to Account to give the deposit to on L2.
+     * @param _l2Gas Gas limit required to complete the deposit on L2, 
+     *        it should equal to or large than oracle.getMinL2Gas(),
+     *        user should send at least _l2Gas * oracle.getDiscount().
+     * @param _data Optional data to forward to L2. This data is provided
+     *        solely as a convenience for external contracts. Aside from enforcing a maximum
+     *        length, these contracts provide no guarantees about its content.
+     */
     function _initiateETHDepositByChainId(
         uint256 _chainId,
         address _from,
@@ -276,7 +291,9 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * @param _from Account to pull the deposit from on L1
      * @param _to Account to give the deposit to on L2
      * @param _amount Amount of the ERC20 to deposit.
-     * @param _l2Gas Gas limit required to complete the deposit on L2.
+     * @param _l2Gas Gas limit required to complete the deposit on L2, 
+     *        it should equal to or large than oracle.getMinL2Gas(),
+     *        user should send at least _l2Gas * oracle.getDiscount().
      * @param _data Optional data to forward to L2. This data is provided
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
@@ -293,6 +310,23 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
         _initiateERC20DepositByChainId(DEFAULT_CHAINID, _l1Token, _l2Token, _from, _to, _amount, _l2Gas, _data);
     }
     
+    /**
+     * @dev Performs the logic for deposits by informing the L2 Deposited Token
+     * contract of the deposit and calling a handler to lock the L1 funds. (e.g. transferFrom)
+     *
+     * @param _chainId L2 chain id
+     * @param _l1Token Address of the L1 ERC20 we are depositing
+     * @param _l2Token Address of the L1 respective L2 ERC20
+     * @param _from Account to pull the deposit from on L1
+     * @param _to Account to give the deposit to on L2
+     * @param _amount Amount of the ERC20 to deposit.
+     * @param _l2Gas Gas limit required to complete the deposit on L2, 
+     *        it should equal to or large than oracle.getMinL2Gas(),
+     *        user should send at least _l2Gas * oracle.getDiscount().
+     * @param _data Optional data to forward to L2. This data is provided
+     *        solely as a convenience for external contracts. Aside from enforcing a maximum
+     *        length, these contracts provide no guarantees about its content.
+     */
     function _initiateERC20DepositByChainId(
         uint256 _chainId,
         address _l1Token,

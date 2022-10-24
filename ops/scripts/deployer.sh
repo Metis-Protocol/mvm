@@ -44,5 +44,5 @@ yarn run build:dump
 
 # service the addresses and dumps
 cd ./dist/dumps
-exec python -c \
-            'import BaseHTTPServer as bhs, SimpleHTTPServer as shs; bhs.HTTPServer(("0.0.0.0", 8081), shs.SimpleHTTPRequestHandler).serve_forever()'
+exec python3 -c \
+              'import http.server as hs; hs.HTTPServer(("0.0.0.0", 8081), hs.SimpleHTTPRequestHandler).serve_forever()'

@@ -45,6 +45,8 @@ export interface RollupDeployConfig {
   l1MetisManagerAddress: string
 
   gasPriceOracleMinErc20BridgeCost: number
+  
+  hfBerlinBlock: number
 }
 
 /**
@@ -163,6 +165,7 @@ export const makeL2GenesisFile = async (
       petersburgBlock: 0,
       istanbulBlock: 0,
       muirGlacierBlock: 0,
+      berlinBlock: cfg.hfBerlinBlock,
       clique: {
         period: 0,
         epoch: 30000,
