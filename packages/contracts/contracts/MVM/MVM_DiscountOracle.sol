@@ -5,13 +5,15 @@ pragma solidity ^0.8.9;
 
 import { iMVM_DiscountOracle } from "./iMVM_DiscountOracle.sol";
 import { Lib_AddressResolver } from "../libraries/resolver/Lib_AddressResolver.sol";
+import { Lib_Uint } from "../libraries/utils/Lib_Uint.sol";
 
 contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     // Current l2 gas price
     uint256 public discount;
     uint256 public minL2Gas;
     mapping (address => bool) public xDomainWL;
-    bool allowAllXDomainSenders;
+    mapping (uint256 => uint256) public l2ChainSeqGas;
+    bool public allowAllXDomainSenders;
     string constant public CONFIG_OWNER_KEY = "METIS_MANAGER";
 
     /**********************
@@ -89,7 +91,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
         )
     {
         return (
-            allowAllXDomainSenders == true
+            allowAllXDomainSenders
             || xDomainWL[_sender]
         );
     }
@@ -107,6 +109,7 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
     function processL2SeqGas(address sender, uint256 _chainId)
     public payable override {
         require(isXDomainSenderAllowed(sender), "sender is not whitelisted");
+        l2ChainSeqGas[_chainId] += msg.value;
     }
     
     function withdrawToSeq(
@@ -123,31 +126,13 @@ contract MVM_DiscountOracle is iMVM_DiscountOracle, Lib_AddressResolver{
             "insufficient balance"
         );
         require(_chainId > 0, "incorrect chainId");
-        address _to = resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper")));
+        require(
+            _amount <= l2ChainSeqGas[_chainId],
+            "this chain sequencer gas is not enough"
+        );
+        address _to = resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Sequencer_Wrapper")));
         require(_to != address(0) && _to != address(this), "unknown sequencer address");
         _to.call{value: _amount}("");
-    }
-
-
-    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
-        if (_i == 0) {
-            return "0";
-        }
-        uint j = _i;
-        uint len;
-        while (j != 0) {
-            len++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(len);
-        uint k = len;
-        while (_i != 0) {
-            k = k-1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
-        }
-        return string(bstr);
+        l2ChainSeqGas[_chainId] -= _amount;
     }
 }

@@ -16,8 +16,7 @@ import { IChainStorageContainer } from "./IChainStorageContainer.sol";
  * chain state or transactions being finalized.
  * Three distinct Chain Storage Containers will be deployed on Layer 1:
  * 1. Stores transaction batches for the Canonical Transaction Chain
- * 2. Stores queued transactions for the Canonical Transaction Chain
- * 3. Stores chain state batches for the State Commitment Chain
+ * 2. Stores chain state batches for the State Commitment Chain
  *
  * Runtime target: EVM
  */

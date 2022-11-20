@@ -14,6 +14,7 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { iMVM_DiscountOracle } from "../../MVM/iMVM_DiscountOracle.sol";
 import { Lib_AddressManager } from "../../libraries/resolver/Lib_AddressManager.sol";
+import { Lib_Uint } from "../../libraries/utils/Lib_Uint.sol";
 
 /**
  * @title L1StandardBridge
@@ -154,6 +155,8 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * @param _l2Gas Gas limit required to complete the deposit on L2, 
      *        it should equal to or large than oracle.getMinL2Gas(),
      *        user should send at least _l2Gas * oracle.getDiscount().
+     *        Bridging tokens and coins require paying fees, and there is the defined minimal L2 Gas limit,
+     *        which may make the defined by user Gas value increase.
      * @param _data Optional data to forward to L2. This data is provided
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
@@ -176,6 +179,8 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * @param _l2Gas Gas limit required to complete the deposit on L2, 
      *        it should equal to or large than oracle.getMinL2Gas(),
      *        user should send at least _l2Gas * oracle.getDiscount().
+     *        Bridging tokens and coins require paying fees, and there is the defined minimal L2 Gas limit,
+     *        which may make the defined by user Gas value increase.
      * @param _data Optional data to forward to L2. This data is provided
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
@@ -197,7 +202,7 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
         }
         uint256 fee = _l2Gas * oracle.getDiscount();
         
-        require(fee <= msg.value, string(abi.encodePacked("insufficient fee supplied. send at least ", uint2str(fee))));
+        require(fee < msg.value, string(abi.encodePacked("insufficient fee supplied. send at least ", Lib_Uint.uint2str(fee))));
         // Construct calldata for finalizeDeposit call
         bytes memory message =
             abi.encodeWithSelector(
@@ -219,7 +224,7 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
             fee  // only send the supplied fees over (obviously)
         );
 
-        emit ETHDepositInitiated(_from, _to, msg.value, _data, _chainId);
+        emit ETHDepositInitiated(_from, _to, msg.value - fee, _data, _chainId);
     }
 
     /**
@@ -294,6 +299,8 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * @param _l2Gas Gas limit required to complete the deposit on L2, 
      *        it should equal to or large than oracle.getMinL2Gas(),
      *        user should send at least _l2Gas * oracle.getDiscount().
+     *        Bridging tokens and coins require paying fees, and there is the defined minimal L2 Gas limit,
+     *        which may make the defined by user Gas value increase.
      * @param _data Optional data to forward to L2. This data is provided
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
@@ -323,6 +330,8 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * @param _l2Gas Gas limit required to complete the deposit on L2, 
      *        it should equal to or large than oracle.getMinL2Gas(),
      *        user should send at least _l2Gas * oracle.getDiscount().
+     *        Bridging tokens and coins require paying fees, and there is the defined minimal L2 Gas limit,
+     *        which may make the defined by user Gas value increase.
      * @param _data Optional data to forward to L2. This data is provided
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
@@ -347,7 +356,7 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
         }
         
         require(_l2Gas * oracle.getDiscount() <= msg.value, 
-                string(abi.encodePacked("insufficient fee supplied. send at least ", uint2str(_l2Gas * oracle.getDiscount()))));
+                string(abi.encodePacked("insufficient fee supplied. send at least ", Lib_Uint.uint2str(_l2Gas * oracle.getDiscount()))));
         
         // When a deposit is initiated on L1, the L1 Bridge transfers the funds to itself for future
         // withdrawals. safeTransferFrom also checks if the contract has code, so this will fail if
@@ -515,26 +524,4 @@ contract L1StandardBridge is IL1StandardBridge, CrossDomainEnabled {
      * old contract
      */
     function donateETH() external payable {}
-    
-    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
-        if (_i == 0) {
-            return "0";
-        }
-        uint j = _i;
-        uint len;
-        while (j != 0) {
-            len++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(len);
-        uint k = len;
-        while (_i != 0) {
-            k = k-1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
-        }
-        return string(bstr);
-    }
 }

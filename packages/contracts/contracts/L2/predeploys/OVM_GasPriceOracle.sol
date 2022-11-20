@@ -114,7 +114,9 @@ contract OVM_GasPriceOracle {
      * @param _baseFee New l1 base fee
      */
     function setL1BaseFee(uint256 _baseFee) public onlyOwner {
-        require(_baseFee < l1BaseFee * 105 / 100, "increase is capped at 5%");
+        if (l1BaseFee > 0) {
+            require(_baseFee < l1BaseFee * 105 / 100, "increase is capped at 5%");
+        }
         l1BaseFee = _baseFee;
         emit L1BaseFeeUpdated(_baseFee);
     }
@@ -124,7 +126,9 @@ contract OVM_GasPriceOracle {
      * @param _overhead New overhead
      */
     function setOverhead(uint256 _overhead) public onlyOwner {
-        require(_overhead < overhead * 105 / 100, "increase is capped at 5%");
+        if (overhead > 0) {
+            require(_overhead < overhead * 105 / 100, "increase is capped at 5%");
+        }
         overhead = _overhead;
         emit OverheadUpdated(_overhead);
     }
@@ -134,7 +138,9 @@ contract OVM_GasPriceOracle {
      * @param _scalar New scalar
      */
     function setScalar(uint256 _scalar) public onlyOwner {
-        require(_scalar < scalar * 105 / 100, "increase is capped at 5%");
+        if (scalar > 0) {
+            require(_scalar < scalar * 105 / 100, "increase is capped at 5%");
+        }
         scalar = _scalar;
         emit ScalarUpdated(_scalar);
     }

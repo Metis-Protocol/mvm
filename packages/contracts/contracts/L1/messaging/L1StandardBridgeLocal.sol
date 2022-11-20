@@ -14,6 +14,7 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { iMVM_DiscountOracle } from "../../MVM/iMVM_DiscountOracle.sol";
 import { Lib_AddressManager } from "../../libraries/resolver/Lib_AddressManager.sol";
+import { Lib_Uint } from "../../libraries/utils/Lib_Uint.sol";
 
 /**
  * @title L1StandardBridgeLocal
@@ -182,7 +183,7 @@ contract L1StandardBridgeLocal is IL1StandardBridge, CrossDomainEnabled {
         }
         uint256 fee = _l2Gas * oracle.getDiscount();
         
-        require(fee <= msg.value, string(abi.encodePacked("insufficient fee supplied. send at least ", uint2str(fee))));
+        require(fee <= msg.value, string(abi.encodePacked("insufficient fee supplied. send at least ", Lib_Uint.uint2str(fee))));
         // Construct calldata for finalizeDeposit call
         bytes memory message =
             abi.encodeWithSelector(
@@ -313,7 +314,7 @@ contract L1StandardBridgeLocal is IL1StandardBridge, CrossDomainEnabled {
         }
         
         require(_l2Gas * oracle.getDiscount() <= msg.value, 
-                string(abi.encodePacked("insufficient fee supplied. send at least ", uint2str(_l2Gas * oracle.getDiscount()))));
+                string(abi.encodePacked("insufficient fee supplied. send at least ", Lib_Uint.uint2str(_l2Gas * oracle.getDiscount()))));
         
         // When a deposit is initiated on L1, the L1 Bridge transfers the funds to itself for future
         // withdrawals. safeTransferFrom also checks if the contract has code, so this will fail if
@@ -481,26 +482,4 @@ contract L1StandardBridgeLocal is IL1StandardBridge, CrossDomainEnabled {
      * old contract
      */
     function donateETH() external payable {}
-    
-    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
-        if (_i == 0) {
-            return "0";
-        }
-        uint j = _i;
-        uint len;
-        while (j != 0) {
-            len++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(len);
-        uint k = len;
-        while (_i != 0) {
-            k = k-1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
-        }
-        return string(bstr);
-    }
 }

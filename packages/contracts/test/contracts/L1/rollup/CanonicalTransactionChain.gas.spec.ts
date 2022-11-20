@@ -145,6 +145,7 @@ describe('[GAS BENCHMARK] CanonicalTransactionChain', () => {
           },
         ],
         transactions,
+        blockNumbers: [],
       })
 
       const receipt = await res.wait()
@@ -192,6 +193,7 @@ describe('[GAS BENCHMARK] CanonicalTransactionChain', () => {
           }
         }),
         transactions,
+        blockNumbers: [],
       })
 
       const receipt = await res.wait()
@@ -249,6 +251,7 @@ describe('[GAS BENCHMARK] CanonicalTransactionChain', () => {
         totalElementsToAppend: numTxs + numEnqueues,
         contexts: queueContexts,
         transactions,
+        blockNumbers: [],
       })
 
       const receipt = await res.wait()
