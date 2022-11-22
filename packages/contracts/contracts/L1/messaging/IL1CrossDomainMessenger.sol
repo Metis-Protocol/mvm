@@ -59,7 +59,7 @@ interface IL1CrossDomainMessenger is ICrossDomainMessenger {
         uint256 _queueIndex,
         uint32 _oldGasLimit,
         uint32 _newGasLimit
-    ) external payable;
+    ) external;
 
     /**
      * Relays a cross domain message to a contract with L2 chain id.
@@ -96,6 +96,6 @@ interface IL1CrossDomainMessenger is ICrossDomainMessenger {
         uint256 _queueIndex,
         uint32 _oldGasLimit,
         uint32 _newGasLimit
-    ) external payable;
+    ) external;
 
 }

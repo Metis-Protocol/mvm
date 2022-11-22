@@ -141,7 +141,7 @@ interface ICanonicalTransactionChain {
      * Accesses the queue storage container.
      * @return Reference to the queue storage container.
      */
-    function queue() external view returns (IChainStorageContainer);
+    // function queue() external view returns (IChainStorageContainer);
 
     /**
      * Retrieves the total number of elements submitted.

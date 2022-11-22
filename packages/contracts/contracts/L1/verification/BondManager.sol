@@ -6,6 +6,7 @@ import { IBondManager } from "./IBondManager.sol";
 
 /* Contract Imports */
 import { Lib_AddressResolver } from "../../libraries/resolver/Lib_AddressResolver.sol";
+import { Lib_Uint } from "../../libraries/utils/Lib_Uint.sol";
 
 /**
  * @title BondManager
@@ -37,6 +38,11 @@ contract BondManager is IBondManager, Lib_AddressResolver {
         address _prop
     ) override public view returns (bool) {
         require(_who==_prop,"sender must the proposer!");
+        require(
+            _prop == resolve(
+              string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Proposer"))),
+            "Proposer does not match this chain."
+        );
         return true;
         //return bonds[_who].state == State.COLLATERALIZED;
     }

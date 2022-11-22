@@ -26,18 +26,16 @@ describe('OVM_ETH', () => {
       await expect(
         OVM_ETH.transfer(await signer2.getAddress(), 100)
       ).to.be.revertedWith(
-        'OVM_ETH: transfer is disabled pending further community discussion.'
+        'ERC20: transfer amount exceeds balance'
       )
     })
   })
 
   describe('approve', () => {
-    it('should revert', async () => {
+    it('should not revert', async () => {
       await expect(
         OVM_ETH.approve(await signer2.getAddress(), 100)
-      ).to.be.revertedWith(
-        'OVM_ETH: approve is disabled pending further community discussion.'
-      )
+      ).to.be.not.reverted
     })
   })
 
@@ -50,18 +48,16 @@ describe('OVM_ETH', () => {
           100
         )
       ).to.be.revertedWith(
-        'OVM_ETH: transferFrom is disabled pending further community discussion.'
+        'ERC20: transfer amount exceeds balance'
       )
     })
   })
 
   describe('increaseAllowance', () => {
-    it('should revert', async () => {
+    it('should bot revert', async () => {
       await expect(
         OVM_ETH.increaseAllowance(await signer2.getAddress(), 100)
-      ).to.be.revertedWith(
-        'OVM_ETH: increaseAllowance is disabled pending further community discussion.'
-      )
+      ).to.be.not.reverted
     })
   })
 
@@ -70,7 +66,7 @@ describe('OVM_ETH', () => {
       await expect(
         OVM_ETH.decreaseAllowance(await signer2.getAddress(), 100)
       ).to.be.revertedWith(
-        'OVM_ETH: decreaseAllowance is disabled pending further community discussion.'
+        'ERC20: decreased allowance below zero'
       )
     })
   })

@@ -450,6 +450,7 @@ describe('CanonicalTransactionChain', () => {
           ],
           shouldStartAtElement: 1234,
           totalElementsToAppend: 1,
+          blockNumbers: [],
         })
       ).to.be.revertedWith(
         'Actual batch start index does not match expected start index.'
@@ -470,6 +471,7 @@ describe('CanonicalTransactionChain', () => {
           ],
           shouldStartAtElement: 0,
           totalElementsToAppend: 2,
+          blockNumbers: [],
         })
       ).to.be.revertedWith(
         'Attempted to append more elements than are available in the queue.'
@@ -492,6 +494,7 @@ describe('CanonicalTransactionChain', () => {
             ],
             shouldStartAtElement: 0,
             totalElementsToAppend: 1,
+            blockNumbers: [],
           }
         )
       ).to.be.revertedWith('Function can only be called by the Sequencer.')
@@ -515,6 +518,7 @@ describe('CanonicalTransactionChain', () => {
         ],
         shouldStartAtElement: 0,
         totalElementsToAppend: 1,
+        blockNumbers: [],
       })
       const receipt = await res.wait()
 
@@ -564,6 +568,7 @@ describe('CanonicalTransactionChain', () => {
                   contexts,
                   shouldStartAtElement: 0,
                   totalElementsToAppend: size,
+                  blockNumbers: [],
                 })
               )
                 .to.emit(CanonicalTransactionChain, 'SequencerBatchAppended')
@@ -608,6 +613,7 @@ describe('CanonicalTransactionChain', () => {
                   contexts,
                   shouldStartAtElement: 0,
                   totalElementsToAppend: size * 2,
+                  blockNumbers: [],
                 })
               )
                 .to.emit(CanonicalTransactionChain, 'SequencerBatchAppended')
@@ -645,6 +651,7 @@ describe('CanonicalTransactionChain', () => {
                   contexts,
                   shouldStartAtElement: 0,
                   totalElementsToAppend: size + spacing,
+                  blockNumbers: [],
                 })
               )
                 .to.emit(CanonicalTransactionChain, 'SequencerBatchAppended')
@@ -687,6 +694,7 @@ describe('CanonicalTransactionChain', () => {
               contexts,
               shouldStartAtElement: 0,
               totalElementsToAppend: size,
+              blockNumbers: [],
             }
           )
           await res.wait()

@@ -10,6 +10,7 @@ import { IL2ERC20Bridge } from "./IL2ERC20Bridge.sol";
 import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import { CrossDomainEnabled } from "../../libraries/bridge/CrossDomainEnabled.sol";
 import { Lib_PredeployAddresses } from "../../libraries/constants/Lib_PredeployAddresses.sol";
+import { Lib_Uint } from "../../libraries/utils/Lib_Uint.sol";
 
 /* Contract Imports */
 import { IL2StandardERC20 } from "../../standards/IL2StandardERC20.sol";
@@ -124,7 +125,7 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
         // require minimum gas unless, the metis manager is the sender
         require (msg.value >= minL1Gas ||
                     _from == Lib_PredeployAddresses.SEQUENCER_FEE_WALLET, 
-                 string(abi.encodePacked("insufficient withdrawal fee supplied. need at least ", uint2str(minL1Gas))));
+                 string(abi.encodePacked("insufficient withdrawal fee supplied. need at least ", Lib_Uint.uint2str(minL1Gas))));
         
         // When a withdrawal is initiated, we burn the withdrawer's funds to prevent subsequent L2
         // usage
@@ -233,28 +234,4 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
 
         }
     }
-    
-    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
-        if (_i == 0) {
-            return "0";
-        }
-        uint j = _i;
-        uint len;
-        while (j != 0) {
-            len++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(len);
-        uint k = len;
-        while (_i != 0) {
-            k = k-1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
-        }
-        return string(bstr);
-    }
-    
-    
 }

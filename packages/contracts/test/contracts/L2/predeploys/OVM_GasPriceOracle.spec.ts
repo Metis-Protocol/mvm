@@ -204,13 +204,13 @@ describe('OVM_GasPriceOracle', () => {
     })
 
     it('should change when setOverhead is called', async () => {
-      const overhead = 6657
+      const overhead = 2850
       await OVM_GasPriceOracle.connect(signer1).setOverhead(overhead)
       expect(await OVM_GasPriceOracle.overhead()).to.equal(overhead)
     })
 
     it('is the 3rd storage slot', async () => {
-      const overhead = 119090
+      const overhead = 2860
       const slot = 3
 
       // set the price

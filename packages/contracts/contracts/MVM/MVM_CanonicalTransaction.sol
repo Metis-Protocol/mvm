@@ -11,6 +11,7 @@ import { ICanonicalTransactionChain } from "../L1/rollup/ICanonicalTransactionCh
 import { IChainStorageContainer } from "../L1/rollup/IChainStorageContainer.sol";
 import { StateCommitmentChain } from "../L1/rollup/StateCommitmentChain.sol";
 import { Lib_MerkleTree } from "../libraries/utils/Lib_MerkleTree.sol";
+import { Lib_Uint } from "../libraries/utils/Lib_Uint.sol";
 
 contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResolver{
     /*************
@@ -94,7 +95,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         if (msg.sender == resolve('MVM_DiscountOracle')) {
             uint256 _chainId = getAddressChainId(msg.sender);
             if (_chainId > 0) {
-                address _to = resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper")));
+                address _to = resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Sequencer_Wrapper")));
                 if (_to != address(0) && _to != address(this)) {
                     _to.call{value: msg.value}("");
                 }
@@ -209,7 +210,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
             numContexts           := shr(232, calldataload(44))
         }
         require(
-            msg.sender == resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
+            msg.sender == resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
             "Function can only be called by the Sequencer."
         );
         uint256 posTs =  47 + 16 * numContexts;
@@ -278,7 +279,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         public
     {
         require(
-            msg.sender == resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
+            msg.sender == resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
             "Function can only be called by the Sequencer."
         );
         // check stake
@@ -330,7 +331,7 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         public
     {
          require(
-            msg.sender != resolve(string(abi.encodePacked(uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
+            msg.sender != resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Sequencer_Wrapper"))),
             "Function can not be called by the Sequencer."
         );
         // check stake
@@ -557,27 +558,5 @@ contract MVM_CanonicalTransaction is iMVM_CanonicalTransaction, Lib_AddressResol
         (bool success, ) = payable(msg.sender).call{value: queueTxDataRequestStake[_chainId][_blockNumber].amount}("");
         require(success, "insufficient balance");
         queueTxDataRequestStake[_chainId][_blockNumber].amount = 0;
-    }
-
-    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
-        if (_i == 0) {
-            return "0";
-        }
-        uint j = _i;
-        uint len;
-        while (j != 0) {
-            len++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(len);
-        uint k = len;
-        while (_i != 0) {
-            k = k-1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
-        }
-        return string(bstr);
     }
 }
