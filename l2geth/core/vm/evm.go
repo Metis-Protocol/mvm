@@ -537,9 +537,9 @@ func (evm *EVM) AddressWhitelisted(addr common.Address) bool {
 	return isWhitelisted != common.Hash{}
 }
 
-func (evm *EVM) BuyL1FeeFailTracer(caller common.Address, addr common.Address, input []byte, gas uint64, value *big.Int, err error) {
+func (evm *EVM) BuyL1FeeFailTracer(caller common.Address, addr common.Address, input []byte, gas, gasUsed uint64, value *big.Int, err error) {
 	if evm.vmConfig.Debug && evm.vmConfig.Tracer != nil {
 		evm.vmConfig.Tracer.CaptureStart(caller, addr, false, input, gas, value)
-		evm.vmConfig.Tracer.CaptureEnd(nil, 0, 0, err)
+		evm.vmConfig.Tracer.CaptureEnd(nil, gasUsed, 0, err)
 	}
 }

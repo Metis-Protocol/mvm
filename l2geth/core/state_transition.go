@@ -278,7 +278,7 @@ func (st *StateTransition) TransitionDbWithBlockNumber(blockNumber uint64) (ret 
 	if vmerr != nil {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
-		evm.BuyL1FeeFailTracer(msg.From(), st.to(), st.data, st.l1FeeInL2+gas, msg.Value(), vmerr)
+		evm.BuyL1FeeFailTracer(msg.From(), st.to(), st.data, st.gas, st.l1FeeInL2, msg.Value(), vmerr)
 		log.Debug("run out of gas when taking l1fee", "err", vmerr, "gasleft", st.gas, "sender", msg.From())
 	} else if msg.Value().Sign() > 0 && !msg.CheckNonce() && msg.From() == (common.Address{}) {
 		vmerr = st.useGas(params.Sha256PerWordGas) // this is the gas we skipped
