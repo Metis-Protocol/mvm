@@ -50,7 +50,7 @@ NODE_IP=$(echo $NODE_INFO | jq -r '.result.ip')
 if [ "$NODE_IP" = "127.0.0.1" ];then
     HOST_IP=$(/sbin/ip route | awk '/default/ { print $3 }')
     if [ "$L2_MAIN_IP" != "" ]; then
-       HOST_IP=$L2_MAIN_IP 
+       HOST_IP=$L2_MAIN_IP
     fi
     NODE_ENODE=${NODE_ENODE//127.0.0.1/$HOST_IP}
 fi
@@ -59,8 +59,6 @@ fi
 touch $(echo $DATADIR)/static-nodes.json
 
 echo "[\"$NODE_ENODE\"]" > $(echo $DATADIR)/static-nodes.json
-
-export EMERGENCY_FORK020222_NUMBER='750000'
 
 # start the geth peer node
 echo "Starting Geth peer node"
