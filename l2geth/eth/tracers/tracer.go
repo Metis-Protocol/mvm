@@ -113,6 +113,11 @@ func (mw *memoryWrapper) getUint(addr int64) *big.Int {
 	return new(big.Int).SetBytes(mw.memory.GetPtr(addr, 32))
 }
 
+// length returns the memory size
+func (mw *memoryWrapper) length() int {
+	return mw.memory.Len()
+}
+
 // pushObject assembles a JSVM object wrapping a swappable memory and pushes it
 // onto the VM stack.
 func (mw *memoryWrapper) pushObject(vm *duktape.Context) {
@@ -138,6 +143,12 @@ func (mw *memoryWrapper) pushObject(vm *duktape.Context) {
 		return 1
 	})
 	vm.PutPropString(obj, "getUint")
+
+	vm.PushGoFunction(func(ctx *duktape.Context) int {
+		ctx.PushInt(mw.length())
+		return 1
+	})
+	vm.PutPropString(obj, "length")
 }
 
 // stackWrapper provides a JavaScript wrapper around vm.Stack.
