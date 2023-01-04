@@ -517,6 +517,8 @@ var (
 	RPCGlobalGasCap = cli.Uint64Flag{
 		Name:  "rpc.gascap",
 		Usage: "Sets a cap on gas that can be used in eth_call/estimateGas",
+
+		EnvVar: "RPC_GAS_CAP",
 	}
 	// Logging and debug settings
 	EthStatsURLFlag = cli.StringFlag{
