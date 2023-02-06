@@ -40,6 +40,9 @@ geth account import --password ./password ./key.prv
 echo "Initializing Geth node"
 geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
+# remove static-node
+rm $(echo $DATADIR)/static-nodes.json
+
 # start the geth node
 echo "Starting Geth node"
 exec geth \
