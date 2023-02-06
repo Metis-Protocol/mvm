@@ -1059,12 +1059,6 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(RPCVirtualHostsFlag.Name) {
 		cfg.HTTPVirtualHosts = splitAndTrim(ctx.GlobalString(RPCVirtualHostsFlag.Name))
 	}
-
-	if ctx.GlobalIsSet(RPCBatchLimit.Name) {
-		if value := ctx.GlobalInt(RPCBatchLimit.Name); value > 0 {
-			cfg.RPCBatchLimit = value
-		}
-	}
 }
 
 // setGraphQL creates the GraphQL listener interface string from the set
