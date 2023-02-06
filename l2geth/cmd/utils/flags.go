@@ -523,7 +523,7 @@ var (
 	RPCBatchLimit = cli.Uint64Flag{
 		Name:   "rpc.batchlimit",
 		Usage:  "Maximum number of requests in a batch (0 is unlimited)",
-		Value:  0,
+		Value:  100,
 		EnvVar: "RPC_BATCH_LIMIT",
 	}
 	// Logging and debug settings
