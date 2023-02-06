@@ -520,6 +520,12 @@ var (
 		Value:  50000000,
 		EnvVar: "RPC_GAS_CAP",
 	}
+	RPCBatchLimit = cli.Uint64Flag{
+		Name:   "rpc.batchlimit",
+		Usage:  "Maximum number of requests in a batch (0 is unlimited)",
+		Value:  0,
+		EnvVar: "RPC_BATCH_LIMIT",
+	}
 	// Logging and debug settings
 	EthStatsURLFlag = cli.StringFlag{
 		Name:  "ethstats",
@@ -1053,6 +1059,12 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(RPCVirtualHostsFlag.Name) {
 		cfg.HTTPVirtualHosts = splitAndTrim(ctx.GlobalString(RPCVirtualHostsFlag.Name))
 	}
+
+	if ctx.GlobalIsSet(RPCBatchLimit.Name) {
+		if value := ctx.GlobalInt(RPCBatchLimit.Name); value > 0 {
+			cfg.RPCBatchLimit = value
+		}
+	}
 }
 
 // setGraphQL creates the GraphQL listener interface string from the set
@@ -1381,6 +1393,10 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(RPCBatchLimit.Name) {
+		cfg.RPCBatchLimit = ctx.GlobalInt(RPCBatchLimit.Name)
 	}
 
 	// metis set

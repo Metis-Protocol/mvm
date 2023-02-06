@@ -188,6 +188,7 @@ var (
 		utils.IPCPathFlag,
 		utils.InsecureUnlockAllowedFlag,
 		utils.RPCGlobalGasCap,
+		utils.RPCBatchLimit,
 		// metis flag
 		utils.L2UrlFlag,
 	}

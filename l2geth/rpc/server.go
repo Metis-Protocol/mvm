@@ -18,6 +18,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync/atomic"
 
@@ -46,6 +47,8 @@ type Server struct {
 	idgen    func() ID
 	run      int32
 	codecs   mapset.Set
+
+	batchLimit int
 }
 
 // NewServer creates a new server instance with no registered handlers.
@@ -56,6 +59,10 @@ func NewServer() *Server {
 	rpcService := &RPCService{server}
 	server.RegisterName(MetadataApi, rpcService)
 	return server
+}
+
+func (s *Server) SetBatchLimit(limit int) {
+	s.batchLimit = limit
 }
 
 // RegisterName creates a service for the given receiver type under the given name. When no
@@ -109,6 +116,11 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec) {
 		return
 	}
 	if batch {
+		if s.batchLimit > 0 && len(reqs) > s.batchLimit {
+			codec.writeJSON(ctx, errorMessage(fmt.Errorf("batch limit %d exceeded: %d requests given", s.batchLimit, len(reqs))))
+		} else {
+			h.handleBatch(reqs)
+		}
 		h.handleBatch(reqs)
 	} else {
 		h.handleMsg(reqs[0])
