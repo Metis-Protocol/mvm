@@ -4,13 +4,13 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 )
 
 // UsingOVM is used to enable or disable functionality necessary for the OVM.
 var (
 	UsingOVM               bool
-	SuicideForkNumber      uint64
 	PeerHealthCheckSeconds int64
 	ChainID                uint64
 )
@@ -43,17 +43,6 @@ var (
 
 func init() {
 	UsingOVM = os.Getenv("USING_OVM") == "true"
-
-	suicideForkNumber := os.Getenv("EMERGENCY_FORK020222_NUMBER")
-	if suicideForkNumber == "" {
-		SuicideForkNumber = ^uint64(0)
-	} else {
-		parsed, err := strconv.ParseUint(suicideForkNumber, 0, 64)
-		if err != nil {
-			panic(err)
-		}
-		SuicideForkNumber = parsed
-	}
 
 	peerHealthCheck := os.Getenv("PEER_HEALTH_CHECK")
 	if peerHealthCheck == "" {
