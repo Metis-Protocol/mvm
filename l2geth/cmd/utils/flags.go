@@ -520,6 +520,12 @@ var (
 		Value:  50000000,
 		EnvVar: "RPC_GAS_CAP",
 	}
+	RPCBatchLimit = cli.Uint64Flag{
+		Name:   "rpc.batchlimit",
+		Usage:  "Maximum number of requests in a batch (0 is unlimited)",
+		Value:  100,
+		EnvVar: "RPC_BATCH_LIMIT",
+	}
 	// Logging and debug settings
 	EthStatsURLFlag = cli.StringFlag{
 		Name:  "ethstats",
@@ -1381,6 +1387,10 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(RPCBatchLimit.Name) {
+		cfg.RPCBatchLimit = ctx.GlobalInt(RPCBatchLimit.Name)
 	}
 
 	// metis set

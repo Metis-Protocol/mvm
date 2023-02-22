@@ -162,6 +162,9 @@ type Config struct {
 	// private APIs to untrusted users is a major security risk.
 	WSExposeAll bool `toml:",omitempty"`
 
+	// Maximum number of requests in a batch (0 is unlimited)
+	RPCBatchLimit int `toml:",omitempty"`
+
 	// GraphQLHost is the host interface on which to start the GraphQL server. If this
 	// field is empty, no GraphQL API endpoint will be started.
 	GraphQLHost string `toml:",omitempty"`
