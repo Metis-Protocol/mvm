@@ -121,7 +121,6 @@ func (s *Server) serveSingleRequest(ctx context.Context, codec ServerCodec) {
 		} else {
 			h.handleBatch(reqs)
 		}
-		h.handleBatch(reqs)
 	} else {
 		h.handleMsg(reqs[0])
 	}
