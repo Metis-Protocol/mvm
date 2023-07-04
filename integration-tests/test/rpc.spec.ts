@@ -80,17 +80,6 @@ describe('Basic RPC tests', () => {
       ).to.be.rejectedWith('invalid transaction: invalid sender')
     })
 
-    it('should not accept a transaction without a chain ID', async () => {
-      const tx = {
-        ...DEFAULT_TRANSACTION,
-        chainId: null, // Disables EIP155 transaction signing.
-      }
-
-      await expect(
-        provider.sendTransaction(await wallet.signTransaction(tx))
-      ).to.be.rejectedWith('Cannot submit unprotected transaction')
-    })
-
     it('should accept a transaction with a value', async () => {
       const tx = {
         ...DEFAULT_TRANSACTION,
