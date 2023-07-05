@@ -1,0 +1,51 @@
+1. 测试过程：
+1）启动docker ----》测试 L1 和 L2是否起来
+
+// L1 
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:8545
+// L2
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:9545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x1", true],"id":1}' 127.0.0.1:9545
+
+
+Jida, [2023/5/23 2:01 AM]
+钱包1 >  0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933
+钱包1 私钥 > 0x621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d
+
+Jida, [2023/5/23 2:02 AM]
+钱包2 > 0xbdaa9698b241d6f7a4c7f466eec9ebeefbbc77c1
+钱包2 私钥 >0x6587da31e57260916a8f6afae4a014b9a6754ae7a325451c35ab662d9c7b3afc
+
+1. 启动流程
+下载 github.com/Jason6060/optimism
+github.com/Jason6060/op-geth
+
+
+cat "deploy-config/devnetL1.json" | jq -r ".l1GenesisBlockTimestamp = \"0x6497f2ad\"" > /tmp/bedrock-devnet-deploy-config.json
+
+
+cat ".devnet/rollup.json" | jq -r ".pos_chain_url = \"127.0.0.1\", .pos_chain_id = 1234"  
+ go run cmd/main.go genesis devnet \
+        --deploy-config /tmp/bedrock-devnet-deploy-config.json \
+        --outfile.l1 genesis-l1.json \
+        --outfile.l2 genesis-l2.json \
+        --outfile.rollup rollup.json
+
+
+先编译op geth
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose-multi-metis.yml build op-geth 
+2. 测试时，在optimism 目录下，运行 ./ops-bedrock/devnet-up-metis.sh
+改  IGNORE_BUILD=0 
+
+可以注释掉
+docker-compose-metis.yml  中 relayer
+
+1. 后续看测试，是否需要进一步 在 OP-geth中blockheader 增加 sequencer信息
+
+重点关注
+engine.ExecutableData
+engine.PayloadAttributes
+
+sh ./ops-bedrock/devnet-up-multi-metis.sh
+docker-compose -f ops-bedrock/docker-compose-multi-metis.yml down

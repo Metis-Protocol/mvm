@@ -111,10 +111,45 @@ services:
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
+      SEQSET_VALID_HEIGHT: 100
+      SEQ_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
+		  SEQ_PRIV: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
     ports:
       - ${L2GETH_HTTP_PORT:-8545}:8545
       - ${L2GETH_WS_PORT:-8546}:8546
       - ${L2GETH_NODE_PORT:-30303}:30303
+    restart: on-failure
+
+  l2gethB:
+    depends_on:
+      - l1_chain
+      - deployer
+    image: ethereumoptimism/l2geth
+    build:
+      context: ..
+      dockerfile: ./ops/docker/Dockerfile.geth
+    # override with the geth script and the env vars required for it
+    entrypoint: sh ./geth.sh
+    env_file:
+      - ./envs/geth.env
+    environment:
+      ETH1_HTTP: http://l1_chain:8545
+      ROLLUP_TIMESTAMP_REFRESH: 5s
+      ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
+      # connecting to the DTL
+      ROLLUP_CLIENT_HTTP: http://dtl:7878
+      ETH1_CTC_DEPLOYMENT_HEIGHT: 8
+      RETRIES: 60
+      # no need to keep this secret, only used internally to sign blocks
+      BLOCK_SIGNER_KEY: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
+      BLOCK_SIGNER_ADDRESS: "0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"
+      SEQSET_VALID_HEIGHT: 100
+      SEQ_ADDRESS: "0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"
+		  SEQ_PRIV: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
+    ports:
+      - ${L2GETH_HTTP_PORT:-8545}:18545
+      - ${L2GETH_WS_PORT:-8546}:18546
+      - ${L2GETH_NODE_PORT:-30303}:130303
     restart: on-failure
 
   l2geth-peer:

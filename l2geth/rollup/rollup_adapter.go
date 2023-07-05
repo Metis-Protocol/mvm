@@ -91,9 +91,14 @@ func (s *SeqAdapter) GetSeqValidHeight() uint64 {
 func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
 	// check is update seqencer operate
 	if expectIndex <= s.seqContractValidHeight {
-		// return default address
-		return common.HexToAddress("0x0"), nil
+		// return default address 0x00000398232E2064F896018496b4b44b3D62751F
+		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
 	}
+	if expectIndex % 2 == 0 {
+		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
+	}
+	return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
+	/*
 	seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
 	if seqOper {
 		updateSeq, newSeq := parseUpdateSeqData(data)
@@ -106,6 +111,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// get status from contract on height expectIndex - 1
 	// return result ,err
 	return s.getSeqencer(expectIndex)
+	*/
 }
 
 // CheckSeqencerIsWorking check current seqencer is working
