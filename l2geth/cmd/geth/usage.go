@@ -79,6 +79,12 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.RollupFeeThresholdUpFlag,
 			utils.RollupGenesisTimeoutSecondsFlag,
 			utils.SequencerClientHttpFlag,
+			utils.PosClientHttpFlag,
+			utils.LocalL2ClientHttpFlag,
+			utils.SeqsetValidHeightFlag,
+			utils.SeqsetConrtractFlag,
+			utils.SeqAddressFlag,
+			utils.SeqPrivFlag,
 		},
 	},
 	{

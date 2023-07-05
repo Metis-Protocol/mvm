@@ -64,6 +64,8 @@ var (
 	headVerifiedIndexKey = []byte("LastVerifiedIndex")
 	// headBatchKey tracks the latest processed batch
 	headBatchKey = []byte("LastBatch")
+	// headIndexTimeKey tracks the last processed ctc index time
+	headIndexTimeKey = []byte("LastIndexTime")
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db

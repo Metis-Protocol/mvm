@@ -888,6 +888,44 @@ var (
 		Value:  "",
 		EnvVar: "L2_URL",
 	}
+
+	PosClientHttpFlag = cli.StringFlag{
+		Name:   "pos.clienthttp",
+		Usage:  "HTTP endpoint for the pos layer client",
+		Value:  "http://localhost:8787",
+		EnvVar: "POS_CLIENT_HTTP",
+	}
+
+	LocalL2ClientHttpFlag = cli.StringFlag{
+		Name:   "locall2.clienthttp",
+		Usage:  "HTTP endpoint for get data from local geth client",
+		Value:  "http://localhost:8545",
+		EnvVar: "LOCAL_L2_CLIENT_HTTP",
+	}
+	SeqsetValidHeightFlag = cli.IntFlag{
+		Name:   "seqset.validheight",
+		Usage:  "seq set valid block height",
+		Value:  9223372036854775807, // 2**63 - 1
+		EnvVar: "SEQSET_VALID_HEIGHT",
+	}
+
+	SeqsetConrtractFlag = cli.StringFlag{
+		Name:   "seqset.contract",
+		Usage:  "seqset contract address ",
+		EnvVar: "SEQSET_CONTRACT",
+	}
+
+	SeqAddressFlag = cli.StringFlag{
+		Name:   "seq.address",
+		Usage:  "sequencer address ",
+		EnvVar: "SEQ_ADDRESS",
+	}
+
+	SeqPrivFlag = cli.StringFlag{
+		Name:   "seq.priv",
+		Usage:  "sequencer priv key",
+		EnvVar: "SEQ_PRIV",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1166,6 +1204,26 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(SequencerClientHttpFlag.Name) {
 		cfg.SequencerClientHttp = ctx.GlobalString(SequencerClientHttpFlag.Name)
+	}
+	if ctx.GlobalIsSet(PosClientHttpFlag.Name) {
+		cfg.PosClientHttp = ctx.GlobalString(PosClientHttpFlag.Name)
+	}
+	if ctx.GlobalIsSet(LocalL2ClientHttpFlag.Name) {
+		cfg.LocalL2ClientHttp = ctx.GlobalString(LocalL2ClientHttpFlag.Name)
+	}
+	if ctx.GlobalIsSet(SeqsetConrtractFlag.Name) {
+		contractAddress := ctx.GlobalString(SeqsetConrtractFlag.Name)
+		cfg.SeqsetContract = common.HexToAddress(contractAddress)
+	}
+	if ctx.GlobalIsSet(SeqsetValidHeightFlag.Name) {
+		height := ctx.GlobalInt64(SeqsetValidHeightFlag.Name)
+		cfg.SeqsetValidHeight = uint64(height)
+	}
+	if ctx.GlobalIsSet(SeqAddressFlag.Name) {
+		cfg.SeqAddress = ctx.GlobalString(SeqAddressFlag.Name)
+	}
+	if ctx.GlobalIsSet(SeqPrivFlag.Name) {
+		cfg.SeqPriv = ctx.GlobalString(SeqPrivFlag.Name)
 	}
 }
 

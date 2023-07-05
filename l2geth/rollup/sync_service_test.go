@@ -1104,6 +1104,13 @@ func (m *mockClient) GetLatestTransactionBatchIndex() (*uint64, error) {
 	return nil, nil
 }
 
+func (m *mockClient) GetStateRoot(index uint64) (common.Hash, error) {
+	return common.HexToHash("00"), nil
+}
+
+func (m *mockClient) SetLastVerifier(index uint64, stateRoot string, verifierRoot string, success bool) error {
+	return nil
+}
 func (m *mockClient) GetLatestTransactionIndex(backend Backend) (*uint64, error) {
 	tx, err := m.GetLatestTransaction(backend)
 	if err != nil {

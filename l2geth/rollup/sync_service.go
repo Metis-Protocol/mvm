@@ -2,6 +2,7 @@ package rollup
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core"
 	"github.com/ethereum-optimism/optimism/l2geth/core/state"
+	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 	"github.com/ethereum-optimism/optimism/l2geth/ethdb"
 	"github.com/ethereum-optimism/optimism/l2geth/event"
 	"github.com/ethereum-optimism/optimism/l2geth/log"
@@ -68,6 +70,7 @@ type SyncService struct {
 	txpool                         *core.TxPool
 	RollupGpo                      *gasprice.RollupOracle
 	client                         RollupClient
+	seqAdapter                     RollupAdapter
 	syncing                        atomic.Value
 	chainHeadSub                   event.Subscription
 	OVMContext                     OVMContext
@@ -83,6 +86,10 @@ type SyncService struct {
 
 	feeThresholdUp   *big.Float
 	feeThresholdDown *big.Float
+
+	decSeqValidHeight uint64
+	seqAddress        string
+	seqPriv           string
 }
 
 // NewSyncService returns an initialized sync service
@@ -122,6 +129,9 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	client := NewClient(cfg.RollupClientHttp, chainID)
 	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64(), "ctc-deploy-height", cfg.CanonicalTransactionChainDeployHeight)
 
+	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp)
+	log.Info("Configured seqAdapter", "url", cfg.PosClientHttp, "SeqsetContract", cfg.SeqsetContract, "SeqsetValidHeight", cfg.SeqsetValidHeight)
+
 	// Ensure sane values for the fee thresholds
 	if cfg.FeeThresholdDown != nil {
 		// The fee threshold down should be less than 1
@@ -150,6 +160,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		txApplyErrCh: make(chan error, 1),
 
 		client:                         client,
+		seqAdapter:                     seqAdapter,
 		db:                             db,
 		pollInterval:                   pollInterval,
 		timestampRefreshThreshold:      timestampRefreshThreshold,
@@ -161,6 +172,10 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 		feeThresholdDown: cfg.FeeThresholdDown,
 		feeThresholdUp:   cfg.FeeThresholdUp,
+
+		decSeqValidHeight: cfg.SeqsetValidHeight,
+		seqAddress:        cfg.SeqAddress,
+		seqPriv:           cfg.SeqPriv,
 	}
 
 	// The chainHeadSub is used to synchronize the SyncService with the chain.
@@ -631,8 +646,8 @@ func (s *SyncService) GasPriceOracleOwnerAddress() *common.Address {
 	return &s.gasPriceOracleOwnerAddress
 }
 
-/// Update the execution context's timestamp and blocknumber
-/// over time. This is only necessary for the sequencer.
+// / Update the execution context's timestamp and blocknumber
+// / over time. This is only necessary for the sequencer.
 func (s *SyncService) updateL1BlockNumber() error {
 
 	context, err := s.client.GetLatestEthContext()
@@ -693,6 +708,10 @@ func (s *SyncService) SetLatestEnqueueIndex(index *uint64) {
 	}
 }
 
+func (s *SyncService) GetLatestIndexTime() *uint64 {
+	return rawdb.ReadHeadIndexTime(s.db)
+}
+
 // GetLatestIndex reads the last CTC index that was processed
 func (s *SyncService) GetLatestIndex() *uint64 {
 	return rawdb.ReadHeadIndex(s.db)
@@ -712,6 +731,12 @@ func (s *SyncService) SetLatestIndex(index *uint64) {
 	if index != nil {
 		rawdb.WriteHeadIndex(s.db, *index)
 	}
+}
+
+func (s *SyncService) SetLatestIndexTime(indexTime int64) {
+
+	rawdb.WriteHeadIndexTime(s.db, indexTime)
+
 }
 
 // GetLatestVerifiedIndex reads the last verified CTC index that was processed
@@ -777,6 +802,9 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 	if index == nil {
 		return errors.New("No index found in applyIndexedTransaction")
 	}
+	if *index > s.decSeqValidHeight && tx.GetSeqSign() == nil {
+		return errors.New("no seq signature afer seq sign valid height")
+	}
 	log.Trace("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
 	if *index == next {
@@ -801,6 +829,31 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 	if index == nil {
 		return errors.New("No index is found in applyHistoricalTransaction")
 	}
+	// check sequencer
+	if *index >= s.seqAdapter.GetSeqValidHeight() {
+		signature := tx.GetSeqSign()
+		if signature == nil {
+			errInfo := fmt.Sprintf("tx %x, seqSign is null ", *index)
+			log.Error(errInfo)
+			return nil
+		}
+		expectSeq, err := s.seqAdapter.GetTxSeqencer(tx, *index)
+		if err != nil {
+			log.Error("tx %v, GetTxSeqencer err %v", err)
+			return err
+		}
+		recoverSeq, err := s.recoverSeqAddress(tx)
+		if err != nil {
+			log.Error("recoverSeqAddress err ", err)
+			return err
+		}
+		if expectSeq.String() != recoverSeq {
+			errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
+			log.Error(errInfo)
+			return errors.New(errInfo)
+		}
+	}
+
 	// Handle the off by one
 	block := s.bc.GetBlockByNumber(*index + 1)
 	if block == nil {
@@ -812,9 +865,77 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 	}
 	if !isCtcTxEqual(tx, txs[0]) {
 		log.Error("Mismatched transaction", "index", *index)
+		// need to reorg it, just reset blockheight and index it
+		err := s.bc.SetHead(*index)
+		if err != nil {
+			log.Error("try to reorg by set block head to low height err ", err)
+			return err
+		}
+		if *index >= 1 {
+			newIndex := (*index) - 1
+			s.SetLatestIndex(&newIndex)
+		}
+		// 重新执行一次tx
+		return s.applyIndexedTransaction(tx)
 	} else {
 		log.Debug("Historical transaction matches", "index", *index, "hash", tx.Hash().Hex())
 	}
+	return nil
+}
+func (s *SyncService) recoverSeqAddress(tx *types.Transaction) (string, error) {
+	seqSign := tx.GetSeqSign()
+	if seqSign == nil {
+		return "", errors.New("seq sign is null")
+	}
+	hashBytes := tx.Hash().Bytes()
+	rBytes := seqSign.R.Bytes()
+	var padBytes [32]byte
+	if len(rBytes) < 32 {
+		rBytes = append(padBytes[0:32-len(rBytes)], rBytes...)
+	}
+	sBytes := seqSign.S.Bytes()
+	if len(sBytes) < 32 {
+		sBytes = append(padBytes[0:32-len(sBytes)], sBytes...)
+	}
+	var signBytes []byte
+	signBytes = append(signBytes, rBytes...)
+	signBytes = append(signBytes, sBytes...)
+	signBytes = append(signBytes, byte(seqSign.V.Int64()))
+	signer, err := crypto.SigToPub(hashBytes, signBytes)
+	if err != nil {
+		return "", err
+	}
+	return crypto.PubkeyToAddress(*signer).String(), nil
+}
+func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
+	if tx.GetSeqSign() != nil {
+		return nil
+	}
+	if s.seqPriv == "" {
+		return errors.New("seq priv not set")
+	}
+	hash := tx.Hash().Bytes()
+
+	privKey, err := hex.DecodeString(s.seqPriv)
+	if err != nil {
+		return err
+	}
+
+	ecdsaPri, err := crypto.ToECDSA(privKey)
+	if err != nil {
+		return err
+	}
+
+	signature, err := crypto.Sign(hash, ecdsaPri)
+	if err != nil || len(signature) != 65 {
+		return errors.New("invalid signature")
+	}
+	seqSign := &types.SeqSign{
+		R: big.NewInt(0).SetBytes(signature[0:32]),
+		S: big.NewInt(0).SetBytes(signature[32:64]),
+		V: big.NewInt(0).SetBytes(signature[64:65]),
+	}
+	tx.SetSeqSign(seqSign)
 	return nil
 }
 
@@ -844,6 +965,40 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	ts := s.GetLatestL1Timestamp()
 	bn := s.GetLatestL1BlockNumber()
 
+	// check is current address is seqencer
+	index := s.GetLatestIndex()
+	var expectSeq common.Address
+	var err error
+	if index == nil {
+		expectSeq, err = s.seqAdapter.GetTxSeqencer(tx, 0)
+	} else {
+		expectSeq, err = s.seqAdapter.GetTxSeqencer(tx, *index+1)
+	}
+	if err != nil {
+		log.Error("GetTxSeqencer err ", err)
+		return err
+	}
+	// current is not seq, just skip it
+	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
+		signature := tx.GetSeqSign()
+		if signature == nil && expectSeq.String() != s.seqAddress {
+			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.seqAddress, expectSeq.String())
+			log.Info(errInfo)
+			return nil
+		}
+		if signature != nil {
+			recoverSeq, err := s.recoverSeqAddress(tx)
+			if err != nil {
+				log.Error("recoverSeqAddress err ", err)
+				return err
+			}
+			if expectSeq.String() != recoverSeq {
+				errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
+				log.Error(errInfo)
+				return errors.New(errInfo)
+			}
+		}
+	}
 	// The L1Timestamp is 0 for QueueOriginSequencer transactions when
 	// running as the sequencer, the transactions are coming in via RPC.
 	// This code path also runs for replicas/verifiers so any logic involving
@@ -896,8 +1051,9 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	if tx.L1Timestamp() > ts {
 		s.SetLatestL1Timestamp(tx.L1Timestamp())
 	}
+	// store current time for the last index time
 
-	index := s.GetLatestIndex()
+	//index := s.GetLatestIndex()
 	if tx.GetMeta().Index == nil {
 		if index == nil {
 			tx.SetIndex(0)
@@ -905,11 +1061,21 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 			tx.SetIndex(*index + 1)
 		}
 	}
-
+	// add seq signature
+	if index != nil && *index > s.seqAdapter.GetSeqValidHeight() {
+		if tx.GetSeqSign() == nil {
+			err = s.addSeqSignature(tx)
+		}
+		if err != nil {
+			log.Error("addSeqSignature err ", err)
+			return err
+		}
+	}
 	// On restart, these values are repaired to handle
 	// the case where the index is updated but the
 	// transaction isn't yet added to the chain
 	s.SetLatestIndex(tx.GetMeta().Index)
+	s.SetLatestIndexTime(time.Now().Unix())
 	s.SetLatestVerifiedIndex(tx.GetMeta().Index)
 	if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
 		s.SetLatestEnqueueIndex(queueIndex)
@@ -919,6 +1085,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 
 	txs := types.Transactions{tx}
 	errCh := make(chan error, 1)
+	// send to handle the new tx
 	s.txFeed.Send(core.NewTxsEvent{
 		Txs:   txs,
 		ErrCh: errCh,
@@ -1250,12 +1417,12 @@ func (s *SyncService) verifyStateRoot(tx *types.Transaction, batchRoot common.Ha
 			continue
 		}
 		if stateRootHash != localStateRoot {
-			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: tx index %d, remote %w, local %w, batch-root %w", txIndex, stateRootHash.Hex(), localStateRoot.Hex(), batchRoot.Hex())
+			return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), fmt.Errorf("The remote stateroot is not equal to the local: tx index %d, remote %v, local %v, batch-root %v", txIndex, stateRootHash.Hex(), localStateRoot.Hex(), batchRoot.Hex())
 		}
 		log.Info("Verified tx with stateroot ok", "i", i, "index", txIndex, "batch-root", batchRoot.Hex())
 		return txIndex, stateRootHash.Hex(), localStateRoot.Hex(), nil
 	}
-	return txIndex, "", "", fmt.Errorf("Fetch stateroot failed: index %w", txIndex)
+	return txIndex, "", "", fmt.Errorf("Fetch stateroot failed: index %v", txIndex)
 }
 
 // syncQueue will sync from the local tip to the known tip of the remote

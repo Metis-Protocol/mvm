@@ -18,6 +18,13 @@ type Config struct {
 	GasLimit uint64
 	// HTTP endpoint of the data transport layer
 	RollupClientHttp string
+	// Pos HTTP endpoint for pos layer
+	PosClientHttp string
+	// SeqsetContract
+	SeqsetContract common.Address
+	// Seqset valid height
+	SeqsetValidHeight uint64
+	LocalL2ClientHttp string
 	// Owner of the GasPriceOracle contract
 	GasPriceOracleOwnerAddress common.Address
 	// Turns on checking of state for L2 gas price
@@ -39,4 +46,7 @@ type Config struct {
 	FeeThresholdUp   *big.Float
 	// HTTP endpoint of the sequencer
 	SequencerClientHttp string
+	// seqencer address  and seqencer priv
+	SeqAddress string
+	SeqPriv    string
 }

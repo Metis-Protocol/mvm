@@ -1,0 +1,42 @@
+package httprpc
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
+
+	"github.com/google/martian/log"
+)
+type 
+func handleGenUnsignedCraftBatchTx(w http.ResponseWriter, req *http.Request) {
+	log.Infof("request ip:%s", req.RemoteAddr)
+	//fmt.Println("request ip: ", req.RemoteAddr)
+	byteBody, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		//log.Error(err)
+		w.Write([]byte(err.Error()))
+	}
+
+	var data InputPwdData
+	err = json.Unmarshal(byteBody, &data)
+	if err != nil {
+		log.Error(err)
+		w.Write([]byte(err.Error()))
+	}
+	// do logic
+	PwdRecvChan <- data
+	checkResult := <-PwdCheckChan
+	// update first pwd info
+	if checkResult.PwdTotalCount != 0 || checkResult.NextPwdName != "" {
+		firstPwdName = checkResult.NextPwdName
+		firstPwdTotalCnt = checkResult.PwdTotalCount
+		firstPwdPart = checkResult.NextPwdPartNum
+	}
+	bs, err := json.Marshal(checkResult)
+	if err == nil {
+		w.Write([]byte(bs))
+	} else {
+		w.Write([]byte(err.Error()))
+	}
+
+}

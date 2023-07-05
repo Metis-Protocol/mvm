@@ -351,3 +351,14 @@ func (b *LesApiBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (
 	}
 	return b.eth.rpcClient.EstimateGasByArg(ctx, arg)
 }
+
+func (b *LesApiBackend) IsSequencerWorking() bool {
+	// pending, queued := b.eth.txPool.Stats()
+	// if pending > 0 || queued > 0 {
+	// 	indexTime := b.eth.syncService.GetLatestIndexTime()
+	// 	if time.Now().Unix()-int64(*indexTime) > 10 {
+	// 		return false
+	// 	}
+	// }
+	return true
+}

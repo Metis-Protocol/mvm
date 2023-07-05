@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/l2geth/accounts"
 	"github.com/ethereum-optimism/optimism/l2geth/common"
@@ -431,4 +432,14 @@ func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (
 		return 0, errors.New("Not support proxy estimate gas")
 	}
 	return b.eth.rpcClient.EstimateGasByArg(ctx, arg)
+}
+func (b *EthAPIBackend) IsSequencerWorking() bool {
+	pending, queued := b.eth.txPool.Stats()
+	if pending > 0 || queued > 0 {
+		indexTime := b.eth.syncService.GetLatestIndexTime()
+		if time.Now().Unix()-int64(*indexTime) > 10 {
+			return false
+		}
+	}
+	return true
 }

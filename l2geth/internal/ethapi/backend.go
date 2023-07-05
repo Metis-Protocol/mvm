@@ -102,6 +102,7 @@ type Backend interface {
 	IsRpcProxySupport() bool
 	ProxyTransaction(ctx context.Context, tx *types.Transaction) error
 	ProxyEstimateGas(ctx context.Context, arg interface{}) (uint64, error)
+	IsSequencerWorking() bool
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

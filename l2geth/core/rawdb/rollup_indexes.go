@@ -28,6 +28,25 @@ func WriteHeadIndex(db ethdb.KeyValueWriter, index uint64) {
 	}
 }
 
+// ReadHeadIndexTime will read the known tip of the CTC
+func ReadHeadIndexTime(db ethdb.KeyValueReader) *uint64 {
+	data, _ := db.Get(headIndexTimeKey)
+	if len(data) == 0 {
+		return nil
+	}
+	ret := new(big.Int).SetBytes(data).Uint64()
+	return &ret
+}
+// WriteHeadIndexTime will write the known tip of the CTC
+func WriteHeadIndexTime(db ethdb.KeyValueWriter, indexTime int64) {
+	value := new(big.Int).SetInt64(indexTime).Bytes()
+	if indexTime == 0 {
+		value = []byte{0}
+	}
+	if err := db.Put(headIndexTimeKey, value); err != nil {
+		log.Crit("Failed to store index", "err", err)
+	}
+}
 // ReadHeadQueueIndex will read the known tip of the queue
 func ReadHeadQueueIndex(db ethdb.KeyValueReader) *uint64 {
 	data, _ := db.Get(headQueueIndexKey)
