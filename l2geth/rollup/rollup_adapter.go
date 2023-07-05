@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
 	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
-	"github.com/ethereum-optimism/optimism/l2geth/log"
+ 	"github.com/ethereum-optimism/optimism/l2geth/log"
 )
 
 const (
@@ -95,8 +95,10 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
 	}
 	if expectIndex % 2 == 0 {
+		log.Debug("seqencer %v, for index %v", "0x00000398232E2064F896018496b4b44b3D62751F", expectIndex)
 		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
 	}
+	log.Debug("seqencer %v, for index %v", "0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933", expectIndex)
 	return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
 	/*
 	seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
