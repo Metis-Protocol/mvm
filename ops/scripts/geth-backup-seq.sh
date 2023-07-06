@@ -38,7 +38,7 @@ geth account import --password ./password ./key.prv
 
 # initialize the geth node with the genesis file
 echo "Initializing Geth other sequencer node"
-geth --verbosity="$VERBOSITY" "$@" init genesis.json
+# geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 # get the main node's enode
 JSON='{"jsonrpc":"2.0","id":0,"method":"admin_nodeInfo","params":[]}'
