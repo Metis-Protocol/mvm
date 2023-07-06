@@ -38,7 +38,7 @@ geth account import --password ./password ./key.prv
 
 # initialize the geth node with the genesis file
 echo "Initializing Geth other sequencer node"
-# geth --verbosity="$VERBOSITY" "$@" init genesis.json
+geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 # get the main node's enode
 JSON='{"jsonrpc":"2.0","id":0,"method":"admin_nodeInfo","params":[]}'
@@ -60,13 +60,18 @@ echo "[\"$NODE_ENODE\"]"
 echo "[\"$NODE_ENODE\"]" > $(echo $DATADIR)/static-nodes.json
 # start the geth node
 echo "Starting Geth sequencer backup node"
+
+echo $SEQ_PRIV > key.prv
+echo "pwd" > password
+geth account import --password ./password ./key.prv
+
 exec geth \
   --verbosity="$VERBOSITY" \
   --password ./password \
   --allow-insecure-unlock \
-  --unlock $BLOCK_SIGNER_ADDRESS \
+  --unlock $SEQ_ADDRESS \
   --mine \
-  --miner.etherbase $BLOCK_SIGNER_ADDRESS \
+  --miner.etherbase $SEQ_PRIV \
   --syncmode full \
   --gcmode archive \
   "$@"
