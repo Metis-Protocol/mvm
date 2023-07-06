@@ -38,7 +38,7 @@ geth account import --password ./password ./key.prv
 
 # initialize the geth node with the genesis file
 echo "Initializing Geth node"
-geth --verbosity="$VERBOSITY" "$@" init genesis.json
+# geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 # remove static-node
 rm $(echo $DATADIR)/static-nodes.json
