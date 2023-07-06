@@ -1,6 +1,7 @@
 package rcfg
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -65,4 +66,6 @@ func init() {
 		}
 		ChainID = parsed
 	}
+
+	fmt.Println("rcfg UsingOVM ", UsingOVM, " envChainID ", envChainID)
 }
