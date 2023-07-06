@@ -54,6 +54,9 @@ if [ "$NODE_IP" = "127.0.0.1" ];then
 fi
 touch $(echo $DATADIR)/static-nodes.json
 
+echo $DATADIR
+
+echo "[\"$NODE_ENODE\"]"
 echo "[\"$NODE_ENODE\"]" > $(echo $DATADIR)/static-nodes.json
 # start the geth node
 echo "Starting Geth sequencer backup node"

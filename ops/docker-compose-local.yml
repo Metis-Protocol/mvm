@@ -131,7 +131,7 @@ services:
     # override with the geth script and the env vars required for it
     # entrypoint: sh ./geth.sh
     env_file:
-      - ./envs/geth.env
+      - ./envs/geth-seq.env
     environment:
       ETH1_HTTP: http://l1_chain:8545
       ROLLUP_TIMESTAMP_REFRESH: 5s
