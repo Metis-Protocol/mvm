@@ -61,17 +61,13 @@ echo "[\"$NODE_ENODE\"]" > $(echo $DATADIR)/static-nodes.json
 # start the geth node
 echo "Starting Geth sequencer backup node"
 
-echo $SEQ_PRIV > key.prv
-echo "pwd" > password
-geth account import --password ./password ./key.prv
-
 exec geth \
   --verbosity="$VERBOSITY" \
   --password ./password \
   --allow-insecure-unlock \
-  --unlock $SEQ_ADDRESS \
+  --unlock $BLOCK_SIGNER_ADDRESS \
   --mine \
-  --miner.etherbase $SEQ_PRIV \
+  --miner.etherbase $BLOCK_SIGNER_ADDRESS \
   --syncmode full \
   --gcmode archive \
   "$@"
