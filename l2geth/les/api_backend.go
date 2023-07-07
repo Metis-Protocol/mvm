@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/ethdb"
 	"github.com/ethereum-optimism/optimism/l2geth/event"
 	"github.com/ethereum-optimism/optimism/l2geth/light"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
 	"github.com/ethereum-optimism/optimism/l2geth/params"
 	"github.com/ethereum-optimism/optimism/l2geth/rpc"
 )
@@ -360,5 +361,6 @@ func (b *LesApiBackend) IsSequencerWorking() bool {
 	// 		return false
 	// 	}
 	// }
+	log.Info("LesApiBackend IsSequencerWorking")
 	return true
 }

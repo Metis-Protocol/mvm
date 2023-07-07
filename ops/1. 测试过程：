@@ -8,10 +8,24 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:18545
 
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"txpool_status","params":[],"id":1}' http://localhost:8545 
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' l2geth:8545
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"admin_nodeInfo","params":[],"id":1}'  127.0.0.1:8545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"admin_peers","params":[],"id":1}'  127.0.0.1:18545
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":0}' 127.0.0.1:18545
 
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_gasPrices","params":[],"id":0}' 127.0.0.1:18545
 
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_checkIsSeqWorking","params":[],"id":0}' 127.0.0.1:18545
+
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":0}' 127.0.0.1:18545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":0}' 127.0.0.1:18545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"personal_importKey","params":["621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d", "pwd"],"id":0}' 127.0.0.1:18545
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0x70997970C51812dc3A010C7d01b50e0d17dc79C8", "pending"],"id":0}' 127.0.0.1:18545
 

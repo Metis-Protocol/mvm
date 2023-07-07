@@ -388,8 +388,9 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		log.Warn("Failed transaction send attempt", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
 		return common.Hash{}, err
 	}
-
+	log.Info("PrivateAccountAPI SendTransaction   s.b.IsVerifier() ", s.b.IsVerifier())
 	if s.b.IsVerifier() {
+		log.Info("PrivateAccountAPI SendTransaction   s.b.IsVerifier() true")
 		client, err := dialSequencerClientWithTimeout(ctx, s.b.SequencerClientHttp())
 		if err != nil {
 			return common.Hash{}, err
@@ -1745,8 +1746,9 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if nodeHTTPModules == nil || len(nodeHTTPModules) == 0 {
 		return common.Hash{}, errors.New("Not support submit transaction")
 	}
-
+	log.Info("api SubmitTransaction nodeHTTPModules %v", nodeHTTPModules)
 	if b.IsRpcProxySupport() {
+		log.Info("api SubmitTransaction  b.IsRpcProxySupport() true")
 		tx.SetL2Tx(2)
 		errRpc := b.ProxyTransaction(ctx, tx)
 		tx.SetL2Tx(1)
@@ -1791,7 +1793,9 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	log.Info("PublicTransactionPoolAPI SendTransaction")
 	if rcfg.UsingOVM {
+		log.Info("PublicTransactionPoolAPI SendTransaction rcfg.UsingOVM true")
 		return common.Hash{}, errOVMUnsupported
 	}
 	// Look up the wallet containing the requested signer
@@ -1845,10 +1849,10 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	log.Info("PublicTransactionPoolAPI SendRawTransaction")
 	if s.b.IsVerifier() && !s.b.IsRpcProxySupport() {
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}
-
 	if s.b.IsSyncing() {
 		return common.Hash{}, errors.New("Cannot send raw transaction while syncing")
 	}
