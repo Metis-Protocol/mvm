@@ -88,7 +88,7 @@ type SyncService struct {
 	feeThresholdDown *big.Float
 
 	decSeqValidHeight uint64
-	seqAddress        string
+	SeqAddress        string
 	seqPriv           string
 }
 
@@ -131,7 +131,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp)
 	log.Info("Configured seqAdapter", "url", cfg.PosClientHttp, "SeqsetContract", cfg.SeqsetContract, "SeqsetValidHeight", cfg.SeqsetValidHeight)
-	log.Info("Configured seqAdapter", "seqAddress", cfg.SeqAddress, "seqPriv", cfg.SeqPriv)
+	log.Info("Configured seqAdapter", "SeqAddress", cfg.SeqAddress, "seqPriv", cfg.SeqPriv)
 	// Ensure sane values for the fee thresholds
 	if cfg.FeeThresholdDown != nil {
 		// The fee threshold down should be less than 1
@@ -174,7 +174,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		feeThresholdUp:   cfg.FeeThresholdUp,
 
 		decSeqValidHeight: cfg.SeqsetValidHeight,
-		seqAddress:        cfg.SeqAddress,
+		SeqAddress:        cfg.SeqAddress,
 		seqPriv:           cfg.SeqPriv,
 	}
 
@@ -939,6 +939,10 @@ func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
 	return nil
 }
 
+func (s *SyncService) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
+	return s.seqAdapter.GetTxSeqencer(tx, expectIndex)
+}
+
 // applyTransactionToTip will do sanity checks on the transaction before
 // applying it to the tip. It blocks until the transaction has been included in
 // the chain. It is assumed that validation around the index has already
@@ -970,9 +974,9 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	var expectSeq common.Address
 	var err error
 	if index == nil {
-		expectSeq, err = s.seqAdapter.GetTxSeqencer(tx, 0)
+		expectSeq, err = s.GetTxSeqencer(tx, 0)
 	} else {
-		expectSeq, err = s.seqAdapter.GetTxSeqencer(tx, *index+1)
+		expectSeq, err = s.GetTxSeqencer(tx, *index+1)
 	}
 	if err != nil {
 		log.Error("GetTxSeqencer err ", err)
@@ -981,8 +985,8 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	// current is not seq, just skip it
 	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
-		if signature == nil && expectSeq.String() != s.seqAddress {
-			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.seqAddress, expectSeq.String())
+		if signature == nil && expectSeq.String() != s.SeqAddress {
+			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
 			log.Info(errInfo)
 			return nil
 		}

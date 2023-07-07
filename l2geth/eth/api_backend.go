@@ -298,7 +298,19 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 
-	if b.UsingOVM {
+	index := b.eth.syncService.GetLatestIndex()
+	var expectSeq common.Address
+	var err error
+	if index == nil {
+		expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, 0)
+	} else {
+		expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, *index+1)
+	}
+	if err != nil {
+		return err
+	}
+	log.Info("expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress)
+	if b.UsingOVM && expectSeq.String() == b.eth.syncService.SeqAddress {
 		log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
 		to := signedTx.To()
 		if to != nil {

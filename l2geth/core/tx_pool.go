@@ -556,10 +556,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Ensure the transaction adheres to nonce ordering
 	if rcfg.UsingOVM {
 		if pool.currentState.GetNonce(from) != tx.Nonce() {
+			log.Info("pool nonce ", pool.currentState.GetNonce(from), " from ", from, " nonce ", tx.Nonce())
 			return ErrNonceTooLow
 		}
 	} else {
 		if pool.currentState.GetNonce(from) > tx.Nonce() {
+			log.Info("pool nonce ", pool.currentState.GetNonce(from), " from ", from, " nonce ", tx.Nonce())
 			return ErrNonceTooLow
 		}
 	}
