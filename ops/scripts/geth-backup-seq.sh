@@ -41,10 +41,11 @@ echo "Initializing Geth other sequencer node"
 geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 # get the main node's enode
-l2URL = "http://l2geth:8545"
+l2URL="http://l2geth:8545"
 if [ "$L2_URL" != "" ]; then 
     l2URL = $L2_URL
 fi
+echo $l2URL
 JSON='{"jsonrpc":"2.0","id":0,"method":"admin_nodeInfo","params":[]}'
 NODE_INFO=$(curl --silent --fail --show-error -H "Content-Type: application/json" --retry-connrefused --retry $RETRIES --retry-delay 3  -d $JSON $l2URL)
 NODE_ENODE=$(echo $NODE_INFO | jq -r '.result.enode')

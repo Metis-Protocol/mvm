@@ -41,6 +41,7 @@ echo "Initializing Geth node"
 geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 # get the main node's enode
+echo $L2_URL
 JSON='{"jsonrpc":"2.0","id":0,"method":"admin_nodeInfo","params":[]}'
 NODE_INFO=$(curl --silent --fail --show-error -H "Content-Type: application/json" --retry-connrefused --retry $RETRIES --retry-delay 3  -d $JSON $L2_URL)
 
