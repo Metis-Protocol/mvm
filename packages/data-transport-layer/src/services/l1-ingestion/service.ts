@@ -7,7 +7,11 @@ import { constants } from 'ethers'
 import { Gauge, Counter } from 'prom-client'
 
 /* Imports: Internal */
-import { TransportDB, TransportDBMapHolder, TransportDBMap} from '../../db/transport-db'
+import {
+  TransportDB,
+  TransportDBMapHolder,
+  TransportDBMap,
+} from '../../db/transport-db'
 import {
   OptimismContracts,
   sleep,
@@ -107,7 +111,10 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
   } = {} as any
 
   protected async _init(): Promise<void> {
-    this.state.db = new TransportDB(this.options.db)
+    this.state.db = new TransportDB(
+      this.options.db,
+      this.options.l2ChainId === 1088
+    )
     this.state.dbs = {}
     this.l1IngestionMetrics = registerMetrics(this.metrics)
 
@@ -426,17 +433,17 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
             event,
             this.state.l1RpcProvider
           )
-	        // filter chainId
-          var chainId = event.args._chainId.toNumber()
+          // filter chainId
+          const chainId = event.args._chainId.toNumber()
           const parsedEvent = await handlers.parseEvent(
             event,
             extraData,
             chainId,
             this.options
           )
-          var db=this.state.db
-          if(chainId&&chainId!=0){
-             db = await this.options.dbs.getTransportDbByChainId(chainId)
+          let db = this.state.db
+          if (chainId) {
+            db = await this.options.dbs.getTransportDbByChainId(chainId)
           }
 
           this.logger.info('Storing Event:', {
@@ -485,7 +492,8 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
   private async _findStartingL1BlockNumber(): Promise<number> {
     const currentL1Block = await this.state.l1RpcProvider.getBlockNumber()
 
-    const filter = this.state.contracts.Lib_AddressManager.filters.OwnershipTransferred()
+    const filter =
+      this.state.contracts.Lib_AddressManager.filters.OwnershipTransferred()
 
     for (let i = 0; i < currentL1Block; i += 2000) {
       const start = i

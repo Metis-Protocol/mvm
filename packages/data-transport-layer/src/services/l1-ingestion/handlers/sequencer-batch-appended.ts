@@ -1,7 +1,6 @@
 /* Imports: External */
 import { BigNumber, ethers, constants } from 'ethers'
 import { MerkleTree } from 'merkletreejs'
-import { Logger } from '@eth-optimism/common-ts'
 import { getContractFactory } from '@metis.io/contracts'
 import {
   fromHexString,
@@ -21,11 +20,7 @@ import {
   TransactionEntry,
   EventHandlerSet,
 } from '../../../types'
-import {
-  SEQUENCER_ENTRYPOINT_ADDRESS,
-  SEQUENCER_GAS_LIMIT,
-  parseSignatureVParam,
-} from '../../../utils'
+import { SEQUENCER_GAS_LIMIT, parseSignatureVParam } from '../../../utils'
 import { MissingElementError } from './errors'
 
 export const handleEventsSequencerBatchAppended: EventHandlerSet<
@@ -88,22 +83,26 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     // It's easier to deal with this data if it's a Buffer.
     let calldata = fromHexString(extraData.l1TransactionData)
     let minioClient: MinioClient = null
-    if (options.minioBucket && options.minioAccessKey &&
-      options.minioSecretKey && options.minioEndpoint &&
-      options.minioPort) {
-        const minioConfig: MinioConfig = {
-          options: {
-            endPoint: options.minioEndpoint,
-            port: options.minioPort,
-            useSSL: options.minioUseSsl,
-            accessKey: options.minioAccessKey,
-            secretKey: options.minioSecretKey,
-          },
-          l2ChainId: l2ChainId,
-          bucket: options.minioBucket
-        }
-        minioClient = new MinioClient(minioConfig)
+    if (
+      options.minioBucket &&
+      options.minioAccessKey &&
+      options.minioSecretKey &&
+      options.minioEndpoint &&
+      options.minioPort
+    ) {
+      const minioConfig: MinioConfig = {
+        options: {
+          endPoint: options.minioEndpoint,
+          port: options.minioPort,
+          useSSL: options.minioUseSsl,
+          accessKey: options.minioAccessKey,
+          secretKey: options.minioSecretKey,
+        },
+        l2ChainId,
+        bucket: options.minioBucket,
       }
+      minioClient = new MinioClient(minioConfig)
+    }
 
     // chainid + 32, so not [12, 15]
     if (calldata.length < 44) {
@@ -131,7 +130,10 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         context.numSequencedTransactions === 0
       ) {
         // calldata = timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + markleRoot[64]
-        const storageObject = calldata.slice(nextTxPointer).toString('hex').slice(0, 86)
+        const storageObject = calldata
+          .slice(nextTxPointer)
+          .toString('hex')
+          .slice(0, 86)
         rootFromCalldata = storageObject.slice(22, 86)
         fromStorage = true
         // console.info('calc storage object name', storageObject)
@@ -141,7 +143,9 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         //   throw new Error(`verified calldata from storage error, storage object ${storageObject}`)
         // }
         if (!txData) {
-          throw new Error(`got calldata from storage error, storage object ${storageObject}`)
+          throw new Error(
+            `got calldata from storage error, storage object ${storageObject}`
+          )
         }
         console.info('got storage data', storageObject)
         calldata = Buffer.concat([
@@ -179,12 +183,23 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           confirmed: true,
         })
         // block number = index + 1
-        leafs.push(ethers.utils.keccak256(
-          ethers.utils.solidityPack(['uint256', 'bytes'],
-          [
-            extraData.prevTotalElements.add(BigNumber.from(transactionIndex)).add(BigNumber.from(1)).toNumber(),
-            parseMerkleLeafFromSequencerBatchTransaction(calldata, nextTxPointer)
-          ])))
+        leafs.push(
+          ethers.utils.keccak256(
+            ethers.utils.solidityPack(
+              ['uint256', 'bytes'],
+              [
+                extraData.prevTotalElements
+                  .add(BigNumber.from(transactionIndex))
+                  .add(BigNumber.from(1))
+                  .toNumber(),
+                parseMerkleLeafFromSequencerBatchTransaction(
+                  calldata,
+                  nextTxPointer
+                ),
+              ]
+            )
+          )
+        )
         nextTxPointer += 3 + sequencerTransaction.length
         transactionIndex++
       }
@@ -207,9 +222,12 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
             .toNumber(),
           batchIndex: extraData.batchIndex.toNumber(),
           blockNumber: BigNumber.from(0).toNumber(),
-          timestamp: extraData.prevTotalElements
-            .add(BigNumber.from(transactionIndex))
-            .toNumber()<=2287472 ? BigNumber.from(0).toNumber() : BigNumber.from(context.timestamp).toNumber(),  //timestamp needs to be consistent
+          timestamp:
+            extraData.prevTotalElements
+              .add(BigNumber.from(transactionIndex))
+              .toNumber() <= 2287472
+              ? BigNumber.from(0).toNumber()
+              : BigNumber.from(context.timestamp).toNumber(), //timestamp needs to be consistent
           gasLimit: BigNumber.from(0).toString(),
           target: constants.AddressZero,
           origin: constants.AddressZero,
@@ -234,9 +252,15 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     if (merkleRoot.startsWith('0x')) {
       merkleRoot = merkleRoot.slice(2)
     }
-    console.info(`root from batch: ${rootFromCalldata}, re-calculate root: ${merkleRoot}, equals: ${rootFromCalldata == merkleRoot}`)
-    if (fromStorage && rootFromCalldata != merkleRoot) {
-      throw new Error(`verified calldata from storage error, batch index is ${extraData.batchIndex.toNumber()}`)
+    console.info(
+      `root from batch: ${rootFromCalldata}, re-calculate root: ${merkleRoot}, equals: ${
+        rootFromCalldata === merkleRoot
+      }`
+    )
+    if (fromStorage && rootFromCalldata !== merkleRoot) {
+      throw new Error(
+        `verified calldata from storage error, batch index is ${extraData.batchIndex.toNumber()}`
+      )
     }
 
     const transactionBatchEntry: TransactionBatchEntry = {
@@ -282,7 +306,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         )
       }
     }
-    
+
     await db.putTransactionBatchEntries([entry.transactionBatchEntry])
   },
 }
