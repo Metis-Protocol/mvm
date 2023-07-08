@@ -1746,9 +1746,9 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if nodeHTTPModules == nil || len(nodeHTTPModules) == 0 {
 		return common.Hash{}, errors.New("Not support submit transaction")
 	}
-	log.Info("api SubmitTransaction nodeHTTPModules %v", nodeHTTPModules)
+	log.Info("SubmitTransaction", "api SubmitTransaction nodeHTTPModules ", nodeHTTPModules)
 	if b.IsRpcProxySupport() {
-		log.Info("api SubmitTransaction  b.IsRpcProxySupport() true")
+		log.Info("api SubmitTransaction b.IsRpcProxySupport() true")
 		tx.SetL2Tx(2)
 		errRpc := b.ProxyTransaction(ctx, tx)
 		tx.SetL2Tx(1)

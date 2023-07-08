@@ -557,14 +557,14 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if rcfg.UsingOVM {
 		fromNonce := pool.currentState.GetNonce(from)
 		txNonce := tx.Nonce()
-		log.Info("pool nonce ", fromNonce, " from ", from.String(), " nonce ", txNonce)
+		log.Info("validateTx", "pool nonce ", fromNonce, " from ", from.String(), " nonce ", txNonce)
 		if fromNonce > txNonce {
 
 			return ErrNonceTooLow
 		}
 	} else {
 		if pool.currentState.GetNonce(from) > tx.Nonce() {
-			log.Info("pool nonce ", pool.currentState.GetNonce(from), " from ", from, " nonce ", tx.Nonce())
+			log.Info("validateTx", "pool nonce ", pool.currentState.GetNonce(from), " from ", from, " nonce ", tx.Nonce())
 			return ErrNonceTooLow
 		}
 	}
