@@ -219,7 +219,7 @@ func (st *StateTransition) preCheck() error {
 			}
 		}
 		nonce := st.state.GetNonce(st.msg.From())
-		log.Info("state nonce", nonce, "msg nonce", st.msg.Nonce())
+		log.Info("preCheck", "state nonce", nonce, "msg nonce", st.msg.Nonce())
 		if nonce < st.msg.Nonce() {
 			return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {

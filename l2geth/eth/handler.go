@@ -438,7 +438,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	if pm.HasRPCModule("rollup") {
 		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
 			//return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
-			log.Info("get msg %v, in rollup mode" , msg.Code)
+			log.Info("in rollup mode", "get msg", msg.Code)
 			pm.peerSyncTime = time.Now().Unix()
 
 		}
