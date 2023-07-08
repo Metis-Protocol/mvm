@@ -309,7 +309,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	if err != nil {
 		return err
 	}
-	log.Info("expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress)
+	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress)
 	if b.UsingOVM && expectSeq.String() == b.eth.syncService.SeqAddress {
 		log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
 		to := signedTx.To()

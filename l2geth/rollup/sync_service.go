@@ -803,7 +803,8 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 		return errors.New("No index found in applyIndexedTransaction")
 	}
 	if *index > s.decSeqValidHeight && tx.GetSeqSign() == nil {
-		return errors.New("no seq signature afer seq sign valid height")
+		log.Trace("no seq signature afer seq sign valid height")
+		//return errors.New("no seq signature afer seq sign valid height")
 	}
 	log.Trace("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
