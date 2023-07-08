@@ -450,10 +450,10 @@ func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (
 }
 func (b *EthAPIBackend) IsSequencerWorking() bool {
 	pending, queued := b.eth.txPool.Stats()
-	log.Info("pending %v, queued %v", pending, queued)
+	log.Info("IsSequencerWorking", "pending ", pending, "queued", queued)
 	if pending > 0 || queued > 0 {
 		indexTime := b.eth.syncService.GetLatestIndexTime()
-		log.Info("pending %v, queued %v, indexTime %v", pending, queued, indexTime)
+		log.Info("IsSequencerWorking", "pending ", pending, "queued", queued, "indexTime", indexTime)
 		if time.Now().Unix()-int64(*indexTime) > 10 {
 			return false
 		}
