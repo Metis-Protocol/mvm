@@ -653,13 +653,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
 		}
-		for _, txs := range transactions {
-			if pm.txQueues != nil {
-				for _, tx := range txs {
-					pm.txQueues <- tx
-				}
-			}
-		}
+		// for _, txs := range transactions {
+		// 	if pm.txQueues != nil {
+		// 		for _, tx := range txs {
+		// 			pm.txQueues <- tx
+		// 		}
+		// 	}
+		// }
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
