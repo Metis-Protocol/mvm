@@ -811,6 +811,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		for _, tx := range request.Block.Transactions() {
 			if pm.txQueues != nil {
+				index := tx.GetMeta().Index
+				if index == nil {
+					continue
+				}
+				log.Info("in rollup mode NewBlockMsg add ", "tx index", *index)
 				pm.txQueues <- tx
 			}
 		}
