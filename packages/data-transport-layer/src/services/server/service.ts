@@ -11,7 +11,7 @@ import * as Sentry from '@sentry/node'
 import * as Tracing from '@sentry/tracing'
 
 /* Imports: Internal */
-import { TransportDB, TransportDBMapHolder, TransportDBMap} from '../../db/transport-db'
+import { TransportDB, TransportDBMapHolder } from '../../db/transport-db'
 import {
   ContextResponse,
   GasPriceResponse,
@@ -93,7 +93,10 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       await this.options.db.open()
     }
 
-    this.state.db = new TransportDB(this.options.db)
+    this.state.db = new TransportDB(
+      this.options.db,
+      this.options.l2ChainId === 1088
+    )
     this.state.l1RpcProvider =
       typeof this.options.l1RpcProvider === 'string'
         ? new JsonRpcProvider(this.options.l1RpcProvider)
@@ -224,12 +227,6 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       const start = Date.now()
       try {
         const json = await handler(req, res)
-        const elapsed = Date.now() - start
-        // this.logger.info('Served HTTP Request', {
-        //   method: req.method,
-        //   url: req.url,
-        //   elapsed,
-        // })
         this.logger.debug('Response body', {
           method: req.method,
           url: req.url,
@@ -252,10 +249,10 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
     })
   }
 
-  private async _getDb(chainId):Promise<TransportDB>{
-    var db = this.state.db
-    if(chainId&&chainId!=0){
-       db = await this.options.dbs.getTransportDbByChainId(chainId)
+  private async _getDb(chainId): Promise<TransportDB> {
+    let db = this.state.db
+    if (chainId) {
+      db = await this.options.dbs.getTransportDbByChainId(chainId)
     }
     return db
   }
@@ -268,8 +265,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/eth/syncing/:chainId',
       async (req): Promise<SyncingResponse> => {
-      	const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
 
         const backend = req.query.backend || this.options.defaultBackend
 
@@ -355,7 +352,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
 
         return {
           blockNumber: block.number,
-          timestamp: Math.floor(new Date().getTime()/1000), // block.timestamp,
+          timestamp: Math.floor(new Date().getTime() / 1000), // block.timestamp,
           blockHash: block.hash,
         }
       }
@@ -390,8 +387,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/enqueue/latest/:chainId',
       async (req): Promise<EnqueueResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const enqueue = await db.getLatestEnqueue()
 
         if (enqueue === null) {
@@ -407,9 +404,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
           }
         }
 
-        const ctcIndex = await db.getTransactionIndexByQueueIndex(
-          enqueue.index
-        )
+        const ctcIndex = await db.getTransactionIndexByQueueIndex(enqueue.index)
 
         return {
           ...enqueue,
@@ -422,8 +417,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/enqueue/index/:index/:chainId',
       async (req): Promise<EnqueueResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const enqueue = await db.getEnqueueByIndex(
           BigNumber.from(req.params.index).toNumber()
         )
@@ -441,9 +436,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
           }
         }
 
-        const ctcIndex = await db.getTransactionIndexByQueueIndex(
-          enqueue.index
-        )
+        const ctcIndex = await db.getTransactionIndexByQueueIndex(enqueue.index)
 
         return {
           ...enqueue,
@@ -456,8 +449,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/transaction/latest/:chainId',
       async (req): Promise<TransactionResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
 
         const backend = req.query.backend || this.options.defaultBackend
         let transaction = null
@@ -495,8 +488,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/transaction/index/:index/:chainId',
       async (req): Promise<TransactionResponse> => {
-      	const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
 
         const backend = req.query.backend || this.options.defaultBackend
         let transaction = null
@@ -538,8 +531,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/batch/transaction/latest/:chainId',
       async (req): Promise<TransactionBatchResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const batch = await db.getLatestTransactionBatch()
 
         if (batch === null) {
@@ -552,7 +545,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         const transactions = await db.getFullTransactionsByIndexRange(
           BigNumber.from(batch.prevTotalElements).toNumber(),
           BigNumber.from(batch.prevTotalElements).toNumber() +
-          BigNumber.from(batch.size).toNumber()
+            BigNumber.from(batch.size).toNumber()
         )
 
         return {
@@ -566,8 +559,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/batch/transaction/index/:index/:chainId',
       async (req): Promise<TransactionBatchResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const batch = await db.getTransactionBatchByIndex(
           BigNumber.from(req.params.index).toNumber()
         )
@@ -582,7 +575,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         const transactions = await db.getFullTransactionsByIndexRange(
           BigNumber.from(batch.prevTotalElements).toNumber(),
           BigNumber.from(batch.prevTotalElements).toNumber() +
-          BigNumber.from(batch.size).toNumber()
+            BigNumber.from(batch.size).toNumber()
         )
 
         return {
@@ -596,8 +589,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/stateroot/latest/:chainId',
       async (req): Promise<StateRootResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
 
         const backend = req.query.backend || this.options.defaultBackend
         let stateRoot = null
@@ -620,9 +613,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
           }
         }
 
-        const batch = await db.getStateRootBatchByIndex(
-          stateRoot.batchIndex
-        )
+        const batch = await db.getStateRootBatchByIndex(stateRoot.batchIndex)
 
         return {
           stateRoot,
@@ -635,8 +626,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/stateroot/index/:index/:chainId',
       async (req): Promise<StateRootResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
 
         const backend = req.query.backend || this.options.defaultBackend
         let stateRoot = null
@@ -663,9 +654,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
           }
         }
 
-        const batch = await db.getStateRootBatchByIndex(
-          stateRoot.batchIndex
-        )
+        const batch = await db.getStateRootBatchByIndex(stateRoot.batchIndex)
 
         return {
           stateRoot,
@@ -678,8 +667,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/batch/stateroot/latest/:chainId',
       async (req): Promise<StateRootBatchResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const batch = await db.getLatestStateRootBatch()
 
         if (batch === null) {
@@ -706,8 +695,8 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/batch/stateroot/index/:index/:chainId',
       async (req): Promise<StateRootBatchResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const batch = await db.getStateRootBatchByIndex(
           BigNumber.from(req.params.index).toNumber()
         )
@@ -736,23 +725,22 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/verifier/get/:success/:chainId',
       async (req): Promise<VerifierResultResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const success=req.params.success === 'true' || req.params.success === '1'
-        const db=await this._getDb(chainId)
-        const result = await db.getLastVerifierEntry(
-          success
-        )
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const success =
+          req.params.success === 'true' || req.params.success === '1'
+        const db = await this._getDb(chainId)
+        const result = await db.getLastVerifierEntry(success)
 
         if (result === null) {
           return {
             verify: null,
             batch: null,
             stateRoots: [],
-            success
+            success,
           }
         }
 
-        const resp:VerifierResultResponse = {
+        const resp: VerifierResultResponse = {
           verify: result,
           batch: null,
           stateRoots: [],
@@ -768,13 +756,13 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
             BigNumber.from(batch.prevTotalElements).toNumber() +
               BigNumber.from(batch.size).toNumber()
           )
-          const rootsArray:string[] = []
+          const rootsArray: string[] = []
           if (stateRoots && stateRoots.length > 0) {
-            stateRoots.forEach((stateRoot) => {
-              if (stateRoot.index === result.index) {
+            stateRoots.forEach((v) => {
+              if (v.index === result.index) {
                 rootsArray.push(result.verifierRoot)
               } else {
-                rootsArray.push(stateRoot.value)
+                rootsArray.push(v.value)
               }
             })
           }
@@ -789,19 +777,17 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/verifier/set/:success/:chainId/:index/:stateRoot/:verifierRoot',
       async (req): Promise<VerifierResultResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const success=req.params.success === 'true' || req.params.success === '1'
-        const entry : VerifierResultEntry = {
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const success =
+          req.params.success === 'true' || req.params.success === '1'
+        const entry: VerifierResultEntry = {
           index: BigNumber.from(req.params.index).toNumber(),
           stateRoot: req.params.stateRoot,
           verifierRoot: req.params.verifierRoot,
-          timestamp: new Date().getTime()
+          timestamp: new Date().getTime(),
         }
-        const db=await this._getDb(chainId)
-        await db.putLastVerifierEntry(
-          success,
-          entry
-        )
+        const db = await this._getDb(chainId)
+        await db.putLastVerifierEntry(success, entry)
 
         return {
           verify: entry,
@@ -816,18 +802,18 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/verifier/stake/latest/:chainId',
       async (req): Promise<VerifierStakeResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
         const result = await db.getLatestVerifierStake()
 
         if (result === null) {
           return {
-            verifierStake: null
+            verifierStake: null,
           }
         }
 
         return {
-          verifierStake: result
+          verifierStake: result,
         }
       }
     )
@@ -836,19 +822,19 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/verifier/stake/index/:index/:chainId',
       async (req): Promise<VerifierStakeResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const index=BigNumber.from(req.params.index).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const index = BigNumber.from(req.params.index).toNumber()
+        const db = await this._getDb(chainId)
         const result = await db.getVerifierStakeByIndex(index)
 
         if (result === null) {
           return {
-            verifierStake: null
+            verifierStake: null,
           }
         }
 
         return {
-          verifierStake: result
+          verifierStake: result,
         }
       }
     )
@@ -857,22 +843,21 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       'get',
       '/batch/element/index/:index/:chainId',
       async (req): Promise<AppendBatchElementResponse> => {
-        const chainId=BigNumber.from(req.params.chainId).toNumber()
-        const index=BigNumber.from(req.params.index).toNumber()
-        const db=await this._getDb(chainId)
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const index = BigNumber.from(req.params.index).toNumber()
+        const db = await this._getDb(chainId)
         const result = await db.getBatchElementByIndex(index)
 
         if (result === null) {
           return {
-            batchElement: null
+            batchElement: null,
           }
         }
 
         return {
-          batchElement: result
+          batchElement: result,
         }
       }
     )
-
   }
 }
