@@ -896,7 +896,7 @@ func TestBadFeeThresholds(t *testing.T) {
 			cfg.FeeThresholdDown = tt.thresholdDown
 			cfg.FeeThresholdUp = tt.thresholdUp
 
-			_, err := NewSyncService(context.Background(), cfg, txPool, chain, db)
+			_, err := NewSyncService(context.Background(), cfg, txPool, chain, db, nil)
 			if !errors.Is(err, tt.err) {
 				t.Fatalf("%s: %s", name, err)
 			}
@@ -942,7 +942,7 @@ func newTestSyncService(isVerifier bool, alloc *common.Address) (*SyncService, c
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
 	}
-	service, err := NewSyncService(context.Background(), cfg, txPool, chain, db)
+	service, err := NewSyncService(context.Background(), cfg, txPool, chain, db, nil)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
 	}

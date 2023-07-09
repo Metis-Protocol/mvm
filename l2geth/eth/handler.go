@@ -111,11 +111,13 @@ type ProtocolManager struct {
 	gasPriceOracleOwnerAddressLock *sync.RWMutex
 	gasInitialized                 bool
 	signer                         types.Signer
+
+	txQueues chan *types.Transaction
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Transaction) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:                      networkID,
@@ -133,6 +135,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		gasInitialized:                 false,
 		signer:                         types.NewEIP155Signer(config.ChainID),
 		gasPriceOracleOwnerAddressLock: new(sync.RWMutex),
+		txQueues:                       txQueues,
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -438,6 +441,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	if pm.HasRPCModule("rollup") {
 		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
 			//return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
+			// should support NewBlockMsg
 			log.Info("in rollup mode", "get msg", msg.Code)
 			pm.peerSyncTime = time.Now().Unix()
 
@@ -649,7 +653,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
 		}
-
+		for _, txs := range transactions {
+			if pm.txQueues != nil {
+				for _, tx := range txs {
+					pm.txQueues <- tx
+				}
+			}
+		}
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
@@ -799,7 +809,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-
+		for _, tx := range request.Block.Transactions() {
+			if pm.txQueues != nil {
+				pm.txQueues <- tx
+			}
+		}
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {

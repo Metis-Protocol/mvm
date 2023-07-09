@@ -158,7 +158,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.mvmCtcContract = new CanonicalTransactionChainContract(
       unwrapped_MVM_CanonicalTransaction.address,
       getContractInterface('MVM_CanonicalTransaction'),
-      this.signer
+      this.signer // to be replaced
     )
     this.logger.info('Initialized new mvmCTC', {
       address: this.mvmCtcContract.address,
@@ -303,11 +303,14 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     //     batchParams,
     //     this.encodeSequencerBatchOptions
     //   )
+    // unsigned tx
     const tx =
       await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
         batchParams,
         this.encodeSequencerBatchOptions
       )
+    // call mpc to sign rawdata 
+
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(
         tx,

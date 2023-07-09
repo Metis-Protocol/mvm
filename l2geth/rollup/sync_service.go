@@ -90,10 +90,12 @@ type SyncService struct {
 	decSeqValidHeight uint64
 	SeqAddress        string
 	seqPriv           string
+
+	syncQueueFromOthers chan *types.Transaction
 }
 
 // NewSyncService returns an initialized sync service
-func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database) (*SyncService, error) {
+func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database, syncQueueFromOthers chan *types.Transaction) (*SyncService, error) {
 	if bc == nil {
 		return nil, errors.New("Must pass BlockChain to SyncService")
 	}
@@ -173,9 +175,10 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		feeThresholdDown: cfg.FeeThresholdDown,
 		feeThresholdUp:   cfg.FeeThresholdUp,
 
-		decSeqValidHeight: cfg.SeqsetValidHeight,
-		SeqAddress:        cfg.SeqAddress,
-		seqPriv:           cfg.SeqPriv,
+		decSeqValidHeight:   cfg.SeqsetValidHeight,
+		SeqAddress:          cfg.SeqAddress,
+		seqPriv:             cfg.SeqPriv,
+		syncQueueFromOthers: syncQueueFromOthers,
 	}
 
 	// The chainHeadSub is used to synchronize the SyncService with the chain.
@@ -287,6 +290,7 @@ func (s *SyncService) Start() error {
 			}
 			s.setSyncStatus(false)
 			go s.SequencerLoop()
+			go s.HandleSyncFromOther()
 		}()
 	}
 	return nil
@@ -436,11 +440,30 @@ func (s *SyncService) Stop() error {
 	s.scope.Close()
 	s.chainHeadSub.Unsubscribe()
 	close(s.chainHeadCh)
-
+	close(s.syncQueueFromOthers)
 	if s.cancel != nil {
 		defer s.cancel()
 	}
 	return nil
+}
+
+func (s *SyncService) HandleSyncFromOther() {
+	if s.syncQueueFromOthers == nil {
+		return
+	}
+	for {
+		select {
+		case tx := <-s.syncQueueFromOthers:
+			// unactive sequencers update local tx pool from active sequencer
+			if !s.verifier {
+				err := s.applyIndexedTransaction(tx)
+				if err != nil {
+					log.Info("HandleSyncFromOther applyIndexedTransaction ", "tx", tx.Hash(), "err", err)
+				}
+			}
+		}
+	}
+
 }
 
 // VerifierLoop is the main loop for Verifier mode

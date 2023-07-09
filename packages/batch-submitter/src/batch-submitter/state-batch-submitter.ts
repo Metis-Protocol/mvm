@@ -173,8 +173,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
     this.logger.debug('Submitting batch.', { calldata })
 
     // Generate the transaction we will repeatedly submit
-    const nonce = await this.signer.getTransactionCount()
-
+    const nonce = await this.signer.getTransactionCount() //mpc address , 2 mpc addresses
+    // state ctc are different signer addresses.
     const tx = await this.chainContract.populateTransaction.appendStateBatchByChainId(
       this.l2ChainId,
       batch,
