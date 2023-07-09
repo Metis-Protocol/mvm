@@ -859,22 +859,22 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 		if signature == nil {
 			errInfo := fmt.Sprintf("tx %x, seqSign is null ", *index)
 			log.Error(errInfo)
-			return nil
+			// return nil
 		}
 		expectSeq, err := s.seqAdapter.GetTxSeqencer(tx, *index)
 		if err != nil {
 			log.Error("tx %v, GetTxSeqencer err %v", err)
-			return err
+			//return err
 		}
 		recoverSeq, err := s.recoverSeqAddress(tx)
 		if err != nil {
 			log.Error("recoverSeqAddress err ", err)
-			return err
+			//return err
 		}
 		if expectSeq.String() != recoverSeq {
 			errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
 			log.Error(errInfo)
-			return errors.New(errInfo)
+			//return errors.New(errInfo)
 		}
 	}
 
@@ -1018,12 +1018,12 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 			recoverSeq, err := s.recoverSeqAddress(tx)
 			if err != nil {
 				log.Error("recoverSeqAddress err ", err)
-				return err
+				//return err
 			}
 			if expectSeq.String() != recoverSeq {
 				errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
 				log.Error(errInfo)
-				return errors.New(errInfo)
+				//return errors.New(errInfo)
 			}
 		}
 	}
