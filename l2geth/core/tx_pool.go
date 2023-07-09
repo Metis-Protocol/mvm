@@ -557,8 +557,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if rcfg.UsingOVM {
 		fromNonce := pool.currentState.GetNonce(from)
 		txNonce := tx.Nonce()
-		log.Info("validateTx", "pool nonce ", fromNonce, " from ", from.String(), " nonce ", txNonce)
-		if fromNonce != txNonce {
+		log.Info("UsingOVM validateTx", "pool nonce ", fromNonce, " from ", from.String(), " nonce ", txNonce)
+		if fromNonce > txNonce {
 			return ErrNonceTooLow
 		}
 	} else {
