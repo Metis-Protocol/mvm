@@ -232,6 +232,7 @@ func (t *Transaction) SetSeqSign(signResult *SeqSign) {
 func (t *Transaction) GetSeqSign() *SeqSign {
 	return t.seqSignature
 }
+
 // MarshalJSON encodes the web3 RPC transaction format.
 func (tx *Transaction) MarshalJSON() ([]byte, error) {
 	return tx.data.MarshalJSON()
@@ -412,6 +413,7 @@ func (tx *Transaction) IsSystemContractCall(systemContract common.Address) (bool
 	}
 	return false, nil
 }
+
 // Transactions is a Transaction slice type for basic sorting.
 type Transactions []*Transaction
 
