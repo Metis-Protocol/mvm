@@ -853,6 +853,7 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 	if index == nil {
 		return errors.New("No index is found in applyHistoricalTransaction")
 	}
+	log.Info("applyHistoricalTransaction", "index", index)
 	// check sequencer
 	if *index >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
@@ -1000,6 +1001,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	if index == nil {
 		expectSeq, err = s.GetTxSeqencer(tx, 0)
 	} else {
+		log.Info("try to applyTransactionToTip ", "index", *index+1)
 		expectSeq, err = s.GetTxSeqencer(tx, *index+1)
 	}
 	if err != nil {
