@@ -90,7 +90,10 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
 
     this.l2IngestionMetrics = registerMetrics(this.metrics)
 
-    this.state.db = new TransportDB(this.options.db)
+    this.state.db = new TransportDB(
+      this.options.db,
+      this.options.l2ChainId === 1088
+    )
     this.state.dbs = {}
 
     this.state.l2RpcProvider =
