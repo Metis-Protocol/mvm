@@ -661,8 +661,8 @@ func (w *worker) resultLoop() {
 			w.pendingMu.RUnlock()
 			if !exist {
 				log.Error("Block found but no relative pending task", "number", block.Number(), "sealhash", sealhash, "hash", hash)
-				// w.handleErrInTask(errors.New("Block found but no relative pending task"), true)
-				// continue
+				w.handleErrInTask(errors.New("Block found but no relative pending task"), true)
+				continue
 			}
 			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
 			var (

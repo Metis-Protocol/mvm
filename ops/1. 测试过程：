@@ -20,6 +20,16 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_checkIsSeqWorking","params":[],"id":0}' 127.0.0.1:18545
 
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","id":0,"method":"admin_nodeInfo","params":[]}' 127.0.0.1:18545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_listSeqencerInfo","params":[],"id":0}' 127.0.0.1:18545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_addSeqencerInfo","params":[{"sequencerAddress":"0x00000398232E2064F896018496b4b44b3D62751F","sequencerUrl":"http://l2geth:8545"}],"id":0}' 127.0.0.1:18545
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_addSeqencerInfo","params":[{"sequencerAddress":"0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933","sequencerUrl":"http://l2gethB:8545"}],"id":0}' 127.0.0.1:8545
+
+
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_listSeqencerInfo","params":[],"id":0}' 127.0.0.1:8545
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":0}' 127.0.0.1:18545
 
@@ -36,7 +46,7 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 // L1
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:9545
 
-curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x17", false],"id":1}' 127.0.0.1:8545
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x694", false],"id":1}' 127.0.0.1:8545
 
 
 Jida, [2023/5/23 2:01 AM]
@@ -79,3 +89,8 @@ engine.PayloadAttributes
 
 sh ./ops-bedrock/devnet-up-multi-metis.sh
 docker-compose -f ops-bedrock/docker-compose-multi-metis.yml down
+
+
+cd ~/go/src/metis-seq/mvm
+
+docker-compose -f ops/docker-compose-local.yml down

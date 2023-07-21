@@ -101,12 +101,14 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	log.Debug("seqencer %v, for index %v", "0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933", expectIndex)
 	return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
 	/*
+		if tx != nil {
 	seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
 	if seqOper {
 		updateSeq, newSeq := parseUpdateSeqData(data)
 		if updateSeq {
 			return newSeq, nil
 		}
+				}
 	}
 
 	log.Debug("Will get seqencer info from seq contract on L2")

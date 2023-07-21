@@ -257,9 +257,12 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 }
 
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
+	log.Info("StateDB GetNonce", "addr", addr.String())
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		return stateObject.Nonce()
+		nonce := stateObject.Nonce()
+		log.Info("StateDB GetNonce", "addr", addr.String(), "nonce", nonce)
+		return nonce
 	}
 
 	return 0
@@ -425,7 +428,9 @@ func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 
 func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
 	stateObject := s.GetOrNewStateObject(addr)
+	log.Info("StateDB SetNonce", "addr", addr.String(), "nonce", nonce)
 	if stateObject != nil {
+		log.Info("stateObject SetNonce", "addr", addr.String(), "nonce", nonce)
 		stateObject.SetNonce(nonce)
 	}
 }

@@ -303,6 +303,7 @@ func (s *SyncService) Start() error {
 // are accepted via RPC when running as a sequencer.
 func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 	index := s.GetLatestIndex()
+	log.Info("initializeLatestL1", "ctcDeployHeight", ctcDeployHeight.String())
 	if index == nil {
 		if ctcDeployHeight == nil {
 			return errors.New("Must configure with canonical transaction chain deploy height")
@@ -347,6 +348,7 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			}
 			s.SetLatestIndex(idx)
 			log.Info("Block not found, resetting index", "new", stringify(idx), "old", *index)
+			log.Info("initializeLatestL1", "blockNum", blockNum)
 		}
 		txs := block.Transactions()
 		if len(txs) != 1 {
