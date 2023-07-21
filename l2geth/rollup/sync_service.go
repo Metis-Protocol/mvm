@@ -1376,6 +1376,7 @@ func (s *SyncService) sync(getLatest indexGetter, getNext nextGetter, syncer ran
 	}
 
 	nextIndex := getNext()
+	log.Info("sync enqueue", "nextIndex", nextIndex, "latestIndex", *latestIndex+1)
 	if nextIndex == *latestIndex+1 {
 		return latestIndex, nil
 	}
