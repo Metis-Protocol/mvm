@@ -838,6 +838,7 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 		return s.applyTransactionToTip(tx)
 	}
 	if *index < next {
+		log.Trace("applyHistoricalTransaction", "index", *index, "next", next)
 		return s.applyHistoricalTransaction(tx)
 	}
 	// batchIndex := *s.GetLatestBatchIndex() - 30
