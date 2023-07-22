@@ -458,7 +458,7 @@ func (s *SyncService) HandleSyncFromOther() {
 		case tx := <-s.syncQueueFromOthers:
 			// unactive sequencers update local tx pool from active sequencer
 			if !s.verifier {
-				err := s.applyIndexedTransaction(tx)
+				err := s.applyIndexedTransaction(tx, false)
 				if err != nil {
 					log.Info("HandleSyncFromOther applyIndexedTransaction ", "tx", tx.Hash(), "err", err)
 					// put back
@@ -815,18 +815,18 @@ func (s *SyncService) SetLatestBatchIndex(index *uint64) {
 }
 
 // applyTransaction is a higher level API for applying a transaction
-func (s *SyncService) applyTransaction(tx *types.Transaction) error {
+func (s *SyncService) applyTransaction(tx *types.Transaction, fromLocal bool) error {
 	log.Info("applyTransaction ", "tx", tx.Hash().String())
 	if tx.GetMeta().Index != nil {
-		return s.applyIndexedTransaction(tx)
+		return s.applyIndexedTransaction(tx, fromLocal)
 	}
-	return s.applyTransactionToTip(tx)
+	return s.applyTransactionToTip(tx, fromLocal)
 }
 
 // applyIndexedTransaction applys a transaction that has an index. This means
 // that the source of the transaction was either a L1 batch or from the
 // sequencer.
-func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
+func (s *SyncService) applyIndexedTransaction(tx *types.Transaction, fromLocal bool) error {
 	if tx == nil {
 		return errors.New("Transaction is nil in applyIndexedTransaction")
 	}
@@ -841,11 +841,11 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 	log.Trace("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
 	if *index == next {
-		return s.applyTransactionToTip(tx)
+		return s.applyTransactionToTip(tx, fromLocal)
 	}
 	if *index < next {
 		log.Trace("applyHistoricalTransaction", "index", *index, "next", next)
-		return s.applyHistoricalTransaction(tx)
+		return s.applyHistoricalTransaction(tx, fromLocal)
 	}
 	// batchIndex := *s.GetLatestBatchIndex() - 30
 	// s.SetLatestBatchIndex(&batchIndex)
@@ -855,7 +855,7 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 
 // applyHistoricalTransaction will compare a historical transaction against what
 // is locally indexed. This will trigger a reorg in the future
-func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
+func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLocal bool) error {
 	if tx == nil {
 		return errors.New("Transaction is nil in applyHistoricalTransaction")
 	}
@@ -911,7 +911,7 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 			s.SetLatestIndex(&newIndex)
 		}
 		// 重新执行一次tx
-		return s.applyIndexedTransaction(tx)
+		return s.applyIndexedTransaction(tx, fromLocal)
 	} else {
 		log.Debug("Historical transaction matches", "index", *index, "hash", tx.Hash().Hex())
 	}
@@ -993,7 +993,7 @@ func (s *SyncService) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (
 // applying it to the tip. It blocks until the transaction has been included in
 // the chain. It is assumed that validation around the index has already
 // happened.
-func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
+func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal bool) error {
 	if tx == nil {
 		return errors.New("nil transaction passed to applyTransactionToTip")
 	}
@@ -1137,7 +1137,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	}
 	// The index was set above so it is safe to dereference
 	log.Debug("Applying transaction to tip", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex(), "origin", tx.QueueOrigin().String())
-
+	if !fromLocal {
+		log.Info("sync from other node", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex())
+		return nil
+	}
 	txs := types.Transactions{tx}
 	errCh := make(chan error, 1)
 	// send to handle the new tx
@@ -1193,7 +1196,7 @@ func (s *SyncService) applyBatchedTransaction(tx *types.Transaction) error {
 		return errors.New("No index found on transaction")
 	}
 	log.Trace("Applying batched transaction", "index", *index)
-	err := s.applyIndexedTransaction(tx)
+	err := s.applyIndexedTransaction(tx, true)
 	if err != nil {
 		return fmt.Errorf("Cannot apply batched transaction: %w", err)
 	}
@@ -1303,7 +1306,7 @@ func (s *SyncService) ValidateAndApplySequencerTransaction(tx *types.Transaction
 	if err := s.txpool.ValidateTx(tx); err != nil {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
-	if err := s.applyTransaction(tx); err != nil {
+	if err := s.applyTransaction(tx, true); err != nil {
 		return err
 	}
 	return nil
@@ -1505,7 +1508,7 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 		if err != nil {
 			return fmt.Errorf("Canot get enqueue transaction; %w", err)
 		}
-		if err := s.applyTransaction(tx); err != nil {
+		if err := s.applyTransaction(tx, true); err != nil {
 			// retry when enqueue error
 			log.Info("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
 			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
@@ -1544,7 +1547,7 @@ func (s *SyncService) syncTransactionRange(start, end uint64, backend Backend) e
 		if err != nil {
 			return fmt.Errorf("cannot fetch transaction %d: %w", i, err)
 		}
-		if err := s.applyTransaction(tx); err != nil {
+		if err := s.applyTransaction(tx, true); err != nil {
 			return fmt.Errorf("Cannot apply transaction: %w", err)
 		}
 	}
@@ -1567,7 +1570,7 @@ func stringify(i *uint64) string {
 // IngestTransaction should only be called by trusted parties as it skips all
 // validation and applies the transaction
 func (s *SyncService) IngestTransaction(tx *types.Transaction) error {
-	return s.applyTransaction(tx)
+	return s.applyTransaction(tx, true)
 }
 
 func (s *SyncService) shiftTxApplyError() {
