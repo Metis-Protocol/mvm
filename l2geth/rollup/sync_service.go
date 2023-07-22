@@ -909,6 +909,17 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 	} else {
 		log.Debug("Historical transaction matches", "index", *index, "hash", tx.Hash().Hex())
 	}
+	// may need to update enqueue index
+	queueIndex := tx.GetMeta().QueueIndex
+	if queueIndex != nil {
+		lastIndex := s.GetLatestEnqueueIndex()
+		if lastIndex == nil || *lastIndex < *queueIndex {
+			log.Info("Historical transaction SetLatestEnqueueIndex ", "queueIndex", *queueIndex)
+			s.SetLatestEnqueueIndex(queueIndex)
+		}
+	} else {
+		log.Debug("Historical transaction tx queueIndex is null", "index", *index, "hash", tx.Hash().Hex())
+	}
 	return nil
 }
 func (s *SyncService) recoverSeqAddress(tx *types.Transaction) (string, error) {
@@ -1485,9 +1496,11 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 		}
 		if err := s.applyTransaction(tx); err != nil {
 			// retry when enqueue error
+			log.Info("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
 			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
 				restoreIndex := *queueIndex - 1
 				s.SetLatestEnqueueIndex(&restoreIndex)
+				log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
 			}
 			return fmt.Errorf("Cannot apply transaction: %w", err)
 		}

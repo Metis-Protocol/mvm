@@ -49,6 +49,10 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x694", false],"id":1}' 127.0.0.1:8545
 
 
+dtl 
+curl http://127.0.0.1:7878/enqueue/index/1/1088
+curl http://127.0.0.1:7878/enqueue/latest/1088
+
 Jida, [2023/5/23 2:01 AM]
 钱包1 >  0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933
 钱包1 私钥 > 0x621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d
