@@ -439,10 +439,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// rollup node disable write msg
 	if pm.HasRPCModule("rollup") {
+		log.Info("in rollup mode", "get msg", msg.Code)
 		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
 			//return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
 			// should support NewBlockMsg
-			log.Info("in rollup mode", "get msg", msg.Code)
 			pm.peerSyncTime = time.Now().Unix()
 
 		}
@@ -467,6 +467,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&query); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
+		log.Info("handleMsg GetBlockHeadersMsg", "msg", query)
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
@@ -554,6 +555,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&headers); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		log.Info("handleMsg BlockHeadersMsg", "msg", headers)
 		// If no headers were received, but we're expencting a checkpoint header, consider it that
 		if len(headers) == 0 && p.syncDrop != nil {
 			// Stop the timer either way, decide later to drop or not
@@ -603,6 +605,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetBlockBodiesMsg:
 		// Decode the retrieval message
+		log.Info("handleMsg GetBlockBodiesMsg")
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
 			return err
@@ -629,11 +632,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendBlockBodiesRLP(bodies)
 
 	case msg.Code == BlockBodiesMsg:
+
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		log.Info("handleMsg BlockBodiesMsg", "msg", request)
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
 		uncles := make([][]*types.Header, len(request))
@@ -661,6 +666,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// 	}
 		// }
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
+		log.Info("handleMsg GetNodeDataMsg")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -688,6 +694,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendNodeData(data)
 
 	case p.version >= eth63 && msg.Code == NodeDataMsg:
+		log.Info("handleMsg NodeDataMsg")
 		// A batch of node state data arrived to one of our previous requests
 		var data [][]byte
 		if err := msg.Decode(&data); err != nil {
@@ -699,6 +706,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case p.version >= eth63 && msg.Code == GetReceiptsMsg:
+		log.Info("handleMsg GetReceiptsMsg")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -735,6 +743,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendReceiptsRLP(receipts)
 
 	case p.version >= eth63 && msg.Code == ReceiptsMsg:
+		log.Info("handleMsg ReceiptsMsg")
 		// A batch of receipts arrived to one of our previous requests
 		var receipts [][]*types.Receipt
 		if err := msg.Decode(&receipts); err != nil {
@@ -752,6 +761,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
+			log.Info("handleMsg newBlockHashesData", "block", block.Number)
 			p.MarkBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
@@ -786,7 +796,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
-		log.Info("get block ", "ReceivedFrom", p.id, "ReceivedAt ", msg.ReceivedAt)
+		log.Info("handleMsg get block ", "ReceivedFrom", p.id, "ReceivedAt ", msg.ReceivedAt, "block", request.Block.Number())
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())
 		pm.fetcher.Enqueue(p.id, request.Block)
@@ -815,7 +825,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if index == nil {
 					continue
 				}
-				log.Info("in rollup mode NewBlockMsg add ", "tx index", *index)
+				log.Info("handleMsg in rollup mode NewBlockMsg add ", "tx index", *index)
 				pm.txQueues <- tx
 			}
 		}
@@ -834,7 +844,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
-			log.Info("get tx from peer", "tx", tx.Hash().Hex())
+			log.Info("handleMsg get tx from peer", "tx", tx.Hash().Hex())
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)
