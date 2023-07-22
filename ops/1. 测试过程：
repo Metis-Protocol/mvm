@@ -52,6 +52,7 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 dtl 
 curl http://127.0.0.1:7878/enqueue/index/1/1088
 curl http://127.0.0.1:7878/enqueue/latest/1088
+curl http://127.0.0.1:7878/batch/transaction/latest
 
 Jida, [2023/5/23 2:01 AM]
 钱包1 >  0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933

@@ -352,7 +352,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			if l2Url == "" {
 				return fmt.Errorf("seqencer %v setting missing on %v", expectSeq.String(), b.eth.syncService.SeqAddress)
 			}
-			log.Info("SendTx use proxy setting to send", "l2Url", l2Url)
+			log.Info("SendTx use proxy setting to send", "l2Url", l2Url, "checkIndex", checkIndex)
 			rpcClient, err := ethclient.Dial(l2Url)
 			if err != nil {
 				log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
