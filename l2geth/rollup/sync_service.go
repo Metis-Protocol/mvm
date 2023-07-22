@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1032,7 +1033,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	// current is not seq, just skip it
 	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
-		if signature == nil && expectSeq.String() != s.SeqAddress {
+		if signature == nil && strings.ToLower(expectSeq.String()) != strings.ToLower(s.SeqAddress) {
 			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
 			log.Info(errInfo)
 			return nil

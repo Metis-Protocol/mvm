@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -331,7 +332,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	}
 	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex)
 	if b.UsingOVM {
-		if expectSeq.String() == b.eth.syncService.SeqAddress {
+		if strings.ToLower(expectSeq.String()) == strings.ToLower(b.eth.syncService.SeqAddress) {
 			log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
 			to := signedTx.To()
 			if to != nil {
