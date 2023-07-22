@@ -462,7 +462,11 @@ func (s *SyncService) HandleSyncFromOther() {
 				if err != nil {
 					log.Info("HandleSyncFromOther applyIndexedTransaction ", "tx", tx.Hash(), "err", err)
 					// put back
-					s.syncQueueFromOthers <- tx
+					go func() {
+						time.Sleep(2 * time.Second)
+						s.syncQueueFromOthers <- tx
+					}()
+
 				}
 			}
 		}
