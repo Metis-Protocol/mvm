@@ -151,15 +151,17 @@ type worker struct {
 	pendingLogsFeed event.Feed
 
 	// Subscriptions
-	mux          *event.TypeMux
-	txsCh        chan core.NewTxsEvent
-	txsSub       event.Subscription
-	chainHeadCh  chan core.ChainHeadEvent
-	chainHeadSub event.Subscription
-	chainSideCh  chan core.ChainSideEvent
-	chainSideSub event.Subscription
-	rollupCh     chan core.NewTxsEvent
-	rollupSub    event.Subscription
+	mux              *event.TypeMux
+	txsCh            chan core.NewTxsEvent
+	txsSub           event.Subscription
+	chainHeadCh      chan core.ChainHeadEvent
+	chainHeadSub     event.Subscription
+	chainSideCh      chan core.ChainSideEvent
+	chainSideSub     event.Subscription
+	rollupCh         chan core.NewTxsEvent
+	rollupSub        event.Subscription
+	rollupSubOtherTx event.Subscription
+	rollupOtherTxCh  chan core.NewTxsEvent
 
 	// Channels
 	newWorkCh          chan *newWorkReq
@@ -224,11 +226,16 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		startCh:            make(chan struct{}, 1),
 		resubmitIntervalCh: make(chan time.Duration),
 		resubmitAdjustCh:   make(chan *intervalAdjust, resubmitAdjustChanSize),
+
+		rollupOtherTxCh: make(chan core.NewTxsEvent, 1),
 	}
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// channel directly to the miner
 	worker.rollupSub = eth.SyncService().SubscribeNewTxsEvent(worker.rollupCh)
+
+	// chanel directly to the miner for syncing from other
+	worker.rollupSubOtherTx = eth.SyncService().SubscribeNewTxsEvent(worker.rollupOtherTxCh)
 
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
@@ -435,7 +442,7 @@ func (w *worker) mainLoop() {
 	defer w.chainHeadSub.Unsubscribe()
 	defer w.chainSideSub.Unsubscribe()
 	defer w.rollupSub.Unsubscribe()
-
+	defer w.rollupSubOtherTx.Unsubscribe()
 	for {
 		select {
 		case req := <-w.newWorkCh:
@@ -478,6 +485,25 @@ func (w *worker) mainLoop() {
 					})
 					w.commit(uncles, nil, start)
 				}
+			}
+		case ev := <-w.rollupOtherTxCh:
+			if len(ev.Txs) == 0 {
+				log.Warn("No transaction sent to miner from syncservice rollupOtherTxCh")
+				if ev.ErrCh != nil {
+					ev.ErrCh <- errors.New("No transaction sent to miner from syncservice")
+				} else {
+					w.handleErrInTask(errors.New("No transaction sent to miner from syncservice rollupOtherTxCh"), false)
+				}
+				continue
+			}
+			tx := ev.Txs[0]
+			log.Debug("Attempting to commit rollupOtherTxCh transaction", "hash", tx.Hash().Hex())
+			// Build the block with the tx and add it to the chain. This will
+			// send the block through the `taskCh` and then through the
+			// `resultCh` which ultimately adds the block to the blockchain
+			// through `bc.WriteBlockWithState`
+			if err := w.commitNewTx(tx); err != nil {
+				log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
 			}
 		// Read from the sync service and mine single txs
 		// as they come. Wait for the block to be mined before
@@ -1119,6 +1145,15 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
+	log.Info("miner commit", "w.current.header hash", w.current.header.Hash, "blockheight", w.current.header.Number.String())
+	for i, tx := range w.current.txs {
+		if tx.GetMeta() != nil && tx.GetMeta().Index != nil {
+			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index)
+		} else {
+			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash())
+		}
+
+	}
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
 		return err

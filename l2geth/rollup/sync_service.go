@@ -57,15 +57,17 @@ var (
 // and executing them. It can be configured to run in both sequencer mode and in
 // verifier mode.
 type SyncService struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	verifier bool
-	db       ethdb.Database
-	scope    event.SubscriptionScope
-	txFeed   event.Feed
-	txLock   sync.Mutex
-	loopLock sync.Mutex
-	enable   bool
+	ctx          context.Context
+	cancel       context.CancelFunc
+	verifier     bool
+	db           ethdb.Database
+	scope        event.SubscriptionScope
+	txOtherScope event.SubscriptionScope
+	txFeed       event.Feed
+	txOtherFeed  event.Feed
+	txLock       sync.Mutex
+	loopLock     sync.Mutex
+	enable       bool
 
 	bc                             *core.BlockChain
 	txpool                         *core.TxPool
@@ -441,6 +443,7 @@ func (s *SyncService) IsSyncing() bool {
 // started by this service.
 func (s *SyncService) Stop() error {
 	s.scope.Close()
+	s.txOtherScope.Close()
 	s.chainHeadSub.Unsubscribe()
 	close(s.chainHeadCh)
 	close(s.syncQueueFromOthers)
@@ -1140,6 +1143,11 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	log.Debug("Applying transaction to tip", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex(), "origin", tx.QueueOrigin().String())
 	if !fromLocal {
 		log.Info("sync from other node", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex())
+
+		txs := types.Transactions{tx}
+		s.txOtherFeed.Send(core.NewTxsEvent{
+			Txs: txs,
+		})
 		return nil
 	}
 	txs := types.Transactions{tx}
@@ -1559,6 +1567,10 @@ func (s *SyncService) syncTransactionRange(start, end uint64, backend Backend) e
 // starts sending event to the given channel.
 func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
 	return s.scope.Track(s.txFeed.Subscribe(ch))
+}
+
+func (s *SyncService) SubscribeNewOtherTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+	return s.txOtherScope.Track(s.txOtherFeed.Subscribe(ch))
 }
 
 func stringify(i *uint64) string {
