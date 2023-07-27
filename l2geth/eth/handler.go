@@ -826,6 +826,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					continue
 				}
 				log.Info("handleMsg in rollup mode NewBlockMsg add ", "tx index", *index)
+				if *index < 19 {
+					log.Info("handleMsg in rollup mode NewBlockMsg add don't need to add to txQueues", "tx index", *index)
+					continue
+				}
 				pm.txQueues <- tx
 			}
 		}
