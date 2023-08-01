@@ -675,7 +675,7 @@ func (w *worker) resultLoop() {
 			}
 			// Short circuit when receiving duplicate result caused by resubmitting.
 			if w.chain.HasBlock(block.Hash(), block.NumberU64()) {
-				//w.handleErrInTask(errors.New("Dulplicate block"), true)
+				w.handleErrInTask(errors.New("Dulplicate block"), true)
 				continue
 			}
 			var (
