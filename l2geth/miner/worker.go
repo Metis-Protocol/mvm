@@ -235,7 +235,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	worker.rollupSub = eth.SyncService().SubscribeNewTxsEvent(worker.rollupCh)
 
 	// chanel directly to the miner for syncing from other
-	worker.rollupSubOtherTx = eth.SyncService().SubscribeNewTxsEvent(worker.rollupOtherTxCh)
+	worker.rollupSubOtherTx = eth.SyncService().SubscribeNewOtherTxsEvent(worker.rollupOtherTxCh)
 
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
