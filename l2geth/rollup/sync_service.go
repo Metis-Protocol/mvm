@@ -89,7 +89,7 @@ type SyncService struct {
 
 	feeThresholdUp   *big.Float
 	feeThresholdDown *big.Float
-
+	applyLock                      sync.Mutex
 	decSeqValidHeight uint64
 	SeqAddress        string
 	seqPriv           string
@@ -823,6 +823,8 @@ func (s *SyncService) SetLatestBatchIndex(index *uint64) {
 
 // applyTransaction is a higher level API for applying a transaction
 func (s *SyncService) applyTransaction(tx *types.Transaction, fromLocal bool) error {
+	s.applyLock.Lock()
+	defer s.applyLock.Unlock()
 	log.Info("applyTransaction ", "tx", tx.Hash().String())
 	if tx.GetMeta().Index != nil {
 		return s.applyIndexedTransaction(tx, fromLocal)
