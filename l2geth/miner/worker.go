@@ -483,7 +483,7 @@ func (w *worker) mainLoop() {
 						uncles = append(uncles, uncle.Header())
 						return false
 					})
-					w.commit(uncles, nil, start)
+					w.commit(uncles, nil, start, "chainSideCh")
 				}
 			}
 		case ev := <-w.rollupOtherTxCh:
@@ -502,7 +502,7 @@ func (w *worker) mainLoop() {
 			// send the block through the `taskCh` and then through the
 			// `resultCh` which ultimately adds the block to the blockchain
 			// through `bc.WriteBlockWithState`
-			if err := w.commitNewTx(tx); err != nil {
+			if err := w.commitNewTx(tx, "rollupOtherTxCh"); err != nil {
 				log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
 			}
 		// Read from the sync service and mine single txs
@@ -525,7 +525,7 @@ func (w *worker) mainLoop() {
 			// send the block through the `taskCh` and then through the
 			// `resultCh` which ultimately adds the block to the blockchain
 			// through `bc.WriteBlockWithState`
-			if err := w.commitNewTx(tx); err == nil {
+			if err := w.commitNewTx(tx, "rollupCh"); err == nil {
 				// `chainHeadCh` is written to when a new block is added to the
 				// tip of the chain. Reading from the channel will block until
 				// the ethereum block is added to the chain downstream of `commitNewTx`.
@@ -974,7 +974,7 @@ func (w *worker) commitTransactionsWithError(txs *types.TransactionsByPriceAndNo
 // It needs to return an error in the case there is an error to prevent waiting
 // on reading from a channel that is written to when a new block is added to the
 // chain.
-func (w *worker) commitNewTx(tx *types.Transaction) error {
+func (w *worker) commitNewTx(tx *types.Transaction, caller string) error {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	tstart := time.Now()
@@ -1021,7 +1021,7 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	if err := w.commitTransactionsWithError(txs, w.coinbase, nil); err != nil {
 		return err
 	}
-	return w.commit(nil, w.fullTaskHook, tstart)
+	return w.commit(nil, w.fullTaskHook, tstart, caller)
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
@@ -1132,12 +1132,12 @@ func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 			return
 		}
 	}
-	w.commit(uncles, w.fullTaskHook, tstart)
+	w.commit(uncles, w.fullTaskHook, tstart, "commitNewWork")
 }
 
 // commit runs any post-transaction state modifications, assembles the final block
 // and commits new work if consensus engine is running.
-func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time) error {
+func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time, caller string) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := make([]*types.Receipt, len(w.current.receipts))
 	for i, l := range w.current.receipts {
@@ -1145,12 +1145,12 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
-	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String())
+	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String(), "caller", caller)
 	for i, tx := range w.current.txs {
 		if tx.GetMeta() != nil && tx.GetMeta().Index != nil {
-			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index)
+			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index, "caller", caller)
 		} else {
-			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash())
+			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash(), "caller", caller)
 		}
 
 	}

@@ -211,6 +211,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 			}
 		}
 
+		if !cfg.IsVerifier || cfg.Backend == BackendL2 {
 		// Wait until the remote service is done syncing
 		tStatus := time.NewTicker(10 * time.Second)
 		for ; true; <-tStatus.C {
@@ -224,6 +225,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 				break
 			}
 			log.Info("Still syncing", "index", status.CurrentTransactionIndex, "tip", status.HighestKnownTransactionIndex)
+			}
 		}
 
 		// Initialize the latest L1 data here to make sure that
@@ -404,7 +406,8 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			tx := txs[0]
 			qi := tx.GetMeta().QueueIndex
 			// When the queue index is set
-			if qi != nil && *qi != 0 {
+			// if qi != nil && *qi != 0 {
+			if qi != nil {
 				if *qi == *queueIndex {
 					log.Info("Found correct staring queue index", "queue-index", *qi)
 				} else {
