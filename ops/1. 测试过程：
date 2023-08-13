@@ -39,9 +39,10 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0x70997970C51812dc3A010C7d01b50e0d17dc79C8", "pending"],"id":0}' 127.0.0.1:18545
 
-curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0x70997970C51812dc3A010C7d01b50e0d17dc79C8", "pending"],"id":0}' 127.0.0.1:18545
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "pending"],"id":0}' 127.0.0.1:18545
 
-
+- Address: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`
+- Private key: `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 
 // L1
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:9545

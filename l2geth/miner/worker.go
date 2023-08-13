@@ -1145,7 +1145,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
-	log.Info("miner commit", "w.current.header hash", w.current.header.Hash, "blockheight", w.current.header.Number.String())
+	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String())
 	for i, tx := range w.current.txs {
 		if tx.GetMeta() != nil && tx.GetMeta().Index != nil {
 			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index)
