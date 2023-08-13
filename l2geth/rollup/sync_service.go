@@ -212,19 +212,19 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		}
 
 		if !cfg.IsVerifier || cfg.Backend == BackendL2 {
-		// Wait until the remote service is done syncing
-		tStatus := time.NewTicker(10 * time.Second)
-		for ; true; <-tStatus.C {
-			status, err := service.client.SyncStatus(service.backend)
-			if err != nil {
-				log.Error("Cannot get sync status", "err", err)
-				continue
-			}
-			if !status.Syncing {
-				tStatus.Stop()
-				break
-			}
-			log.Info("Still syncing", "index", status.CurrentTransactionIndex, "tip", status.HighestKnownTransactionIndex)
+			// Wait until the remote service is done syncing
+			tStatus := time.NewTicker(10 * time.Second)
+			for ; true; <-tStatus.C {
+				status, err := service.client.SyncStatus(service.backend)
+				if err != nil {
+					log.Error("Cannot get sync status", "err", err)
+					continue
+				}
+				if !status.Syncing {
+					tStatus.Stop()
+					break
+				}
+				log.Info("Still syncing", "index", status.CurrentTransactionIndex, "tip", status.HighestKnownTransactionIndex)
 			}
 		}
 
@@ -1365,7 +1365,7 @@ func (s *SyncService) isAtTip(index *uint64, get indexGetter) (bool, error) {
 	if latest == nil || index == nil {
 		return false, nil
 	}
-	log.Info("isAtTip", "latest", *latest, "index", *index)
+	// log.Info("isAtTip", "latest", *latest, "index", *index)
 	// The indices are equal
 	if *latest == *index {
 		return true, nil
@@ -1413,7 +1413,7 @@ func (s *SyncService) sync(getLatest indexGetter, getNext nextGetter, syncer ran
 	}
 
 	nextIndex := getNext()
-	log.Info("sync enqueue", "nextIndex", nextIndex, "latestIndex", *latestIndex+1)
+	// log.Info("sync enqueue", "nextIndex", nextIndex, "latestIndex", *latestIndex+1)
 	if nextIndex == *latestIndex+1 {
 		return latestIndex, nil
 	}
