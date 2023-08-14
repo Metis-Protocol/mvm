@@ -465,9 +465,9 @@ func (s *SyncService) HandleSyncFromOther() {
 		case tx := <-s.syncQueueFromOthers:
 			// unactive sequencers update local tx pool from active sequencer
 			if !s.verifier {
-				err := s.applyIndexedTransaction(tx, false)
+				err := s.applyTransaction(tx, false)
 				if err != nil {
-					log.Info("HandleSyncFromOther applyIndexedTransaction ", "tx", tx.Hash(), "err", err)
+					log.Info("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
 					// put back
 					go func() {
 						time.Sleep(2 * time.Second)
