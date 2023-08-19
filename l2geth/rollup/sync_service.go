@@ -87,9 +87,9 @@ type SyncService struct {
 	enforceFees                    bool
 	signer                         types.Signer
 
-	feeThresholdUp   *big.Float
-	feeThresholdDown *big.Float
-	applyLock                      sync.Mutex
+	feeThresholdUp    *big.Float
+	feeThresholdDown  *big.Float
+	applyLock         sync.Mutex
 	decSeqValidHeight uint64
 	SeqAddress        string
 	seqPriv           string
@@ -1039,6 +1039,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		return err
 	}
 	// current is not seq, just skip it
+	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
 	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
 		if signature == nil && strings.ToLower(expectSeq.String()) != strings.ToLower(s.SeqAddress) {

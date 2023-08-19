@@ -991,7 +991,13 @@ func (w *worker) commitNewTx(tx *types.Transaction, caller string) error {
 	if parent.Time() > tx.L1Timestamp() {
 		log.Error("Monotonicity violation", "index", num, "parent", parent.Time(), "tx", tx.L1Timestamp())
 	}
-
+	if meta := tx.GetMeta(); meta.Index != nil {
+		index := num.Uint64()
+		if *meta.Index < index {
+			log.Info("commitNewTx ", "get meta index ", *meta.Index, "parent.Number() ", index)
+			return nil
+		}
+	}
 	// Fill in the index field in the tx meta if it is `nil`.
 	// This should only ever happen in the case of the sequencer
 	// receiving a queue origin sequencer transaction. The verifier
