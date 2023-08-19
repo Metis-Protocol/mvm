@@ -502,9 +502,13 @@ func (w *worker) mainLoop() {
 			// send the block through the `taskCh` and then through the
 			// `resultCh` which ultimately adds the block to the blockchain
 			// through `bc.WriteBlockWithState`
-			if err := w.commitNewTx(tx, "rollupOtherTxCh"); err != nil {
-				log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
-			}
+
+			/*
+				if err := w.commitNewTx(tx, "rollupOtherTxCh"); err != nil {
+					log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
+				}
+			*/
+
 		// Read from the sync service and mine single txs
 		// as they come. Wait for the block to be mined before
 		// reading the next tx from the channel when there is
