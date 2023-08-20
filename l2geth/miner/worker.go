@@ -508,7 +508,11 @@ func (w *worker) mainLoop() {
 					log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
 				}
 			*/
-
+			w.pendingMu.Lock()
+			for h := range w.pendingTasks {
+				delete(w.pendingTasks, h)
+			}
+			w.pendingMu.Unlock()
 		// Read from the sync service and mine single txs
 		// as they come. Wait for the block to be mined before
 		// reading the next tx from the channel when there is
