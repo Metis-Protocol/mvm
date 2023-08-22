@@ -34,12 +34,12 @@ export class CanonicalTransactionChainContract extends Contract {
       batch: AppendSequencerBatchParams,
       opts?: EncodeSequencerBatchOptions
     ): Promise<ethers.PopulatedTransaction> => {
-      const nonce = await this.signer.getTransactionCount() // get mpc address nonce 
+      const nonce = await this.signer.getTransactionCount() // get mpc address nonce
       const to = this.address
       const data = await getEncodedCalldata(batch, opts)
-      const gasLimit = await this.signer.provider.estimateGas({ //estimate gas 
+      const gasLimit = await this.signer.provider.estimateGas({ //estimate gas
         to,
-        from: await this.signer.getAddress(), //mpc address 
+        from: await this.signer.getAddress(), //mpc address
         data,
       })
 

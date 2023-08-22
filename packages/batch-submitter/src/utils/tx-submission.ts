@@ -2,6 +2,7 @@ import { Signer, utils, ethers, PopulatedTransaction } from 'ethers'
 import {
   TransactionReceipt,
   TransactionResponse,
+  Provider,
 } from '@ethersproject/abstract-provider'
 import * as ynatm from '@eth-optimism/ynatm'
 
@@ -59,9 +60,33 @@ export const submitTransactionWithYNATM = async (
   return receipt
 }
 
+export const submitSignedTransactionWithYNATM = async (
+  tx: PopulatedTransaction,
+  txSigned: string,
+  provider: Provider,
+  config: ResubmissionConfig,
+  numConfirmations: number,
+  hooks: TxSubmissionHooks
+): Promise<TransactionReceipt> => {
+  const sendTxAndWaitForReceipt = async (): Promise<TransactionReceipt> => {
+    hooks.beforeSendTransaction(tx)
+    const txResponse = await provider.sendTransaction(txSigned)
+    hooks.onTransactionResponse(txResponse)
+    return provider.waitForTransaction(txResponse.hash, numConfirmations)
+  }
+
+  return sendTxAndWaitForReceipt()
+}
+
 export interface TransactionSubmitter {
   submitTransaction(
     tx: PopulatedTransaction,
+    hooks?: TxSubmissionHooks
+  ): Promise<TransactionReceipt>
+
+  submitSignedTransaction(
+    tx: PopulatedTransaction,
+    txSigned: string,
     hooks?: TxSubmissionHooks
   ): Promise<TransactionReceipt>
 }
@@ -86,6 +111,27 @@ export class YnatmTransactionSubmitter implements TransactionSubmitter {
     return submitTransactionWithYNATM(
       tx,
       this.signer,
+      this.ynatmConfig,
+      this.numConfirmations,
+      hooks
+    )
+  }
+
+  public async submitSignedTransaction(
+    tx: PopulatedTransaction,
+    txSigned: string,
+    hooks?: TxSubmissionHooks
+  ): Promise<TransactionReceipt> {
+    if (!hooks) {
+      hooks = {
+        beforeSendTransaction: () => undefined,
+        onTransactionResponse: () => undefined,
+      }
+    }
+    return submitSignedTransactionWithYNATM(
+      tx,
+      txSigned,
+      this.signer.provider,
       this.ynatmConfig,
       this.numConfirmations,
       hooks
