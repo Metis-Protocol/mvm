@@ -77,7 +77,7 @@ export class MpcClient {
     if (obj.error) {
       return null
     }
-    return obj.result || null
+    return obj
   }
 
 
@@ -122,4 +122,23 @@ export class MpcClient {
         }, interval)
     })
   }
+
+  public removeHexLeadingZero(hex: string, keepOneZero: boolean = false): string {
+    let toHex = hex.startsWith('0x') ? hex.substring(2) : hex
+    toHex = toHex.replace(/^0+/, '')
+    if (toHex.length == 0 && keepOneZero) {
+      toHex = '0'
+    }
+    if (hex.startsWith('0x')) {
+      toHex = '0x' + toHex
+    }
+    return toHex
+  }
+
+  public base64ToHex(base64String: string) {
+    // Decode Base64 to binary
+    const binaryData = Buffer.from(base64String, 'base64')
+    return '0x' + binaryData.toString('hex')
+  }
+
 }
