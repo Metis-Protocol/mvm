@@ -2,7 +2,7 @@
 1）启动docker ----》测试 L1 和 L2是否起来
 
 // L2_URL
-curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:8545
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:28545
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' 127.0.0.1:10545
 
@@ -26,7 +26,7 @@ curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","metho
 
 curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_addSeqencerInfo","params":[{"sequencerAddress":"0x00000398232E2064F896018496b4b44b3D62751F","sequencerUrl":"http://l2geth:8545"}],"id":0}' 127.0.0.1:18545
 
-curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_addSeqencerInfo","params":[{"sequencerAddress":"0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933","sequencerUrl":"http://l2gethB:8545"}],"id":0}' 127.0.0.1:8545
+curl -X POST  -H 'Content-Type:application/json' --data '{"jsonrpc":"2.0","method":"rollup_addSeqencerInfo","params":[{"sequencerAddress":"0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933","sequencerUrl":"http://l2gethB:8545"}],"id":0}' 127.0.0.1:28545
 
 
 
