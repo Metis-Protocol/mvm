@@ -508,15 +508,19 @@ func (w *worker) mainLoop() {
 					log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
 				}
 			*/
-			head := <-w.chainHeadCh
-			txs := head.Block.Transactions()
-			if len(txs) == 0 {
-				log.Warn("No transactions in block")
-				continue
+			if len(w.chainHeadCh) > 0 {
+				head := <-w.chainHeadCh
+				txs := head.Block.Transactions()
+				if len(txs) == 0 {
+					log.Warn("No transactions in block")
+					continue
+				}
+				txn := txs[0]
+				height := head.Block.Number().Uint64()
+				log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
+
 			}
-			txn := txs[0]
-			height := head.Block.Number().Uint64()
-			log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
+
 			w.pendingMu.Lock()
 			for h := range w.pendingTasks {
 				delete(w.pendingTasks, h)
