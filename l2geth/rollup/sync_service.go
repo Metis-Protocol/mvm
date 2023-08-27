@@ -1155,6 +1155,11 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.txOtherFeed.Send(core.NewTxsEvent{
 			Txs: txs,
 		})
+
+		if len(s.chainHeadCh) > 0 {
+			header := <-s.chainHeadCh
+			log.Info("sync from other node", "get chain header ", header)
+		}
 		log.Info("sync from other node applyTransactionToTip finish")
 		return nil
 	}

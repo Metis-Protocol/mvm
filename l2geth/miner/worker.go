@@ -518,7 +518,7 @@ func (w *worker) mainLoop() {
 				txn := txs[0]
 				height := head.Block.Number().Uint64()
 				log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
-
+				//clearPending(head.Block.NumberU64())
 			}
 
 			w.pendingMu.Lock()
