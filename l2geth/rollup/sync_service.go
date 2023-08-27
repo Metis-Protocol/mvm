@@ -823,6 +823,9 @@ func (s *SyncService) SetLatestBatchIndex(index *uint64) {
 
 // applyTransaction is a higher level API for applying a transaction
 func (s *SyncService) applyTransaction(tx *types.Transaction, fromLocal bool) error {
+	if tx == nil {
+		return nil
+	}
 	log.Info("start to applyTransaction ", "tx", tx.Hash().String())
 	s.applyLock.Lock()
 	defer s.applyLock.Unlock()

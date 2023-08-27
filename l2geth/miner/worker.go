@@ -508,7 +508,7 @@ func (w *worker) mainLoop() {
 					log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
 				}
 			*/
-			for len(w.chainHeadCh) > 0 {
+			if len(w.chainHeadCh) > 0 {
 				head := <-w.chainHeadCh
 				txs := head.Block.Transactions()
 				if len(txs) == 0 {
