@@ -470,7 +470,7 @@ func (s *SyncService) HandleSyncFromOther() {
 					log.Info("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
 					// put back
 					go func() {
-						time.Sleep(2 * time.Second)
+						time.Sleep(1 * time.Second)
 						s.syncQueueFromOthers <- tx
 					}()
 
@@ -823,6 +823,10 @@ func (s *SyncService) SetLatestBatchIndex(index *uint64) {
 
 // applyTransaction is a higher level API for applying a transaction
 func (s *SyncService) applyTransaction(tx *types.Transaction, fromLocal bool) error {
+	if tx == nil {
+		return nil
+	}
+	log.Info("start to applyTransaction ", "tx", tx.Hash().String())
 	s.applyLock.Lock()
 	defer s.applyLock.Unlock()
 	log.Info("applyTransaction ", "tx", tx.Hash().String())
@@ -1154,6 +1158,12 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.txOtherFeed.Send(core.NewTxsEvent{
 			Txs: txs,
 		})
+
+		if len(s.chainHeadCh) > 0 {
+			header := <-s.chainHeadCh
+			log.Info("sync from other node", "get chain header ", header)
+		}
+		log.Info("sync from other node applyTransactionToTip finish")
 		return nil
 	}
 	txs := types.Transactions{tx}
@@ -1187,6 +1197,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 				return err
 			}
 		}
+		log.Info("chainHeadCh got applyTransactionToTip finish")
 		return nil
 	case txApplyErr := <-s.txApplyErrCh:
 		log.Error("Got error when added to chain", "err", txApplyErr)

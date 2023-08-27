@@ -508,7 +508,24 @@ func (w *worker) mainLoop() {
 					log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
 				}
 			*/
+			if len(w.chainHeadCh) > 0 {
+				head := <-w.chainHeadCh
+				txs := head.Block.Transactions()
+				if len(txs) == 0 {
+					log.Warn("No transactions in block")
+					continue
+				}
+				txn := txs[0]
+				height := head.Block.Number().Uint64()
+				log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
+				//clearPending(head.Block.NumberU64())
+			}
 
+			w.pendingMu.Lock()
+			for h := range w.pendingTasks {
+				delete(w.pendingTasks, h)
+			}
+			w.pendingMu.Unlock()
 		// Read from the sync service and mine single txs
 		// as they come. Wait for the block to be mined before
 		// reading the next tx from the channel when there is
@@ -545,7 +562,7 @@ func (w *worker) mainLoop() {
 				}
 				txn := txs[0]
 				height := head.Block.Number().Uint64()
-				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
+				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "txn-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
 
 				// Prevent memory leak by cleaning up pending tasks
 				// This is mostly copied from the `newWorkLoop`
