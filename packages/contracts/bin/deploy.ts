@@ -99,7 +99,8 @@ const main = async () => {
       return contractsAccumulator
     }, {})
 
-  contracts.OVM_Sequencer = await sequencer.getAddress()
+  contracts.OVM_Sequencer_Calc = await sequencer.getAddress()
+  contracts.OVM_Sequencer = config.ovmSequencerAddress
   contracts.Deployer = await deployer.getAddress()
 
   const addresses = JSON.stringify(contracts, null, 2)

@@ -85,7 +85,7 @@ describe('MpcClient Test', async () => {
         "mpc_id": mpcId,
         "sign_type": "0",
         "sign_data": jsonTx,
-        "sign_msg": transactionHash,
+        "sign_msg": "",
         // "chain_id": "themis-kRsLrv"
       }
       console.log('sign data prepare = ', JSON.stringify(postData))

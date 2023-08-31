@@ -314,6 +314,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         this.encodeSequencerBatchOptions
       )
 
+    this.logger.info('submitter with mpc', {url: this.mpcUrl})
     // MPC enabled: prepare nonce, gasPrice
     if (this.mpcUrl) {
       const mpcClient = new MpcClient(this.mpcUrl)
@@ -328,41 +329,28 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         from: mpcAddress,
         data: tx.data,
       })
-      tx.value = ethers.utils.parseEther('0.0')
+      tx.value = ethers.utils.parseEther('0')
       // mpc model can't use ynatm, set more gas price?
       let gasPrice = await this.signer.provider.getGasPrice()
       // TODO
       // gasPrice.add()
       tx.gasPrice = gasPrice
       // call mpc to sign tx
-      const serializedTransaction = ethers.utils.RLP.encode([
-        ethers.utils.hexlify(tx.nonce),
-        tx.gasPrice.toHexString(),
-        tx.gasLimit.toHexString(),
-        tx.to.toLowerCase(),
-        tx.value.toHexString(),
-        tx.data,
-      ])
-      const transactionHash = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes'],
-          [
-            tx.to,
-            tx.value.toHexString(),
-            tx.nonce,
-            tx.gasPrice.toHexString(),
-            tx.gasLimit.toHexString(),
-            tx.data || '0x',
-          ]
-        )
-      )
+      const serializedTransaction = JSON.stringify({
+        nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
+        gasPrice: mpcClient.removeHexLeadingZero(tx.gasPrice.toHexString()),
+        gasLimit: mpcClient.removeHexLeadingZero(tx.gasLimit.toHexString()),
+        to: tx.to,
+        value: mpcClient.removeHexLeadingZero(tx.value.toHexString(), true),
+        data: tx.data,
+      })
       const signId = randomUUID()
       const postData = {
         "sign_id": signId,
         "mpc_id": mpcInfo.mpc_id,
         "sign_type": "0",
         "sign_data": serializedTransaction,
-        "sign_msg": transactionHash
+        "sign_msg": ""
       }
       const signResp = await mpcClient.proposeMpcSign(postData)
       if (!signResp) {
@@ -382,6 +370,13 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         )
       }
       return this._submitAndLogTx(submitSignedTransaction, 'Submitted batch with MPC!')
+    }
+    else {
+      tx.gasLimit = await this.signer.provider.estimateGas({ //estimate gas
+          to: tx.to,
+          from: await this.signer.getAddress(), //mpc address
+          data: tx.data,
+        })
     }
 
     const submitTransaction = (): Promise<TransactionReceipt> => {

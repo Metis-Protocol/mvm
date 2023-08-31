@@ -37,17 +37,17 @@ export class CanonicalTransactionChainContract extends Contract {
       const nonce = await this.signer.getTransactionCount() // get mpc address nonce
       const to = this.address
       const data = await getEncodedCalldata(batch, opts)
-      const gasLimit = await this.signer.provider.estimateGas({ //estimate gas
-        to,
-        from: await this.signer.getAddress(), //mpc address
-        data,
-      })
+      // const gasLimit = await this.signer.provider.estimateGas({ //estimate gas
+      //   to,
+      //   from: await this.signer.getAddress(), //mpc address
+      //   data,
+      // })
 
       return {
         nonce,
         to,
         data,
-        gasLimit,
+        // gasLimit,
       }
     },
   }
