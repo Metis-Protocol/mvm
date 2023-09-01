@@ -14,12 +14,13 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
 	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
- 	"github.com/ethereum-optimism/optimism/l2geth/log"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
 )
 
 const (
-	updateSeqMethod  = ("fe4c8c3c")
-	updateSeqDataLen = 2 + 32 + 32 + 32 // old epoach, start block, address
+	// RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
+	updateSeqMethod  = ("0x2c91c679")
+	updateSeqDataLen = 4 + 32 + 32 + 32 + 32 + 32 // uint256 oldEpochId,uint256 newEpochId, uint256 startBlock,uint256 endBlock, address newSigner
 )
 
 // RollupAdapter is the adapter for decentralized seqencers
@@ -62,7 +63,7 @@ func parseUpdateSeqData(data []byte) (bool, common.Address) {
 		return false, common.HexToAddress("0x0")
 	}
 	method := hex.EncodeToString(data[0:4])
-	address := common.BytesToAddress(data[2*32+16 : 2*32+36])
+	address := common.BytesToAddress(data[4*32+16 : 4*32+36])
 	if method == updateSeqMethod {
 		return true, address
 	}
@@ -94,27 +95,27 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 		// return default address 0x00000398232E2064F896018496b4b44b3D62751F
 		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
 	}
-	if expectIndex % 2 == 0 {
+	if expectIndex%2 == 0 {
 		log.Debug("seqencer %v, for index %v", "0x00000398232E2064F896018496b4b44b3D62751F", expectIndex)
 		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
 	}
 	log.Debug("seqencer %v, for index %v", "0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933", expectIndex)
 	return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
 	/*
-		if tx != nil {
-	seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
-	if seqOper {
-		updateSeq, newSeq := parseUpdateSeqData(data)
-		if updateSeq {
-			return newSeq, nil
+			if tx != nil {
+		seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
+		if seqOper {
+			updateSeq, newSeq := parseUpdateSeqData(data)
+			if updateSeq {
+				return newSeq, nil
+			}
+					}
 		}
-				}
-	}
 
-	log.Debug("Will get seqencer info from seq contract on L2")
-	// get status from contract on height expectIndex - 1
-	// return result ,err
-	return s.getSeqencer(expectIndex)
+		log.Debug("Will get seqencer info from seq contract on L2")
+		// get status from contract on height expectIndex - 1
+		// return result ,err
+		return s.getSeqencer(expectIndex)
 	*/
 }
 
