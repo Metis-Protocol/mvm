@@ -359,8 +359,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
 				return err
 			}
-			timeout := 2 * time.Second
-			// 使用 WithTimeout 创建一个带有超时的子级 context
+			timeout := 5 * time.Second
 			callCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 			signedTx.SetL2Tx(2)

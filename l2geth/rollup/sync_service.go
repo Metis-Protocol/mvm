@@ -465,6 +465,7 @@ func (s *SyncService) HandleSyncFromOther() {
 		case tx := <-s.syncQueueFromOthers:
 			// unactive sequencers update local tx pool from active sequencer
 			if !s.verifier {
+				log.Debug("Handle SyncFromOther ", "tx", tx.Hash())
 				err := s.applyTransaction(tx, false)
 				if err != nil {
 					log.Info("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
@@ -766,7 +767,9 @@ func (s *SyncService) GetNextIndex() uint64 {
 
 // SetLatestIndex writes the last CTC index that was processed
 func (s *SyncService) SetLatestIndex(index *uint64) {
+	log.Debug("SetLatestIndex start")
 	if index != nil {
+		log.Debug("SetLatestIndex end", "index", *index)
 		rawdb.WriteHeadIndex(s.db, *index)
 	}
 }
@@ -829,7 +832,7 @@ func (s *SyncService) applyTransaction(tx *types.Transaction, fromLocal bool) er
 	log.Info("start to applyTransaction ", "tx", tx.Hash().String())
 	s.applyLock.Lock()
 	defer s.applyLock.Unlock()
-	log.Info("applyTransaction ", "tx", tx.Hash().String())
+	log.Info("applyTransaction ", "tx", tx.Hash().String(), "fromLocal", fromLocal)
 	if tx.GetMeta().Index != nil {
 		return s.applyIndexedTransaction(tx, fromLocal)
 	}
@@ -876,6 +879,25 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 	if index == nil {
 		return errors.New("No index is found in applyHistoricalTransaction")
 	}
+
+	shouldSkip, err := s.checkApplySkip(tx, fromLocal)
+	if err != nil {
+		return err
+	}
+	if shouldSkip {
+		log.Info("should skip applyHistoricalTransaction", "index", tx.GetMeta().Index)
+		// may need to update enqueue index
+		queueIndex := tx.GetMeta().QueueIndex
+		if queueIndex != nil {
+			lastIndex := s.GetLatestEnqueueIndex()
+			if lastIndex == nil || *lastIndex < *queueIndex {
+				log.Info("Historical transaction when skip SetLatestEnqueueIndex ", "queueIndex", *queueIndex)
+				s.SetLatestEnqueueIndex(queueIndex)
+			}
+		}
+		return nil
+	}
+
 	log.Info("applyHistoricalTransaction", "index", index)
 	// check sequencer
 	if *index >= s.seqAdapter.GetSeqValidHeight() {
@@ -1028,10 +1050,27 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	ts := s.GetLatestL1Timestamp()
 	bn := s.GetLatestL1BlockNumber()
 
+	shouldSkip, err := s.checkApplySkip(tx, fromLocal)
+	if err != nil {
+		return err
+	}
+	if shouldSkip {
+		log.Info("should skip applyTransactionToTip", "index", tx.GetMeta().Index)
+		// may need to update enqueue index
+		if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
+			lastIndex := s.GetLatestEnqueueIndex()
+			if lastIndex == nil || *lastIndex < *queueIndex {
+				log.Info("applyTransactionToTip when skip transaction SetLatestEnqueueIndex", "queueIndex", *queueIndex)
+				s.SetLatestEnqueueIndex(queueIndex)
+			}
+		}
+		return nil
+	}
+
 	// check is current address is seqencer
 	index := s.GetLatestIndex()
 	var expectSeq common.Address
-	var err error
+	// var err error
 	if index == nil {
 		expectSeq, err = s.GetTxSeqencer(tx, 0)
 	} else {
@@ -1127,7 +1166,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		}
 	}
 	// add seq signature
-	if index != nil && *index > s.seqAdapter.GetSeqValidHeight() {
+	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
 		if tx.GetSeqSign() == nil {
 			err = s.addSeqSignature(tx)
 		}
@@ -1159,11 +1198,26 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			Txs: txs,
 		})
 
-		if len(s.chainHeadCh) > 0 {
-			header := <-s.chainHeadCh
-			log.Info("sync from other node", "get chain header ", header)
+		// This code will break the chainHeadCh logic
+		// if len(s.chainHeadCh) > 0 {
+		// 	header := <-s.chainHeadCh
+		// 	log.Info("sync from other node", "get chain header ", header)
+		// }
+		// chainHeadCh will not fired here, process sync service status
+		sender, _ := types.Sender(s.signer, tx)
+		owner := s.GasPriceOracleOwnerAddress()
+		if owner != nil && sender == *owner {
+			log.Info("sync from other node owner equals")
+			if err := s.updateGasPriceOracleCache(nil); err != nil {
+				log.Info("sync from other node set", "SetLatestIndex", *index)
+				s.SetLatestL1Timestamp(ts)
+				s.SetLatestL1BlockNumber(bn)
+				s.SetLatestIndex(index)
+				s.SetLatestVerifiedIndex(index)
+				return err
+			}
 		}
-		log.Info("sync from other node applyTransactionToTip finish")
+		log.Info("sync from other node applyTransactionToTip finish", "current latest", *s.GetLatestIndex())
 		return nil
 	}
 	txs := types.Transactions{tx}
@@ -1197,7 +1251,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 				return err
 			}
 		}
-		log.Info("chainHeadCh got applyTransactionToTip finish")
+		log.Info("chainHeadCh got applyTransactionToTip finish", "current latest", *s.GetLatestIndex())
 		return nil
 	case txApplyErr := <-s.txApplyErrCh:
 		log.Error("Got error when added to chain", "err", txApplyErr)
@@ -1207,6 +1261,30 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.SetLatestVerifiedIndex(index)
 		return txApplyErr
 	}
+}
+
+// when mpc usage, bakup node should not to apply rollup blocks,
+// it will sync from p2p
+func (s *SyncService) checkApplySkip(tx *types.Transaction, fromLocal bool) (bool, error) {
+	if !fromLocal {
+		return false, nil
+	}
+	index := s.GetLatestIndex()
+	if index == nil || *index < s.seqAdapter.GetSeqValidHeight() {
+		return false, nil
+	}
+	var expectSeq common.Address
+	var err error
+	if index == nil {
+		expectSeq, err = s.GetTxSeqencer(tx, 0)
+	} else {
+		expectSeq, err = s.GetTxSeqencer(tx, *index+1)
+	}
+	if err != nil {
+		log.Error("GetTxSeqencer err ", err)
+		return true, err
+	}
+	return !strings.EqualFold(expectSeq.String(), s.SeqAddress), nil
 }
 
 // applyBatchedTransaction applies transactions that were batched to layer one.
