@@ -73,6 +73,9 @@ interface RequiredEnvVars {
   MINIO_USE_SSL:boolean,
   MINIO_ACCESS_KEY: string,
   MINIO_SECRET_KEY: string,
+
+  // mpc options
+  MPC_URL: string,
 }
 
 /* Optional Env Vars
@@ -378,6 +381,11 @@ export const run = async () => {
       'minio-use-ssl',
       env.MINIO_USE_SSL === 'true'
     ),
+
+    MPC_URL: config.str(
+      'mpc-url',
+      env.MPC_URL
+    ),
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {
@@ -470,6 +478,7 @@ export const run = async () => {
     autoFixBatchOptions,
     requiredEnvVars.MINIO_ENABLED,
     minioConfig,
+    requiredEnvVars.MPC_URL,
   )
 
   const stateBatchTxSubmitter: TransactionSubmitter =

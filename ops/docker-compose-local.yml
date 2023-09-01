@@ -50,7 +50,7 @@ services:
       # skip compilation when run in docker-compose, since the contracts
       # were already compiled in the builder step
       NO_COMPILE: 1
-      SEQENCER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+      SEQENCER_ADDRESS: "0x643339ddaa950abc776559894205664227b34d56"
       PROPOSER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
       RELAYER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
       METIS_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
@@ -111,11 +111,11 @@ services:
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
-      SEQSET_VALID_HEIGHT: 40
+      SEQSET_VALID_HEIGHT: 20
       SEQ_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQ_PRIV: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
     ports:
-      - ${L2GETH_HTTP_PORT:-28545}:8545
+      - ${L2GETH_HTTP_PORT:-8545}:8545
       - ${L2GETH_WS_PORT:-8546}:8546
       - ${L2GETH_NODE_PORT:-30303}:30303
     restart: on-failure
@@ -145,7 +145,7 @@ services:
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
-      SEQSET_VALID_HEIGHT: 40
+      SEQSET_VALID_HEIGHT: 20
       SEQ_ADDRESS: "0xC213298C9e90e1AE7b4B97C95A7BE1B811E7c933"
       SEQ_PRIV: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
     ports:
@@ -221,6 +221,8 @@ services:
       - deployer
       - l2geth
     image: ethereumoptimism/batch-submitter
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.batch-submitter
@@ -232,6 +234,7 @@ services:
       L2_NODE_WEB3_URL: http://l2geth:8545
       URL: http://deployer:8081/addresses.json
       SEQUENCER_PRIVATE_KEY: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+      MPC_URL: http://3.213.188.165:1317
     restart: on-failure
 
   verifier:
@@ -240,8 +243,8 @@ services:
       - deployer
       - dtl
     image: ethereumoptimism/l2geth
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth

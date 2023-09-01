@@ -25,8 +25,9 @@ import {
 } from '../transaction-chain-contract'
 
 import { BlockRange, BatchSubmitter } from '.'
-import { TransactionSubmitter } from '../utils'
+import { TransactionSubmitter, MpcClient } from '../utils'
 import { hrtime } from 'process'
+import { randomUUID } from 'crypto'
 
 export interface AutoFixBatchOptions {
   fixDoublePlayedDeposits: boolean
@@ -46,6 +47,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private useMinio: boolean
   private minioConfig: MinioConfig
   private encodeSequencerBatchOptions?: EncodeSequencerBatchOptions
+  private mpcUrl: string
 
   constructor(
     signer: Signer,
@@ -70,7 +72,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       fixSkippedDeposits: false,
     }, // TODO: Remove this
     useMinio: boolean,
-    minioConfig: MinioConfig
+    minioConfig: MinioConfig,
+    mpcUrl: string
   ) {
     super(
       signer,
@@ -94,6 +97,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.transactionSubmitter = transactionSubmitter
     this.useMinio = useMinio
     this.minioConfig = minioConfig
+    this.mpcUrl = mpcUrl
 
     this.logger.info('Batch validation options', {
       autoFixBatchOptions,
@@ -309,7 +313,71 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         batchParams,
         this.encodeSequencerBatchOptions
       )
-    // call mpc to sign rawdata 
+
+    this.logger.info('submitter with mpc', {url: this.mpcUrl})
+    // MPC enabled: prepare nonce, gasPrice
+    if (this.mpcUrl) {
+      const mpcClient = new MpcClient(this.mpcUrl)
+      const mpcInfo = await mpcClient.getLatestMpc()
+      if (!mpcInfo || !mpcInfo.mpc_address) {
+        throw new Error('MPC info get failed')
+      }
+      const mpcAddress = mpcInfo.mpc_address
+      tx.nonce = await this.signer.provider.getTransactionCount(mpcAddress)
+      tx.gasLimit = await this.signer.provider.estimateGas({
+        to: tx.to,
+        from: mpcAddress,
+        data: tx.data,
+      })
+      tx.value = ethers.utils.parseEther('0')
+      // mpc model can't use ynatm, set more gas price?
+      let gasPrice = await this.signer.provider.getGasPrice()
+      // TODO
+      // gasPrice.add()
+      tx.gasPrice = gasPrice
+      // call mpc to sign tx
+      const serializedTransaction = JSON.stringify({
+        nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
+        gasPrice: mpcClient.removeHexLeadingZero(tx.gasPrice.toHexString()),
+        gasLimit: mpcClient.removeHexLeadingZero(tx.gasLimit.toHexString()),
+        to: tx.to,
+        value: mpcClient.removeHexLeadingZero(tx.value.toHexString(), true),
+        data: tx.data,
+      })
+      const signId = randomUUID()
+      const postData = {
+        "sign_id": signId,
+        "mpc_id": mpcInfo.mpc_id,
+        "sign_type": "0",
+        "sign_data": serializedTransaction,
+        "sign_msg": ""
+      }
+      const signResp = await mpcClient.proposeMpcSign(postData)
+      if (!signResp) {
+        throw new Error('MPC propose sign failed')
+      }
+
+      const signedTx = await mpcClient.getMpcSign(signId)
+      if (!signedTx) {
+        throw new Error('MPC get sign failed')
+      }
+
+      const submitSignedTransaction = (): Promise<TransactionReceipt> => {
+        return this.transactionSubmitter.submitSignedTransaction(
+          tx,
+          signedTx,
+          this._makeHooks('appendSequencerBatch')
+        )
+      }
+      return this._submitAndLogTx(submitSignedTransaction, 'Submitted batch with MPC!')
+    }
+    else {
+      tx.gasLimit = await this.signer.provider.estimateGas({ //estimate gas
+          to: tx.to,
+          from: await this.signer.getAddress(), //mpc address
+          data: tx.data,
+        })
+    }
 
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(

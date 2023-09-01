@@ -17,6 +17,7 @@
     "lint:fix": "yarn lint:check --fix",
     "lint:check": "eslint .",
     "test": "hardhat test --show-stack-traces",
+    "test:mpc": "ts-mocha test/batch-submitter/mpc-client.spec.ts --timeout 320000 --show-stack-traces",
     "test:coverage": "nyc hardhat test && nyc merge .nyc_output coverage.json"
   },
   "keywords": [
@@ -81,6 +82,7 @@
     "rimraf": "^3.0.2",
     "sinon": "^9.2.4",
     "sinon-chai": "^3.5.0",
+    "ts-mocha": "^8.0.0",
     "typescript": "^4.3.5"
   },
   "resolutions": {
