@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	updateSeqMethod  = ("fe4c8c3c")
-	updateSeqDataLen = 2 + 32 + 32 + 32 // old epoach, start block, address
+	// RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
+	updateSeqMethod  = ("0x2c91c679")
+	updateSeqDataLen = 4 + 32 + 32 + 32 + 32 + 32 // uint256 oldEpochId,uint256 newEpochId, uint256 startBlock,uint256 endBlock, address newSigner
 )
 
 // RollupAdapter is the adapter for decentralized seqencers
@@ -62,7 +63,7 @@ func parseUpdateSeqData(data []byte) (bool, common.Address) {
 		return false, common.HexToAddress("0x0")
 	}
 	method := hex.EncodeToString(data[0:4])
-	address := common.BytesToAddress(data[2*32+16 : 2*32+36])
+	address := common.BytesToAddress(data[4*32+16 : 4*32+36])
 	if method == updateSeqMethod {
 		return true, address
 	}
