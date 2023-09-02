@@ -548,10 +548,14 @@ func (b *EthAPIBackend) ListSeqencerInfo() string {
 		}
 		list.SeqList[i].SequencerHeight = header.Number.Uint64()
 	}
+	ownerHeight := uint64(0)
+	if b.eth.syncService.GetLatestIndex() != nil {
+		ownerHeight = *b.eth.syncService.GetLatestIndex() + 1
+	}
 	seqOwner := types.SequencerInfo{
 		SequencerAddress: common.HexToAddress(b.eth.config.Rollup.SeqAddress),
 		SequencerUrl:     "localhost",
-		SequencerHeight:  *b.eth.syncService.GetLatestIndex(),
+		SequencerHeight:  ownerHeight,
 	}
 	list.SeqList = append(list.SeqList, seqOwner)
 	jsonData, err := json.Marshal(&list)
