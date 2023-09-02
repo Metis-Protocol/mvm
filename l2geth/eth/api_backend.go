@@ -523,7 +523,6 @@ func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 func (b *EthAPIBackend) ListSeqencerInfo() string {
 	var list types.SequencerInfoList
 	b.seqRwMutex.RLock()
-	defer b.seqRwMutex.RUnlock()
 	for k, v := range b.seqInfos {
 		seq := types.SequencerInfo{
 			SequencerAddress: k,
@@ -531,6 +530,30 @@ func (b *EthAPIBackend) ListSeqencerInfo() string {
 		}
 		list.SeqList = append(list.SeqList, seq)
 	}
+	b.seqRwMutex.RUnlock()
+
+	for i, seq := range list.SeqList {
+		l2Url := seq.SequencerUrl
+		rpcClient, err := ethclient.Dial(l2Url)
+		if err != nil {
+			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
+			// return err
+			continue
+		}
+		header, err := rpcClient.HeaderByNumber(context.TODO(), nil)
+		if err != nil {
+			log.Warn("HeaderByNumber ", "url", l2Url, "err", err)
+			// return err
+			continue
+		}
+		list.SeqList[i].SequencerHeight = header.Number.Uint64()
+	}
+	seqOwner := types.SequencerInfo{
+		SequencerAddress: common.HexToAddress(b.eth.config.Rollup.SeqAddress),
+		SequencerUrl:     "localhost",
+		SequencerHeight:  *b.eth.syncService.GetLatestIndex(),
+	}
+	list.SeqList = append(list.SeqList, seqOwner)
 	jsonData, err := json.Marshal(&list)
 	if err != nil {
 		return ""
