@@ -317,20 +317,24 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 
-	index := b.eth.syncService.GetLatestIndex()
+	// index := b.eth.syncService.GetLatestIndex()
+	index := b.eth.blockchain.CurrentBlock().Header().Number.Uint64()
 	var expectSeq common.Address
 	var err error
-	checkIndex := uint64(0)
-	if index == nil {
-		expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	} else {
-		checkIndex = *index + 1
-		expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	}
+	// checkIndex := uint64(0)
+	// if index == nil {
+	// 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
+	// } else {
+	// 	checkIndex = *index + 1
+	// 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
+	// }
+	checkIndex := index + 1
+	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
 	if err != nil {
 		return err
 	}
-	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex)
+	syncIndex := b.eth.syncService.GetLatestIndex()
+	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex, "syncIndex", *syncIndex)
 	if b.UsingOVM {
 		if strings.ToLower(expectSeq.String()) == strings.ToLower(b.eth.syncService.SeqAddress) {
 			log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
@@ -360,10 +364,23 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				return err
 			}
 			timeout := 5 * time.Second
-			callCtx, cancel := context.WithTimeout(ctx, timeout)
-			defer cancel()
+			// TODO, if self's block latest time in 5 seconds, and height + 200 < ExpectHeight, don't check?
+			ctxHeader, cancelHeader := context.WithTimeout(ctx, timeout)
+			defer cancelHeader()
+			header, err := rpcClient.HeaderByNumber(ctxHeader, nil)
+			if err != nil {
+				log.Warn("Sequencer height check", "url", l2Url, "err", err)
+				return err
+			}
+			seqIndex := header.Number.Uint64()
+			log.Debug("Checked sequencer and self height", "sequencer", seqIndex, "self", index)
+			if seqIndex < index {
+				return errors.New("the sequencer has not been synchronized to the latest block yet")
+			}
+			ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
+			defer cancelSend()
 			signedTx.SetL2Tx(2)
-			err = rpcClient.SendTransaction(callCtx, signedTx)
+			err = rpcClient.SendTransaction(ctxSend, signedTx)
 			signedTx.SetL2Tx(1)
 			return err
 		}
