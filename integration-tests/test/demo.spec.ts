@@ -185,11 +185,11 @@ describe('Fee Payment Integration Tests', async () => {
     await tx2.wait()
     // await 2s for peer
     console.log('waiting peer')
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 10000));
     const taxBalance = await MVM_Coinbase.balanceOf(l2Wallet.address)
     const taxBalancePeer = await MVM_CoinbasePeer.balanceOf(l2PeerWallet.address)
 
-    console.log("tax balance: " + taxBalance + ", " +taxBalancePeer)
+    console.log("[deposit]tax balance: " + taxBalance + ", " +taxBalancePeer)
   })
   it.skip('withdraw', async () => {
     await OVM_L2CrossDomainMessenger.withdraw(
@@ -202,7 +202,7 @@ describe('Fee Payment Integration Tests', async () => {
     const taxBalance = await MVM_Coinbase.balanceOf(l2Wallet.address)
     const taxBalancePeer = await MVM_CoinbasePeer.balanceOf(l2PeerWallet.address)
 
-    console.log("tax balance: " + taxBalance + ", " + taxBalancePeer)
+    console.log("[withdraw]tax balance: " + taxBalance + ", " + taxBalancePeer)
   })
 
   it.skip('sequencer rejects transaction with a non-multiple-of-1M gasPrice', async () => {

@@ -1068,22 +1068,24 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 
 	// check is current address is seqencer
-	index := s.GetLatestIndex()
+	// index := s.GetLatestIndex()
 	var expectSeq common.Address
 	// var err error
-	if index == nil {
-		expectSeq, err = s.GetTxSeqencer(tx, 0)
-	} else {
-		log.Info("try to applyTransactionToTip ", "index", *index+1)
-		expectSeq, err = s.GetTxSeqencer(tx, *index+1)
-	}
+	// if index == nil {
+	// 	expectSeq, err = s.GetTxSeqencer(tx, 0)
+	// } else {
+	// 	log.Info("try to applyTransactionToTip ", "index", *index+1)
+	// 	expectSeq, err = s.GetTxSeqencer(tx, *index+1)
+	// }
+	blockNumber := s.bc.CurrentBlock().Number().Uint64()
+	expectSeq, err = s.GetTxSeqencer(tx, blockNumber+1)
 	if err != nil {
 		log.Error("GetTxSeqencer err ", err)
 		return err
 	}
 	// current is not seq, just skip it
 	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
-	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
+	if blockNumber >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
 		if signature == nil && strings.ToLower(expectSeq.String()) != strings.ToLower(s.SeqAddress) {
 			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
@@ -1157,7 +1159,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// store current time for the last index time
 
-	//index := s.GetLatestIndex()
+	index := s.GetLatestIndex()
 	if tx.GetMeta().Index == nil {
 		if index == nil {
 			tx.SetIndex(0)
@@ -1166,7 +1168,8 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		}
 	}
 	// add seq signature
-	if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
+	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
+	if blockNumber >= s.seqAdapter.GetSeqValidHeight() {
 		if tx.GetSeqSign() == nil {
 			err = s.addSeqSignature(tx)
 		}
@@ -1269,17 +1272,19 @@ func (s *SyncService) checkApplySkip(tx *types.Transaction, fromLocal bool) (boo
 	if !fromLocal {
 		return false, nil
 	}
-	index := s.GetLatestIndex()
-	if index == nil || *index < s.seqAdapter.GetSeqValidHeight() {
+	// index := s.GetLatestIndex()
+	index := s.bc.CurrentBlock().Number().Uint64()
+	if index < s.seqAdapter.GetSeqValidHeight() {
 		return false, nil
 	}
 	var expectSeq common.Address
 	var err error
-	if index == nil {
-		expectSeq, err = s.GetTxSeqencer(tx, 0)
-	} else {
-		expectSeq, err = s.GetTxSeqencer(tx, *index+1)
-	}
+	// if index == nil {
+	// 	expectSeq, err = s.GetTxSeqencer(tx, 0)
+	// } else {
+	// 	expectSeq, err = s.GetTxSeqencer(tx, *index+1)
+	// }
+	expectSeq, err = s.GetTxSeqencer(tx, index+1)
 	if err != nil {
 		log.Error("GetTxSeqencer err ", err)
 		return true, err
