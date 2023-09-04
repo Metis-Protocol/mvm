@@ -211,6 +211,19 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 
 			// update gas
 			manager.updateGasPrice(blocks)
+			for _, block := range blocks {
+				for _, tx := range block.Transactions() {
+
+					index := tx.GetMeta().Index
+					if index == nil {
+						continue
+					}
+					log.Info("handleMsg in inserter add ", "tx index", *index)
+
+					txQueues <- tx
+
+				}
+			}
 		}
 		return n, err
 	}
