@@ -1201,12 +1201,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			Txs: txs,
 		})
 
-		// This code will break the chainHeadCh logic
-		// if len(s.chainHeadCh) > 0 {
-		// 	header := <-s.chainHeadCh
-		// 	log.Info("sync from other node", "get chain header ", header)
-		// }
-		// chainHeadCh will not fired here, process sync service status
+		<-s.chainHeadCh
 		sender, _ := types.Sender(s.signer, tx)
 		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
