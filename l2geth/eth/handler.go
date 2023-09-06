@@ -173,7 +173,14 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	if atomic.LoadUint32(&manager.fastSync) == 1 {
 		stateBloom = trie.NewSyncBloom(uint64(cacheLimit), chaindb)
 	}
-	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, stateBloom, manager.eventMux, blockchain, nil, manager.removePeer, manager.updateGasPrice)
+	// downloader blocks inserted hook
+	blocksInsertedDownloader := func(blocks types.Blocks) {
+		// update txQueue
+		manager.updateTxQueue(blocks)
+		// update gas
+		manager.updateGasPrice(blocks)
+	}
+	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, stateBloom, manager.eventMux, blockchain, nil, manager.removePeer, blocksInsertedDownloader)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -209,21 +216,10 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		if err == nil {
 			atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 
+			// update txQueue
+			manager.updateTxQueue(blocks)
 			// update gas
 			manager.updateGasPrice(blocks)
-			for _, block := range blocks {
-				for _, tx := range block.Transactions() {
-
-					index := tx.GetMeta().Index
-					if index == nil {
-						continue
-					}
-					log.Info("handleMsg in inserter add ", "tx index", *index)
-
-					txQueues <- tx
-
-				}
-			}
 		}
 		return n, err
 	}
@@ -832,20 +828,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-		for _, tx := range request.Block.Transactions() {
-			if pm.txQueues != nil {
-				index := tx.GetMeta().Index
-				if index == nil {
-					continue
-				}
-				log.Info("handleMsg in rollup mode NewBlockMsg add ", "tx index", *index)
-				if *index < 19 {
-					log.Info("handleMsg in rollup mode NewBlockMsg add don't need to add to txQueues", "tx index", *index)
-					//continue
-				}
-				pm.txQueues <- tx
-			}
-		}
+		// for _, tx := range request.Block.Transactions() {
+		// 	if pm.txQueues != nil {
+		// 		index := tx.GetMeta().Index
+		// 		if index == nil {
+		// 			continue
+		// 		}
+		// 		log.Info("handleMsg in rollup mode NewBlockMsg add ", "tx index", *index)
+		// 		if *index < 19 {
+		// 			log.Info("handleMsg in rollup mode NewBlockMsg add don't need to add to txQueues", "tx index", *index)
+		// 			//continue
+		// 		}
+		// 		pm.txQueues <- tx
+		// 	}
+		// }
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -1094,7 +1090,9 @@ func (pm *ProtocolManager) updateGasPriceOracleCache(hash *common.Hash) error {
 
 func (pm *ProtocolManager) updateGasPrice(blocks types.Blocks) {
 	// update gas in peer (without rollup both main node & verifier)
-	if !pm.HasRPCModule("rollup") && len(blocks) > 0 {
+	// if !pm.HasRPCModule("rollup") && len(blocks) > 0 {
+	// MPC rollup do this
+	if len(blocks) > 0 {
 		hasGasOralceTx := false
 		for _, block := range blocks {
 			txs := block.Transactions()
@@ -1117,6 +1115,19 @@ func (pm *ProtocolManager) updateGasPrice(blocks types.Blocks) {
 			if !pm.gasInitialized {
 				pm.gasInitialized = true
 			}
+		}
+	}
+}
+
+func (pm *ProtocolManager) updateTxQueue(blocks types.Blocks) {
+	for _, block := range blocks {
+		for _, tx := range block.Transactions() {
+			index := tx.GetMeta().Index
+			if index == nil {
+				continue
+			}
+			log.Info("handle blocks inerted of fetcher or downloader", "tx index", *index)
+			pm.txQueues <- tx
 		}
 	}
 }

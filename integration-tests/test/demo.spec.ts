@@ -191,7 +191,7 @@ describe('Fee Payment Integration Tests', async () => {
 
     console.log("[deposit]tax balance: " + taxBalance + ", " +taxBalancePeer)
   })
-  it.skip('withdraw', async () => {
+  it('withdraw', async () => {
     await OVM_L2CrossDomainMessenger.withdraw(
       predeploys.MVM_Coinbase,
       100,

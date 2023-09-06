@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/common/hexutil"
 	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 	"github.com/ethereum-optimism/optimism/l2geth/p2p"
+
 	//"github.com/ethereum-optimism/optimism/l2geth/p2p/enode"
 	"github.com/ethereum-optimism/optimism/l2geth/rpc"
 )
@@ -292,14 +293,11 @@ func NewPublicAdminAPI(node *Node) *PublicAdminAPI {
 // Peers retrieves all the information we know about each individual peer at the
 // protocol granularity.
 func (api *PublicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
-	/**
 	server := api.node.Server()
 	if server == nil {
 		return nil, ErrNodeStopped
 	}
 	return server.PeersInfo(), nil
-	*/
-	return nil, nil
 }
 
 // NodeInfo retrieves all the information we know about the host node at the
