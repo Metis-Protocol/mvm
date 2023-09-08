@@ -116,8 +116,9 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	log.Debug("Will get seqencer info from seq contract on L2")
 	// get status from contract on height expectIndex - 1
 	// return result ,err
-	return s.getSeqencer(expectIndex)
-
+	address, err := s.getSeqencer(expectIndex)
+	log.Info("getSeqencer address %v, expectIndex %v, err %v", address, expectIndex, err)
+	return address, err
 }
 
 // CheckSeqencerIsWorking check current seqencer is working
