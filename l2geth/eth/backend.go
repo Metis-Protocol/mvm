@@ -245,15 +245,16 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.protocolManager.gasPriceOracleOwnerAddress = config.Rollup.GasPriceOracleOwnerAddress
 
 	// create ethclient
-	// NOTE: MPC should not use this
-	// l2Url := ctx.L2Url()
-	// if l2Url != "" {
-	// 	eth.rpcClient, err = ethclient.Dial(l2Url)
-	// 	if err != nil {
-	// 		log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
-	// 	}
-	// 	log.Info("Dial to a new proxy rpc client", "url", l2Url)
-	// }
+	// NOTE: MPC added rollup check for proxy
+	l2Url := ctx.L2Url()
+	if l2Url != "" {
+		eth.rpcClient, err = ethclient.Dial(l2Url)
+		if err != nil {
+			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
+		} else {
+			log.Info("Dial to a new proxy rpc client", "url", l2Url)
+		}
+	}
 
 	return eth, nil
 }

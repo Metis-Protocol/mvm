@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
 	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
 	"github.com/ethereum-optimism/optimism/l2geth/log"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
 const (
@@ -93,7 +94,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// check is update seqencer operate
 	if expectIndex <= s.seqContractValidHeight {
 		// return default address 0x00000398232E2064F896018496b4b44b3D62751F
-		return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
+		return rcfg.DefaultSeqAdderss, nil
 	}
 	// if expectIndex%2 == 0 {
 	// 	log.Debug("seqencer %v, for index %v", "0x00000398232E2064F896018496b4b44b3D62751F", expectIndex, "tx", tx.Hash().Hex())

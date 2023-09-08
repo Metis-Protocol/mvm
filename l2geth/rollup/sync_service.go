@@ -935,18 +935,6 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 	}
 	if !isCtcTxEqual(tx, txs[0]) {
 		log.Error("Mismatched transaction", "index", *index)
-		// need to reorg it, just reset blockheight and index it
-		err := s.bc.SetHead(*index)
-		if err != nil {
-			log.Error("try to reorg by set block head to low height err ", err)
-			return err
-		}
-		if *index >= 1 {
-			newIndex := (*index) - 1
-			s.SetLatestIndex(&newIndex)
-		}
-		// 重新执行一次tx
-		return s.applyIndexedTransaction(tx, fromLocal)
 	} else {
 		log.Debug("Historical transaction matches", "index", *index, "hash", tx.Hash().Hex())
 	}
@@ -955,8 +943,8 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 	if queueIndex != nil {
 		lastIndex := s.GetLatestEnqueueIndex()
 		if lastIndex == nil || *lastIndex < *queueIndex {
-			log.Info("Historical transaction SetLatestEnqueueIndex ", "queueIndex", *queueIndex)
-			s.SetLatestEnqueueIndex(queueIndex)
+			log.Info("Historical transaction should SetLatestEnqueueIndex", "queueIndex", *queueIndex)
+			// s.SetLatestEnqueueIndex(queueIndex)
 		}
 	} else {
 		log.Debug("Historical transaction tx queueIndex is null", "index", *index, "hash", tx.Hash().Hex())
