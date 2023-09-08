@@ -1021,19 +1021,18 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	)
 
 	// rpc proxy check
-	// if b.IsRpcProxySupport() {
-	// 	callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
-
-	// 	gasLimit, err := b.ProxyEstimateGas(ctx, toCallArg(callArgs))
-	// 	if err != nil {
-	// 		return 0, err
-	// 	}
-	// 	// threshold if has Gas arg
-	// 	// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
-	// 	// 	gasLimit = uint64(*args.Gas)
-	// 	// }
-	// 	return hexutil.Uint64(gasLimit), nil
-	// }
+	if b.IsRpcProxySupport() {
+		// callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
+		gasLimit, err := b.ProxyEstimateGas(ctx, args)
+		if err != nil {
+			return 0, err
+		}
+		// threshold if has Gas arg
+		// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
+		// 	gasLimit = uint64(*args.Gas)
+		// }
+		return hexutil.Uint64(gasLimit), nil
+	}
 
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
@@ -1112,9 +1111,9 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 // encode the fee in wei as gas price is always 1
 func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
 	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
-	if s.b.IsRpcProxySupport() {
-		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-	}
+	// if s.b.IsRpcProxySupport() {
+	// 	blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+	// }
 	return DoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
 }
 
@@ -1743,8 +1742,8 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	nodeHTTPModules := b.NodeHTTPModules()
-	if nodeHTTPModules == nil || len(nodeHTTPModules) == 0 {
-		return common.Hash{}, errors.New("Not support submit transaction")
+	if len(nodeHTTPModules) == 0 {
+		return common.Hash{}, errors.New("not support submit transaction")
 	}
 	log.Info("SubmitTransaction", "api SubmitTransaction nodeHTTPModules ", nodeHTTPModules)
 	if b.IsRpcProxySupport() {
@@ -1767,11 +1766,11 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	}
 
 	if !canSubmit {
-		return common.Hash{}, errors.New("Not support submit transaction")
+		return common.Hash{}, errors.New("not support submit transaction")
 	}
 
 	if !tx.Protected() {
-		return common.Hash{}, errors.New("Cannot submit unprotected transaction")
+		return common.Hash{}, errors.New("cannot submit unprotected transaction")
 	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err

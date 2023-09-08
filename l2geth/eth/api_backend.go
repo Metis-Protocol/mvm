@@ -336,54 +336,54 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	syncIndex := b.eth.syncService.GetLatestIndex()
 	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex, "syncIndex", *syncIndex)
 	if b.UsingOVM {
-		if strings.ToLower(expectSeq.String()) == strings.ToLower(b.eth.syncService.SeqAddress) {
-			log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
-			to := signedTx.To()
-			if to != nil {
-				// Prevent QueueOriginSequencer transactions that are too large to
-				// be included in a batch. The `MaxCallDataSize` should be set to
-				// the layer one consensus max transaction size in bytes minus the
-				// constant sized overhead of a batch. This will prevent
-				// a layer two transaction from not being able to be batch submitted
-				// to layer one.
-				if len(signedTx.Data()) > b.MaxCallDataSize {
-					return fmt.Errorf("calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
-				}
+		log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
+		to := signedTx.To()
+		if to != nil {
+			// Prevent QueueOriginSequencer transactions that are too large to
+			// be included in a batch. The `MaxCallDataSize` should be set to
+			// the layer one consensus max transaction size in bytes minus the
+			// constant sized overhead of a batch. This will prevent
+			// a layer two transaction from not being able to be batch submitted
+			// to layer one.
+			if len(signedTx.Data()) > b.MaxCallDataSize {
+				return fmt.Errorf("calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 			}
+		}
+		if strings.EqualFold(expectSeq.String(), b.eth.syncService.SeqAddress) {
+			// Sequencer is self, validate and apply tx
 			return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
-		} else {
-			// send to current seqencer
-			l2Url := b.GetSeqUrl(expectSeq)
-			if l2Url == "" {
-				return fmt.Errorf("seqencer %v setting missing on %v", expectSeq.String(), b.eth.syncService.SeqAddress)
-			}
-			log.Info("SendTx use proxy setting to send", "l2Url", l2Url, "checkIndex", checkIndex)
-			rpcClient, err := ethclient.Dial(l2Url)
-			if err != nil {
-				log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
-				return err
-			}
-			timeout := 5 * time.Second
-			// TODO, if self's block latest time in 5 seconds, and height + 200 < ExpectHeight, don't check?
-			ctxHeader, cancelHeader := context.WithTimeout(ctx, timeout)
-			defer cancelHeader()
-			header, err := rpcClient.HeaderByNumber(ctxHeader, nil)
-			if err != nil {
-				log.Warn("Sequencer height check", "url", l2Url, "err", err)
-				return err
-			}
-			seqIndex := header.Number.Uint64()
-			log.Debug("Checked sequencer and self height", "sequencer", seqIndex, "self", index)
-			if seqIndex < index {
-				return errors.New("the sequencer has not been synchronized to the latest block yet")
-			}
-			ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
-			defer cancelSend()
-			signedTx.SetL2Tx(2)
-			err = rpcClient.SendTransaction(ctxSend, signedTx)
-			signedTx.SetL2Tx(1)
+		}
+		// Send to current sequencer
+		l2Url := b.GetSeqUrl(expectSeq)
+		if l2Url == "" {
+			return fmt.Errorf("sequencer %v setting missing on %v", expectSeq.String(), b.eth.syncService.SeqAddress)
+		}
+		log.Info("SendTx use proxy setting to send", "l2Url", l2Url, "checkIndex", checkIndex)
+		rpcClient, err := ethclient.Dial(l2Url)
+		if err != nil {
+			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
 			return err
 		}
+		timeout := 5 * time.Second
+		// TODO, if self's block latest time in 5 seconds, and height + 200 < ExpectHeight, don't check?
+		ctxHeader, cancelHeader := context.WithTimeout(ctx, timeout)
+		defer cancelHeader()
+		header, err := rpcClient.HeaderByNumber(ctxHeader, nil)
+		if err != nil {
+			log.Warn("Sequencer height check", "url", l2Url, "err", err)
+			return err
+		}
+		seqIndex := header.Number.Uint64()
+		log.Debug("Checked sequencer and self height", "sequencer", seqIndex, "self", index)
+		if seqIndex < index {
+			return errors.New("the sequencer has not been synchronized to the latest block yet")
+		}
+		ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
+		defer cancelSend()
+		signedTx.SetL2Tx(2)
+		err = rpcClient.SendTransaction(ctxSend, signedTx)
+		signedTx.SetL2Tx(1)
+		return err
 	}
 	// OVM Disabled
 	log.Info("current b usingovm false, begin to AddLocal")
@@ -491,7 +491,17 @@ func (b *EthAPIBackend) NodeHTTPModules() []string {
 }
 
 func (b *EthAPIBackend) IsRpcProxySupport() bool {
-	return b.eth.rpcClient != nil
+	isRollupNode := false
+	nodeHTTPModules := b.NodeHTTPModules()
+	if len(nodeHTTPModules) > 0 {
+		for _, httpModule := range nodeHTTPModules {
+			if httpModule == "rollup" {
+				isRollupNode = true
+				break
+			}
+		}
+	}
+	return b.eth.rpcClient != nil && !isRollupNode
 }
 
 func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transaction) error {
@@ -503,7 +513,7 @@ func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transact
 
 func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (uint64, error) {
 	if !b.IsRpcProxySupport() {
-		return 0, errors.New("Not support proxy estimate gas")
+		return 0, errors.New("not support proxy estimate gas")
 	}
 	return b.eth.rpcClient.EstimateGasByArg(ctx, arg)
 }
@@ -520,6 +530,9 @@ func (b *EthAPIBackend) IsSequencerWorking() bool {
 	return true
 }
 func (b *EthAPIBackend) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
+	if strings.EqualFold(seq.SequencerAddress.String(), b.eth.syncService.SeqAddress) {
+		return errors.New("no need to add self address")
+	}
 	b.seqRwMutex.Lock()
 	defer b.seqRwMutex.Unlock()
 	b.seqInfos[seq.SequencerAddress] = seq.SequencerUrl
