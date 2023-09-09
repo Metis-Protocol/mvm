@@ -80,7 +80,7 @@ func (s *SeqAdapter) getSeqencer(expectIndex uint64) (common.Address, error) {
 	}
 	seqContract, err := seqset.NewSeqset(s.l2SeqContract, s.localL2Conn)
 	if err != nil {
-		fmt.Println("connect contract err ", err)
+		log.Info("connect contract err ","l2SeqContract" , s.l2SeqContract, "err info", err)
 		s.localL2Conn = nil
 		return common.Address{}, err
 	}
@@ -117,7 +117,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// get status from contract on height expectIndex - 1
 	// return result ,err
 	address, err := s.getSeqencer(expectIndex)
-	log.Info("GetTxSeqencer ", "getSeqencer address=", address, "expectIndex= ", expectIndex, "err=",  err)
+	log.Info("GetTxSeqencer ", "getSeqencer address", address, "expectIndex", expectIndex, "contract address ", s.l2SeqContract, "err",  err)
 	return address, err
 }
 
