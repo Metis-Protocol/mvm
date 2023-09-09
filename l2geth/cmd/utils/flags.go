@@ -1210,6 +1210,8 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(LocalL2ClientHttpFlag.Name) {
 		cfg.LocalL2ClientHttp = ctx.GlobalString(LocalL2ClientHttpFlag.Name)
+	} else {
+		cfg.LocalL2ClientHttp = "http://localhost:8545"
 	}
 	if ctx.GlobalIsSet(SeqsetConrtractFlag.Name) {
 		contractAddress := ctx.GlobalString(SeqsetConrtractFlag.Name)
