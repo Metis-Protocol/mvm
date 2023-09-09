@@ -117,7 +117,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// get status from contract on height expectIndex - 1
 	// return result ,err
 	address, err := s.getSeqencer(expectIndex)
-	log.Info("getSeqencer address %v, expectIndex %v, err %v", address, expectIndex, err)
+	log.Info("GetTxSeqencer ", "getSeqencer address=", address, "expectIndex= ", expectIndex, "err=",  err)
 	return address, err
 }
 
