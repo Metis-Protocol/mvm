@@ -2257,6 +2257,6 @@ func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
 func (api *PublicRollupAPI) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
 	return api.b.AddSeqencerInfo(ctx, seq)
 }
-func (api *PublicRollupAPI) ListSeqencerInfo() string {
+func (api *PublicRollupAPI) ListSeqencerInfo() *types.SequencerInfoList {
 	return api.b.ListSeqencerInfo()
 }

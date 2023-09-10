@@ -851,8 +851,8 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction, fromLocal b
 		return errors.New("No index found in applyIndexedTransaction")
 	}
 	if *index > s.decSeqValidHeight && tx.GetSeqSign() == nil {
-		log.Trace("no seq signature afer seq sign valid height")
-		//return errors.New("no seq signature afer seq sign valid height")
+		log.Trace("no seq signature after seq sign valid height")
+		return errors.New("no seq signature after seq sign valid height")
 	}
 	log.Trace("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
@@ -880,47 +880,30 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 		return errors.New("No index is found in applyHistoricalTransaction")
 	}
 
-	shouldSkip, err := s.checkApplySkip(tx, fromLocal)
-	if err != nil {
-		return err
-	}
-	if shouldSkip {
-		log.Info("should skip applyHistoricalTransaction", "index", tx.GetMeta().Index)
-		// may need to update enqueue index
-		queueIndex := tx.GetMeta().QueueIndex
-		if queueIndex != nil {
-			lastIndex := s.GetLatestEnqueueIndex()
-			if lastIndex == nil || *lastIndex < *queueIndex {
-				log.Info("Historical transaction when skip SetLatestEnqueueIndex ", "queueIndex", *queueIndex)
-				s.SetLatestEnqueueIndex(queueIndex)
-			}
-		}
-		return nil
-	}
-
-	log.Info("applyHistoricalTransaction", "index", index)
+	blockNumber := *index + 1
+	log.Info("applyHistoricalTransaction", "index", blockNumber)
 	// check sequencer
-	if *index >= s.seqAdapter.GetSeqValidHeight() {
+	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
 		if signature == nil {
-			errInfo := fmt.Sprintf("tx %x, seqSign is null ", *index)
+			errInfo := fmt.Sprintf("tx in block %x, seqSign is null", blockNumber)
 			log.Error(errInfo)
-			// return nil
+			return errors.New(errInfo)
 		}
-		expectSeq, err := s.seqAdapter.GetTxSeqencer(tx, *index)
+		expectSeq, err := s.GetTxSeqencer(tx, blockNumber)
 		if err != nil {
 			log.Error("tx %v, GetTxSeqencer err %v", err)
-			//return err
+			return err
 		}
 		recoverSeq, err := s.recoverSeqAddress(tx)
 		if err != nil {
 			log.Error("recoverSeqAddress err ", err)
-			//return err
+			return err
 		}
-		if expectSeq.String() != recoverSeq {
+		if !strings.EqualFold(expectSeq.String(), recoverSeq) {
 			errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
 			log.Error(errInfo)
-			//return errors.New(errInfo)
+			return errors.New(errInfo)
 		}
 	}
 
@@ -951,31 +934,11 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 	}
 	return nil
 }
+
 func (s *SyncService) recoverSeqAddress(tx *types.Transaction) (string, error) {
-	seqSign := tx.GetSeqSign()
-	if seqSign == nil {
-		return "", errors.New("seq sign is null")
-	}
-	hashBytes := tx.Hash().Bytes()
-	rBytes := seqSign.R.Bytes()
-	var padBytes [32]byte
-	if len(rBytes) < 32 {
-		rBytes = append(padBytes[0:32-len(rBytes)], rBytes...)
-	}
-	sBytes := seqSign.S.Bytes()
-	if len(sBytes) < 32 {
-		sBytes = append(padBytes[0:32-len(sBytes)], sBytes...)
-	}
-	var signBytes []byte
-	signBytes = append(signBytes, rBytes...)
-	signBytes = append(signBytes, sBytes...)
-	signBytes = append(signBytes, byte(seqSign.V.Int64()))
-	signer, err := crypto.SigToPub(hashBytes, signBytes)
-	if err != nil {
-		return "", err
-	}
-	return crypto.PubkeyToAddress(*signer).String(), nil
+	return s.seqAdapter.RecoverSeqAddress(tx)
 }
+
 func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
 	if tx.GetSeqSign() != nil {
 		return nil
@@ -1005,6 +968,9 @@ func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
 		V: big.NewInt(0).SetBytes(signature[64:65]),
 	}
 	tx.SetSeqSign(seqSign)
+	if tx.GetSeqSign() == nil {
+		return errors.New("set signature failed")
+	}
 	return nil
 }
 
@@ -1073,23 +1039,23 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// current is not seq, just skip it
 	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
-	if blockNumber >= s.seqAdapter.GetSeqValidHeight() {
+	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber+1 >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
-		if signature == nil && strings.ToLower(expectSeq.String()) != strings.ToLower(s.SeqAddress) {
+		if signature == nil && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
 			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
 			log.Info(errInfo)
-			return nil
+			return errors.New(errInfo)
 		}
 		if signature != nil {
 			recoverSeq, err := s.recoverSeqAddress(tx)
 			if err != nil {
 				log.Error("recoverSeqAddress err ", err)
-				//return err
+				return err
 			}
-			if expectSeq.String() != recoverSeq {
+			if !strings.EqualFold(expectSeq.String(), recoverSeq) {
 				errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
 				log.Error(errInfo)
-				//return errors.New(errInfo)
+				return errors.New(errInfo)
 			}
 		}
 	}
@@ -1157,7 +1123,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// add seq signature
 	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
-	if blockNumber >= s.seqAdapter.GetSeqValidHeight() {
+	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber+1 >= s.seqAdapter.GetSeqValidHeight() {
 		if tx.GetSeqSign() == nil {
 			err = s.addSeqSignature(tx)
 		}
@@ -1251,13 +1217,15 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 
 // when mpc usage, bakup node should not to apply rollup blocks,
 // it will sync from p2p
+// verifier: do not skip
+// sequencer: from remote tx do not skip, from local tx skip when is backup node
 func (s *SyncService) checkApplySkip(tx *types.Transaction, fromLocal bool) (bool, error) {
-	if !fromLocal {
+	if !fromLocal || s.verifier || s.seqAdapter.GetSeqValidHeight() == 0 {
 		return false, nil
 	}
 	// index := s.GetLatestIndex()
-	index := s.bc.CurrentBlock().Number().Uint64()
-	if index < s.seqAdapter.GetSeqValidHeight() {
+	blockNumber := s.bc.CurrentBlock().Number().Uint64()
+	if blockNumber+1 < s.seqAdapter.GetSeqValidHeight() {
 		return false, nil
 	}
 	var expectSeq common.Address
@@ -1267,7 +1235,7 @@ func (s *SyncService) checkApplySkip(tx *types.Transaction, fromLocal bool) (boo
 	// } else {
 	// 	expectSeq, err = s.GetTxSeqencer(tx, *index+1)
 	// }
-	expectSeq, err = s.GetTxSeqencer(tx, index+1)
+	expectSeq, err = s.GetTxSeqencer(tx, blockNumber+1)
 	if err != nil {
 		log.Error("GetTxSeqencer err ", err)
 		return true, err

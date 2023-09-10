@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
 type QueueOrigin uint8
@@ -57,6 +58,10 @@ type TransactionMeta struct {
 	// The queue index, nil for queue origin sequencer transactions
 	QueueIndex     *uint64 `json:"queueIndex" gencodec:"required"`
 	RawTransaction []byte  `json:"rawTransaction" gencodec:"required"`
+
+	R *big.Int `json:"seqR"`
+	S *big.Int `json:"seqS"`
+	V *big.Int `json:"seqV"`
 }
 
 // NewTransactionMeta creates a TransactionMeta
@@ -145,6 +150,36 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 		meta.RawTransaction = raw
 	}
 
+	if rcfg.SeqValidHeight > 0 && *meta.Index+1 >= rcfg.SeqValidHeight {
+		// sequencer sign after mpc enabled height
+		r, err := common.ReadVarBytes(b, 0, 1024, "R")
+		if err != nil {
+			return nil, err
+		}
+		if !isNullValue(r) {
+			rSeq := new(big.Int).SetBytes(r)
+			meta.R = rSeq
+		}
+
+		s, err := common.ReadVarBytes(b, 0, 1024, "S")
+		if err != nil {
+			return nil, err
+		}
+		if !isNullValue(r) {
+			sSeq := new(big.Int).SetBytes(s)
+			meta.S = sSeq
+		}
+
+		v, err := common.ReadVarBytes(b, 0, 1024, "V")
+		if err != nil {
+			return nil, err
+		}
+		if !isNullValue(v) {
+			vSeq := new(big.Int).SetBytes(v)
+			meta.V = vSeq
+		}
+	}
+
 	return &meta, nil
 }
 
@@ -202,6 +237,36 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 		common.WriteVarBytes(b, 0, getNullValue())
 	} else {
 		common.WriteVarBytes(b, 0, rawTransaction)
+	}
+
+	if rcfg.SeqValidHeight > 0 && *meta.Index+1 >= rcfg.SeqValidHeight {
+		// sequencer sign after mpc enabled height
+		rSeq := meta.R
+		if rSeq == nil {
+			common.WriteVarBytes(b, 0, getNullValue())
+		} else {
+			r := new(bytes.Buffer)
+			binary.Write(r, binary.LittleEndian, rSeq.Bytes())
+			common.WriteVarBytes(b, 0, r.Bytes())
+		}
+
+		sSeq := meta.S
+		if sSeq == nil {
+			common.WriteVarBytes(b, 0, getNullValue())
+		} else {
+			s := new(bytes.Buffer)
+			binary.Write(s, binary.LittleEndian, sSeq.Bytes())
+			common.WriteVarBytes(b, 0, s.Bytes())
+		}
+
+		vSeq := meta.V
+		if vSeq == nil {
+			common.WriteVarBytes(b, 0, getNullValue())
+		} else {
+			v := new(bytes.Buffer)
+			binary.Write(v, binary.LittleEndian, vSeq.Bytes())
+			common.WriteVarBytes(b, 0, v.Bytes())
+		}
 	}
 
 	return b.Bytes()

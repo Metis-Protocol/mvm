@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum-optimism/optimism/l2geth/contracts/checkpointoracle/contract/seqset"
+	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
@@ -27,6 +28,7 @@ const (
 // RollupAdapter is the adapter for decentralized seqencers
 // that is required by the SyncService
 type RollupAdapter interface {
+	RecoverSeqAddress(tx *types.Transaction) (string, error)
 	// get tx seqencer for checking tx is valid
 	GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error)
 	// check current seqencer is working
@@ -80,16 +82,44 @@ func (s *SeqAdapter) getSeqencer(expectIndex uint64) (common.Address, error) {
 	}
 	seqContract, err := seqset.NewSeqset(s.l2SeqContract, s.localL2Conn)
 	if err != nil {
-		log.Info("connect contract err ","l2SeqContract" , s.l2SeqContract, "err info", err)
+		log.Info("connect contract err ", "l2SeqContract", s.l2SeqContract, "err info", err)
 		s.localL2Conn = nil
 		return common.Address{}, err
 	}
 	return seqContract.GetMetisSequencer(nil, big.NewInt(int64(expectIndex)))
 
 }
+
 func (s *SeqAdapter) GetSeqValidHeight() uint64 {
 	return s.seqContractValidHeight
 }
+
+func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
+	seqSign := tx.GetSeqSign()
+	if seqSign == nil {
+		return "", errors.New("seq sign is null")
+	}
+	hashBytes := tx.Hash().Bytes()
+	rBytes := seqSign.R.Bytes()
+	var padBytes [32]byte
+	if len(rBytes) < 32 {
+		rBytes = append(padBytes[0:32-len(rBytes)], rBytes...)
+	}
+	sBytes := seqSign.S.Bytes()
+	if len(sBytes) < 32 {
+		sBytes = append(padBytes[0:32-len(sBytes)], sBytes...)
+	}
+	var signBytes []byte
+	signBytes = append(signBytes, rBytes...)
+	signBytes = append(signBytes, sBytes...)
+	signBytes = append(signBytes, byte(seqSign.V.Int64()))
+	signer, err := crypto.SigToPub(hashBytes, signBytes)
+	if err != nil {
+		return "", err
+	}
+	return crypto.PubkeyToAddress(*signer).String(), nil
+}
+
 func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
 	// check is update seqencer operate
 	if expectIndex <= s.seqContractValidHeight {
@@ -117,7 +147,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// get status from contract on height expectIndex - 1
 	// return result ,err
 	address, err := s.getSeqencer(expectIndex)
-	log.Info("GetTxSeqencer ", "getSeqencer address", address, "expectIndex", expectIndex, "contract address ", s.l2SeqContract, "err",  err)
+	log.Info("GetTxSeqencer ", "getSeqencer address", address, "expectIndex", expectIndex, "contract address ", s.l2SeqContract, "err", err)
 	return address, err
 }
 
