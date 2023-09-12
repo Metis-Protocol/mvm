@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum-optimism/optimism/l2geth/contracts/checkpointoracle/contract/seqset"
 	"github.com/ethereum-optimism/optimism/l2geth/crypto"
@@ -20,8 +21,7 @@ import (
 )
 
 const (
-	// RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
-	updateSeqMethod  = ("0x2c91c679")
+	updateSeqMethod  = ("2c91c679")               // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679, when input data does not has prefix 0x
 	updateSeqDataLen = 4 + 32 + 32 + 32 + 32 + 32 // uint256 oldEpochId,uint256 newEpochId, uint256 startBlock,uint256 endBlock, address newSigner
 )
 
@@ -120,6 +120,17 @@ func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
 	return crypto.PubkeyToAddress(*signer).String(), nil
 }
 
+func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) {
+	if (s.l2SeqContract == common.Address{}) {
+		return false, nil
+	}
+	toAddress := tx.To()
+	if strings.EqualFold(toAddress.String(), s.l2SeqContract.String()) {
+		return true, tx.Data()
+	}
+	return false, nil
+}
+
 func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
 	// check is update seqencer operate
 	if expectIndex <= s.seqContractValidHeight {
@@ -134,7 +145,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
 
 	if tx != nil {
-		seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
+		seqOper, data := s.IsSeqSetContractCall(tx)
 		if seqOper {
 			updateSeq, newSeq := parseUpdateSeqData(data)
 			if updateSeq {
@@ -143,7 +154,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 		}
 	}
 
-	log.Debug("Will get seqencer info from seq contract on L2")
+	// log.Debug("Will get seqencer info from seq contract on L2")
 	// get status from contract on height expectIndex - 1
 	// return result ,err
 	address, err := s.getSeqencer(expectIndex)

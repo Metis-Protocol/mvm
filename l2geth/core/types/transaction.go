@@ -418,16 +418,6 @@ func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
 }
 
-// RawSignatureValues returns the V, R, S signature values of the transaction.
-// The return values should not be modified by the caller.
-func (tx *Transaction) IsSystemContractCall(systemContract common.Address) (bool, []byte) {
-	toAddress := tx.To()
-	if toAddress.String() == systemContract.String() {
-		return true, tx.Data()
-	}
-	return false, nil
-}
-
 // Transactions is a Transaction slice type for basic sorting.
 type Transactions []*Transaction
 
