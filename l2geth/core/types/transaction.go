@@ -51,8 +51,6 @@ type Transaction struct {
 
 	// l2 tx tag
 	l2tx uint
-	// l2 tx seq signature
-	seqSignature *SeqSign
 }
 type SeqSign struct {
 	R *big.Int
@@ -227,10 +225,26 @@ func (t *Transaction) SetL2Tx(l2tx uint) {
 }
 
 func (t *Transaction) SetSeqSign(signResult *SeqSign) {
-	t.seqSignature = signResult
+	if &t.meta == nil {
+		return
+	}
+	t.meta.R = signResult.R
+	t.meta.S = signResult.S
+	t.meta.V = signResult.V
 }
+
 func (t *Transaction) GetSeqSign() *SeqSign {
-	return t.seqSignature
+	if &t.meta == nil {
+		return nil
+	}
+	if t.meta.R == nil || t.meta.R.Sign() == 0 {
+		return nil
+	}
+	return &SeqSign{
+		R: t.meta.R,
+		S: t.meta.S,
+		V: t.meta.V,
+	}
 }
 
 // MarshalJSON encodes the web3 RPC transaction format.
@@ -402,16 +416,6 @@ func (tx *Transaction) Cost() *big.Int {
 // The return values should not be modified by the caller.
 func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
-}
-
-// RawSignatureValues returns the V, R, S signature values of the transaction.
-// The return values should not be modified by the caller.
-func (tx *Transaction) IsSystemContractCall(systemContract common.Address) (bool, []byte) {
-	toAddress := tx.To()
-	if toAddress.String() == systemContract.String() {
-		return true, tx.Data()
-	}
-	return false, nil
 }
 
 // Transactions is a Transaction slice type for basic sorting.

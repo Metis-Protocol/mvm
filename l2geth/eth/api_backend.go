@@ -18,7 +18,6 @@ package eth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -550,7 +549,7 @@ func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 	}
 	return ""
 }
-func (b *EthAPIBackend) ListSeqencerInfo() string {
+func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
 	var list types.SequencerInfoList
 	b.seqRwMutex.RLock()
 	for k, v := range b.seqInfos {
@@ -588,9 +587,10 @@ func (b *EthAPIBackend) ListSeqencerInfo() string {
 		SequencerHeight:  ownerHeight,
 	}
 	list.SeqList = append(list.SeqList, seqOwner)
-	jsonData, err := json.Marshal(&list)
-	if err != nil {
-		return ""
-	}
-	return string(jsonData)
+	// jsonData, err := json.Marshal(&list)
+	// if err != nil {
+	// 	return ""
+	// }
+	// return string(jsonData)
+	return &list
 }

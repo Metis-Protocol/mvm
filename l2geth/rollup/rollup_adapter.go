@@ -8,8 +8,10 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum-optimism/optimism/l2geth/contracts/checkpointoracle/contract/seqset"
+	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
@@ -19,14 +21,14 @@ import (
 )
 
 const (
-	// RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
-	updateSeqMethod  = ("0x2c91c679")
+	updateSeqMethod  = ("2c91c679")               // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679, when input data does not has prefix 0x
 	updateSeqDataLen = 4 + 32 + 32 + 32 + 32 + 32 // uint256 oldEpochId,uint256 newEpochId, uint256 startBlock,uint256 endBlock, address newSigner
 )
 
 // RollupAdapter is the adapter for decentralized seqencers
 // that is required by the SyncService
 type RollupAdapter interface {
+	RecoverSeqAddress(tx *types.Transaction) (string, error)
 	// get tx seqencer for checking tx is valid
 	GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error)
 	// check current seqencer is working
@@ -80,16 +82,63 @@ func (s *SeqAdapter) getSeqencer(expectIndex uint64) (common.Address, error) {
 	}
 	seqContract, err := seqset.NewSeqset(s.l2SeqContract, s.localL2Conn)
 	if err != nil {
-		log.Info("connect contract err ","l2SeqContract" , s.l2SeqContract, "err info", err)
+		log.Error("connect contract err", "l2SeqContract", s.l2SeqContract, "err", err)
 		s.localL2Conn = nil
 		return common.Address{}, err
 	}
-	return seqContract.GetMetisSequencer(nil, big.NewInt(int64(expectIndex)))
-
+	seqAddress, err := seqContract.GetMetisSequencer(nil, big.NewInt(int64(expectIndex)))
+	if err != nil {
+		log.Error("Get sequencer error", "err", err)
+		return common.Address{}, err
+	}
+	// if there is no epoch in contract, it will return zero address
+	if (seqAddress == common.Address{}) {
+		return common.Address{}, errors.New("get sequencer incorrect address")
+	}
+	return seqAddress, nil
 }
+
 func (s *SeqAdapter) GetSeqValidHeight() uint64 {
 	return s.seqContractValidHeight
 }
+
+func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
+	seqSign := tx.GetSeqSign()
+	if seqSign == nil {
+		return "", errors.New("seq sign is null")
+	}
+	hashBytes := tx.Hash().Bytes()
+	rBytes := seqSign.R.Bytes()
+	var padBytes [32]byte
+	if len(rBytes) < 32 {
+		rBytes = append(padBytes[0:32-len(rBytes)], rBytes...)
+	}
+	sBytes := seqSign.S.Bytes()
+	if len(sBytes) < 32 {
+		sBytes = append(padBytes[0:32-len(sBytes)], sBytes...)
+	}
+	var signBytes []byte
+	signBytes = append(signBytes, rBytes...)
+	signBytes = append(signBytes, sBytes...)
+	signBytes = append(signBytes, byte(seqSign.V.Int64()))
+	signer, err := crypto.SigToPub(hashBytes, signBytes)
+	if err != nil {
+		return "", err
+	}
+	return crypto.PubkeyToAddress(*signer).String(), nil
+}
+
+func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) {
+	if (s.l2SeqContract == common.Address{}) {
+		return false, nil
+	}
+	toAddress := tx.To()
+	if strings.EqualFold(toAddress.String(), s.l2SeqContract.String()) {
+		return true, tx.Data()
+	}
+	return false, nil
+}
+
 func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
 	// check is update seqencer operate
 	if expectIndex <= s.seqContractValidHeight {
@@ -104,7 +153,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	// return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
 
 	if tx != nil {
-		seqOper, data := tx.IsSystemContractCall(s.l2SeqContract)
+		seqOper, data := s.IsSeqSetContractCall(tx)
 		if seqOper {
 			updateSeq, newSeq := parseUpdateSeqData(data)
 			if updateSeq {
@@ -113,11 +162,11 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 		}
 	}
 
-	log.Debug("Will get seqencer info from seq contract on L2")
+	// log.Debug("Will get seqencer info from seq contract on L2")
 	// get status from contract on height expectIndex - 1
 	// return result ,err
 	address, err := s.getSeqencer(expectIndex)
-	log.Info("GetTxSeqencer ", "getSeqencer address", address, "expectIndex", expectIndex, "contract address ", s.l2SeqContract, "err",  err)
+	log.Info("GetTxSeqencer ", "getSeqencer address", address, "expectIndex", expectIndex, "contract address ", s.l2SeqContract, "err", err)
 	return address, err
 }
 

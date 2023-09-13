@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/p2p/enode"
 	"github.com/ethereum-optimism/optimism/l2geth/params"
 	"github.com/ethereum-optimism/optimism/l2geth/rlp"
+	"github.com/ethereum-optimism/optimism/l2geth/rollup"
 	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 	"github.com/ethereum-optimism/optimism/l2geth/trie"
 )
@@ -112,12 +114,13 @@ type ProtocolManager struct {
 	gasInitialized                 bool
 	signer                         types.Signer
 
-	txQueues chan *types.Transaction
+	txQueues   chan *types.Transaction
+	seqAdapter *rollup.SeqAdapter
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Transaction) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Transaction, cfgRollup *rollup.Config) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:                      networkID,
@@ -173,6 +176,51 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	if atomic.LoadUint32(&manager.fastSync) == 1 {
 		stateBloom = trie.NewSyncBloom(uint64(cacheLimit), chaindb)
 	}
+
+	if cfgRollup != nil && !cfgRollup.IsVerifier {
+		manager.seqAdapter = rollup.NewSeqAdapter(cfgRollup.SeqsetContract, cfgRollup.SeqsetValidHeight, cfgRollup.PosClientHttp, cfgRollup.LocalL2ClientHttp)
+	}
+
+	blocksBeforeInsert := func(blocks types.Blocks) error {
+		if manager.seqAdapter == nil || rcfg.SeqValidHeight == 0 {
+			return nil
+		}
+		var (
+			block *types.Block
+		)
+		for i := 0; i < len(blocks); i++ {
+			block = blocks[i]
+			if block.Transactions().Len() == 0 {
+				continue
+			}
+			blockNumber := block.NumberU64()
+			if manager.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= manager.seqAdapter.GetSeqValidHeight() {
+				tx := block.Transactions()[0]
+				signature := tx.GetSeqSign()
+				if signature == nil {
+					errInfo := "handler blocksBeforeInsert with nil tx signature"
+					log.Error(errInfo)
+					return errors.New(errInfo)
+				}
+				expectSeq, err := manager.seqAdapter.GetTxSeqencer(tx, blockNumber)
+				if err != nil {
+					log.Error("handler blocksBeforeInsert GetTxSeqencer err ", err)
+					return err
+				}
+				recoverSeq, err := manager.seqAdapter.RecoverSeqAddress(tx)
+				if err != nil {
+					log.Error("handler blocksBeforeInsert RecoverSeqAddress err ", err)
+					return err
+				}
+				if !strings.EqualFold(expectSeq.String(), recoverSeq) {
+					errInfo := fmt.Sprintf("handler blocksBeforeInsert tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
+					log.Error(errInfo)
+					return errors.New(errInfo)
+				}
+			}
+		}
+		return nil
+	}
 	// downloader blocks inserted hook
 	blocksInsertedDownloader := func(blocks types.Blocks) {
 		// update txQueue
@@ -180,7 +228,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		// update gas
 		manager.updateGasPrice(blocks)
 	}
-	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, stateBloom, manager.eventMux, blockchain, nil, manager.removePeer, blocksInsertedDownloader)
+	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, stateBloom, manager.eventMux, blockchain, nil, manager.removePeer, blocksInsertedDownloader, blocksBeforeInsert)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -212,6 +260,10 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		// 	log.Warn("Fast syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 		// 	return 0, nil
 		// }
+		err := blocksBeforeInsert(blocks)
+		if err != nil {
+			return 0, err
+		}
 		n, err := manager.blockchain.InsertChainWithFunc(blocks, f)
 		if err == nil {
 			atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import

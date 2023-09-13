@@ -87,6 +87,8 @@ services:
     ports:
       - ${DTL_PORT:-7878}:7878
     restart: on-failure
+    volumes:
+      - /tmp/mvm/dtl:/data/db
 
   l2geth:
     depends_on:
@@ -111,8 +113,8 @@ services:
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
-      SEQSET_VALID_HEIGHT: 40
-      SEQSET_CONTRACT:
+      SEQSET_VALID_HEIGHT: 35
+      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
       SEQ_ADDRESS: "0x1267397fb5BF6f6Dcc3d18d673616D512dbcd8F0"
       SEQ_PRIV: "ed3f195449409dc1d22f0119da7678200710a447ff75baa06bfc42829d02d28c"
     ports:
@@ -120,8 +122,8 @@ services:
       - ${L2GETH_WS_PORT:-8546}:8546
       - ${L2GETH_NODE_PORT:-30303}:30303
     restart: on-failure
-    # volumes:
-    #   - /root/go/src/metis-seq/mvm-data/l2geth:/root/.ethereum
+    volumes:
+      - /tmp/mvm/l2geth:/root/.ethereum
 
   l2gethB:
     depends_on:
@@ -148,8 +150,8 @@ services:
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
-      SEQSET_VALID_HEIGHT: 40
-      SEQSET_CONTRACT:
+      SEQSET_VALID_HEIGHT: 35
+      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
       SEQ_ADDRESS: "0xC213298C9e90e1AE7b4B97C95A7BE1B811E7c933"
       SEQ_PRIV: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
     ports:
@@ -157,8 +159,8 @@ services:
       - ${L2GETH_WS_PORT:-18546}:8546
       - ${L2GETH_NODE_PORT:-40303}:30303
     restart: on-failure
-    # volumes:
-    #   - /root/go/src/metis-seq/mvm-data/l2gethB:/root/.ethereum
+    volumes:
+      - /tmp/mvm/l2gethB:/root/.ethereum
 
   l2geth-peer:
     depends_on:
@@ -195,6 +197,8 @@ services:
       - ${L2GETH_WS_PORT:-10546}:8546
       - ${L2GETH_NODE_PORT:-30304}:30303
     restart: on-failure
+    volumes:
+      - /tmp/mvm/l2gethPeer:/root/.ethereum
 
   relayer:
     depends_on:

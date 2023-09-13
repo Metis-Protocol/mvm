@@ -14,6 +14,7 @@ var (
 	UsingOVM               bool
 	PeerHealthCheckSeconds int64
 	ChainID                uint64
+	SeqValidHeight         uint64
 )
 
 var (
@@ -69,5 +70,16 @@ func init() {
 		ChainID = parsed
 	}
 
-	fmt.Println("rcfg UsingOVM ", UsingOVM, " envChainID ", envChainID)
+	envSvh := os.Getenv("SEQSET_VALID_HEIGHT")
+	if envSvh == "" {
+		SeqValidHeight = ^uint64(0)
+	} else {
+		parsed, err := strconv.ParseUint(envSvh, 0, 64)
+		if err != nil {
+			panic(err)
+		}
+		SeqValidHeight = parsed
+	}
+
+	fmt.Println("rcfg UsingOVM ", UsingOVM, " envChainID ", envChainID, "envSeqValidHeight", envSvh)
 }

@@ -159,7 +159,8 @@ type Downloader struct {
 	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
 	// Metis
-	blocksInsertedHook func(types.Blocks)
+	blocksInsertedHook     func(types.Blocks)
+	blocksBeforeInsertHook func(types.Blocks) error // Method to call upon before insert a chain of blocks (possibly return error)
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -213,7 +214,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, blocksInserted func(types.Blocks)) *Downloader {
+func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, blocksInserted func(types.Blocks), blocksBeforeInsert func(types.Blocks) error) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -243,7 +244,8 @@ func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, 
 		},
 		trackStateReq: make(chan *stateReq),
 
-		blocksInsertedHook: blocksInserted,
+		blocksInsertedHook:     blocksInserted,
+		blocksBeforeInsertHook: blocksBeforeInsert,
 	}
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -1558,6 +1560,13 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
+	}
+	// Call blocksBeforeInsertHook
+	if d.blocksBeforeInsertHook != nil {
+		err := d.blocksBeforeInsertHook(blocks)
+		if err != nil {
+			return err
+		}
 	}
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		if index < len(results) {
