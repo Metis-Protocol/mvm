@@ -468,13 +468,12 @@ func (s *SyncService) HandleSyncFromOther() {
 				log.Debug("Handle SyncFromOther ", "tx", tx.Hash())
 				err := s.applyTransaction(tx, false)
 				if err != nil {
-					log.Info("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
-					// put back
-					go func() {
-						time.Sleep(1 * time.Second)
-						s.syncQueueFromOthers <- tx
-					}()
-
+					log.Error("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
+					// not to put back again, has set LatestIndex in applyTransaction
+					// go func() {
+					// 	time.Sleep(1 * time.Second)
+					// 	s.syncQueueFromOthers <- tx
+					// }()
 				}
 			}
 		}
@@ -863,6 +862,11 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction, fromLocal b
 		log.Trace("applyHistoricalTransaction", "index", *index, "next", next)
 		return s.applyHistoricalTransaction(tx, fromLocal)
 	}
+	// when not fromLocal tx, p2p perhaps insert many blocks, but return one chainHeadch,
+	// it should update index directly, apply to tip
+	if !fromLocal {
+		return s.applyTransactionToTip(tx, fromLocal)
+	}
 	// batchIndex := *s.GetLatestBatchIndex() - 30
 	// s.SetLatestBatchIndex(&batchIndex)
 	// log.Info("Reset latest batch index to smaller next", "index", batchIndex)
@@ -1155,7 +1159,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			Txs: txs,
 		})
 
-		<-s.chainHeadCh
+		// backup sequencer perhaps have one time chainHeadCh<- if p2p download batch txs
+		if len(s.chainHeadCh) > 0 {
+			<-s.chainHeadCh
+		}
 		sender, _ := types.Sender(s.signer, tx)
 		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {

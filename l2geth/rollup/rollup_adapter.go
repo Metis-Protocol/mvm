@@ -82,12 +82,20 @@ func (s *SeqAdapter) getSeqencer(expectIndex uint64) (common.Address, error) {
 	}
 	seqContract, err := seqset.NewSeqset(s.l2SeqContract, s.localL2Conn)
 	if err != nil {
-		log.Info("connect contract err ", "l2SeqContract", s.l2SeqContract, "err info", err)
+		log.Error("connect contract err", "l2SeqContract", s.l2SeqContract, "err", err)
 		s.localL2Conn = nil
 		return common.Address{}, err
 	}
-	return seqContract.GetMetisSequencer(nil, big.NewInt(int64(expectIndex)))
-
+	seqAddress, err := seqContract.GetMetisSequencer(nil, big.NewInt(int64(expectIndex)))
+	if err != nil {
+		log.Error("Get sequencer error", "err", err)
+		return common.Address{}, err
+	}
+	// if there is no epoch in contract, it will return zero address
+	if (seqAddress == common.Address{}) {
+		return common.Address{}, errors.New("get sequencer incorrect address")
+	}
+	return seqAddress, nil
 }
 
 func (s *SeqAdapter) GetSeqValidHeight() uint64 {
