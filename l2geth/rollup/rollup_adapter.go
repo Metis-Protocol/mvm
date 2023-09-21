@@ -36,6 +36,8 @@ type RollupAdapter interface {
 	//
 	GetSeqValidHeight() uint64
 	CheckPosLayerSynced() (bool, error)
+	ParseUpdateSeqData(data []byte) (bool, common.Address)
+	IsSeqSetContractCall(tx *types.Transaction) (bool, []byte)
 }
 
 // SeqAdapter is an adpater used by seqencer based RollupClient
@@ -61,7 +63,7 @@ func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, 
 	}
 }
 
-func parseUpdateSeqData(data []byte) (bool, common.Address) {
+func (s *SeqAdapter) ParseUpdateSeqData(data []byte) (bool, common.Address) {
 	if len(data) < updateSeqDataLen {
 		return false, common.HexToAddress("0x0")
 	}
@@ -103,6 +105,10 @@ func (s *SeqAdapter) GetSeqValidHeight() uint64 {
 }
 
 func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
+	// enqueue tx no sign
+	if tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+		return "", errors.New("enqueue seq sign is null")
+	}
 	seqSign := tx.GetSeqSign()
 	if seqSign == nil {
 		return "", errors.New("seq sign is null")
@@ -155,7 +161,7 @@ func (s *SeqAdapter) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (c
 	if tx != nil {
 		seqOper, data := s.IsSeqSetContractCall(tx)
 		if seqOper {
-			updateSeq, newSeq := parseUpdateSeqData(data)
+			updateSeq, newSeq := s.ParseUpdateSeqData(data)
 			if updateSeq {
 				return newSeq, nil
 			}

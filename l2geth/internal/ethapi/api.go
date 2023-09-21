@@ -1281,6 +1281,10 @@ type RPCTransaction struct {
 	Index            *hexutil.Uint64 `json:"index"`
 	QueueIndex       *hexutil.Uint64 `json:"queueIndex"`
 	RawTransaction   hexutil.Bytes   `json:"rawTransaction"`
+
+	SeqR *hexutil.Big `json:"seqR"`
+	SeqS *hexutil.Big `json:"seqS"`
+	SeqV *hexutil.Big `json:"seqV"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1329,6 +1333,12 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		if meta.QueueIndex != nil {
 			queueIndex := (hexutil.Uint64)(*meta.QueueIndex)
 			result.QueueIndex = &queueIndex
+		}
+
+		if meta.R != nil {
+			result.SeqR = (*hexutil.Big)(meta.R)
+			result.SeqS = (*hexutil.Big)(meta.S)
+			result.SeqV = (*hexutil.Big)(meta.V)
 		}
 	}
 	return result

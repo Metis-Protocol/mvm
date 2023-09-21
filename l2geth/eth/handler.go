@@ -114,13 +114,13 @@ type ProtocolManager struct {
 	gasInitialized                 bool
 	signer                         types.Signer
 
-	txQueues   chan *types.Transaction
-	seqAdapter *rollup.SeqAdapter
+	txQueues    chan *types.Transaction
+	syncService *rollup.SyncService
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Transaction, cfgRollup *rollup.Config) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Transaction, syncService *rollup.SyncService) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:                      networkID,
@@ -177,39 +177,79 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		stateBloom = trie.NewSyncBloom(uint64(cacheLimit), chaindb)
 	}
 
-	if cfgRollup != nil && !cfgRollup.IsVerifier {
-		manager.seqAdapter = rollup.NewSeqAdapter(cfgRollup.SeqsetContract, cfgRollup.SeqsetValidHeight, cfgRollup.PosClientHttp, cfgRollup.LocalL2ClientHttp)
-	}
+	manager.syncService = syncService
 
 	blocksBeforeInsert := func(blocks types.Blocks) error {
-		if manager.seqAdapter == nil || rcfg.SeqValidHeight == 0 {
+		if manager.syncService == nil {
+			return nil
+		}
+		seqAdapter := manager.syncService.RollupAdapter()
+		if seqAdapter == nil || rcfg.SeqValidHeight == 0 {
 			return nil
 		}
 		var (
 			block *types.Block
 		)
+		rollupClient := manager.syncService.RollupClient()
+		recommitSeq := common.Address{}
 		for i := 0; i < len(blocks); i++ {
 			block = blocks[i]
 			if block.Transactions().Len() == 0 {
 				continue
 			}
 			blockNumber := block.NumberU64()
-			if manager.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= manager.seqAdapter.GetSeqValidHeight() {
+			if seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= seqAdapter.GetSeqValidHeight() {
 				tx := block.Transactions()[0]
+				// enqueue tx should not verify sequencer sign
+				if tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+					// check enquene index
+					queueIndex := tx.GetMeta().QueueIndex
+					if queueIndex == nil {
+						return errors.New("handler blocksBeforeInsert invalid queue")
+					}
+					// check args with dtl l1 enqueue
+					txEnqueue, err := rollupClient.GetEnqueue(*queueIndex)
+					if err != nil {
+						log.Error("handler blocksBeforeInsert get equeue err", err)
+						return err
+					}
+					if txEnqueue.Hash() != tx.Hash() {
+						errInfo := fmt.Sprintf("handler blocksBeforeInsert incorrect queue, incoming hash %v, queue hash %v", tx.Hash().Hex(), txEnqueue.Hash().Hex())
+						log.Error(errInfo)
+						return errors.New(errInfo)
+					}
+					continue
+				}
 				signature := tx.GetSeqSign()
 				if signature == nil {
 					errInfo := "handler blocksBeforeInsert with nil tx signature"
 					log.Error(errInfo)
 					return errors.New(errInfo)
 				}
-				expectSeq, err := manager.seqAdapter.GetTxSeqencer(tx, blockNumber)
+				recoverSeq, err := seqAdapter.RecoverSeqAddress(tx)
 				if err != nil {
-					log.Error("handler blocksBeforeInsert GetTxSeqencer err ", err)
+					log.Error("handler blocksBeforeInsert RecoverSeqAddress err", err)
 					return err
 				}
-				recoverSeq, err := manager.seqAdapter.RecoverSeqAddress(tx)
+				// check sequencer contract special tx, if true, check recoverSeq equals to special address arg, the expect sequencer can be read until the special tx block inserted
+				seqOper, operData := seqAdapter.IsSeqSetContractCall(tx)
+				if seqOper {
+					updateSeq, newSeq := seqAdapter.ParseUpdateSeqData(operData)
+					if updateSeq {
+						recommitSeq = newSeq
+					}
+				}
+				if recommitSeq != (common.Address{}) {
+					if !strings.EqualFold(recommitSeq.String(), recoverSeq) {
+						errInfo := fmt.Sprintf("handler blocksBeforeInsert tx seq %v, is not recommit seq %v", recoverSeq, recommitSeq.String())
+						log.Error(errInfo)
+						return errors.New(errInfo)
+					}
+					continue
+				}
+				expectSeq, err := seqAdapter.GetTxSeqencer(tx, blockNumber)
 				if err != nil {
-					log.Error("handler blocksBeforeInsert RecoverSeqAddress err ", err)
+					log.Error("handler blocksBeforeInsert GetTxSeqencer err", err)
 					return err
 				}
 				if !strings.EqualFold(expectSeq.String(), recoverSeq) {

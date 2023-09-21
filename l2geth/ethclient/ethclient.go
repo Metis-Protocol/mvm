@@ -203,6 +203,10 @@ type rpcTransactionMeta struct {
 	Index           *uint64           `json:"index"`
 	QueueIndex      *uint64           `json:"queueIndex"`
 	RawTransaction  []byte            `json:"rawTransaction"`
+
+	R *big.Int `json:"seqR"`
+	S *big.Int `json:"seqS"`
+	V *big.Int `json:"seqV"`
 }
 
 type rpcTransactionMetaMarshaling struct {
@@ -211,6 +215,10 @@ type rpcTransactionMetaMarshaling struct {
 	Index          *hexutil.Uint64
 	QueueIndex     *hexutil.Uint64
 	RawTransaction hexutil.Bytes
+
+	R *hexutil.Big
+	S *hexutil.Big
+	V *hexutil.Big
 }
 
 type txExtraInfo struct {

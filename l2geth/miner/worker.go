@@ -483,49 +483,39 @@ func (w *worker) mainLoop() {
 						uncles = append(uncles, uncle.Header())
 						return false
 					})
-					w.commit(uncles, nil, start, "chainSideCh")
+					w.commit(uncles, nil, start)
 				}
 			}
 		case ev := <-w.rollupOtherTxCh:
 			if len(ev.Txs) == 0 {
 				log.Warn("No transaction sent to miner from syncservice rollupOtherTxCh")
-				if ev.ErrCh != nil {
-					ev.ErrCh <- errors.New("No transaction sent to miner from syncservice")
-				} else {
-					w.handleErrInTask(errors.New("No transaction sent to miner from syncservice rollupOtherTxCh"), false)
-				}
-				continue
+				// if ev.ErrCh != nil {
+				// 	ev.ErrCh <- errors.New("no transaction sent to miner from syncservice")
+				// } else {
+				// 	w.handleErrInTask(errors.New("no transaction sent to miner from syncservice rollupOtherTxCh"), false)
+				// }
+				// continue
 			}
-			tx := ev.Txs[0]
-			log.Debug("Attempting to commit rollupOtherTxCh transaction", "hash", tx.Hash().Hex())
-			// Build the block with the tx and add it to the chain. This will
-			// send the block through the `taskCh` and then through the
-			// `resultCh` which ultimately adds the block to the blockchain
-			// through `bc.WriteBlockWithState`
+			// tx := ev.Txs[0]
+			// log.Debug("Attempting to commit rollupOtherTxCh transaction", "hash", tx.Hash().Hex())
+			if len(w.chainHeadCh) > 0 {
+				head := <-w.chainHeadCh
+				txs := head.Block.Transactions()
+				if len(txs) == 0 {
+					log.Warn("No transactions in block rollupOtherTxCh")
+					continue
+				}
+				txn := txs[0]
+				height := head.Block.Number().Uint64()
+				log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex())
+			}
 
-			/*
-				if err := w.commitNewTx(tx, "rollupOtherTxCh"); err != nil {
-					log.Error("Problem committing rollupOtherTxCh transaction", "msg", err)
-				}
-			*/
-			// if len(w.chainHeadCh) > 0 {
-			head := <-w.chainHeadCh
-			txs := head.Block.Transactions()
-			if len(txs) == 0 {
-				log.Warn("No transactions in block")
-				continue
-			}
-			txn := txs[0]
-			height := head.Block.Number().Uint64()
-			log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
-			//clearPending(head.Block.NumberU64())
+			// TODO check it needs to delete?
+			// w.pendingMu.Lock()
+			// for h := range w.pendingTasks {
+			// 	delete(w.pendingTasks, h)
 			// }
-
-			w.pendingMu.Lock()
-			for h := range w.pendingTasks {
-				delete(w.pendingTasks, h)
-			}
-			w.pendingMu.Unlock()
+			// w.pendingMu.Unlock()
 		// Read from the sync service and mine single txs
 		// as they come. Wait for the block to be mined before
 		// reading the next tx from the channel when there is
@@ -534,9 +524,9 @@ func (w *worker) mainLoop() {
 			if len(ev.Txs) == 0 {
 				log.Warn("No transaction sent to miner from syncservice")
 				if ev.ErrCh != nil {
-					ev.ErrCh <- errors.New("No transaction sent to miner from syncservice")
+					ev.ErrCh <- errors.New("no transaction sent to miner from syncservice")
 				} else {
-					w.handleErrInTask(errors.New("No transaction sent to miner from syncservice"), false)
+					w.handleErrInTask(errors.New("no transaction sent to miner from syncservice"), false)
 				}
 				continue
 			}
@@ -546,7 +536,7 @@ func (w *worker) mainLoop() {
 			// send the block through the `taskCh` and then through the
 			// `resultCh` which ultimately adds the block to the blockchain
 			// through `bc.WriteBlockWithState`
-			if err := w.commitNewTx(tx, "rollupCh"); err == nil {
+			if err := w.commitNewTx(tx); err == nil {
 				// `chainHeadCh` is written to when a new block is added to the
 				// tip of the chain. Reading from the channel will block until
 				// the ethereum block is added to the chain downstream of `commitNewTx`.
@@ -576,7 +566,6 @@ func (w *worker) mainLoop() {
 				}
 				w.pendingMu.Unlock()
 			} else {
-
 				log.Error("Problem committing transaction", "msg", err)
 				if ev.ErrCh != nil {
 					ev.ErrCh <- err
@@ -995,7 +984,7 @@ func (w *worker) commitTransactionsWithError(txs *types.TransactionsByPriceAndNo
 // It needs to return an error in the case there is an error to prevent waiting
 // on reading from a channel that is written to when a new block is added to the
 // chain.
-func (w *worker) commitNewTx(tx *types.Transaction, caller string) error {
+func (w *worker) commitNewTx(tx *types.Transaction) error {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	tstart := time.Now()
@@ -1048,7 +1037,7 @@ func (w *worker) commitNewTx(tx *types.Transaction, caller string) error {
 	if err := w.commitTransactionsWithError(txs, w.coinbase, nil); err != nil {
 		return err
 	}
-	return w.commit(nil, w.fullTaskHook, tstart, caller)
+	return w.commit(nil, w.fullTaskHook, tstart)
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
@@ -1159,12 +1148,12 @@ func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 			return
 		}
 	}
-	w.commit(uncles, w.fullTaskHook, tstart, "commitNewWork")
+	w.commit(uncles, w.fullTaskHook, tstart)
 }
 
 // commit runs any post-transaction state modifications, assembles the final block
 // and commits new work if consensus engine is running.
-func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time, caller string) error {
+func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time) error {
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := make([]*types.Receipt, len(w.current.receipts))
 	for i, l := range w.current.receipts {
@@ -1172,12 +1161,12 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
-	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String(), "caller", caller)
+	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String())
 	for i, tx := range w.current.txs {
 		if tx.GetMeta() != nil && tx.GetMeta().Index != nil {
-			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index, "caller", caller)
+			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index)
 		} else {
-			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash(), "caller", caller)
+			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash())
 		}
 
 	}
