@@ -50,7 +50,7 @@ services:
       # skip compilation when run in docker-compose, since the contracts
       # were already compiled in the builder step
       NO_COMPILE: 1
-      SEQENCER_ADDRESS: "0x643339ddaa950abc776559894205664227b34d56"
+      SEQENCER_ADDRESS: "0x53ca1ea34ecd6c395d7b8f63f603f801d1680d70"
       PROPOSER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
       RELAYER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
       METIS_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
@@ -89,6 +89,64 @@ services:
     restart: on-failure
     volumes:
       - /tmp/mvm/dtl:/data/db
+
+  dtlB:
+    depends_on:
+      - l1_chain
+      - deployer
+      - l2gethB
+    image: ethereumoptimism/data-transport-layer
+    build:
+      context: ..
+      dockerfile: ./ops/docker/Dockerfile.data-transport-layer
+    # override with the dtl script and the env vars required for it
+    entrypoint: ./dtl.sh
+    env_file:
+      - ./envs/dtl.env
+    # set the rest of the env vars for the network whcih do not
+    # depend on the docker-compose setup
+    environment:
+      # used for setting the address manager address
+      URL: http://deployer:8081/addresses.json
+      # connect to the 2 layers
+      DATA_TRANSPORT_LAYER__L1_RPC_ENDPOINT: http://l1_chain:8545
+      DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: http://l2gethB:8545
+      DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
+      DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 1088
+    ports:
+      - ${DTL_PORT:-7879}:7878
+    restart: on-failure
+    volumes:
+      - /tmp/mvm/dtlB:/data/db
+
+  dtlPeer:
+    depends_on:
+      - l1_chain
+      - deployer
+      - l2geth-peer
+    image: ethereumoptimism/data-transport-layer
+    build:
+      context: ..
+      dockerfile: ./ops/docker/Dockerfile.data-transport-layer
+    # override with the dtl script and the env vars required for it
+    entrypoint: ./dtl.sh
+    env_file:
+      - ./envs/dtl.env
+    # set the rest of the env vars for the network whcih do not
+    # depend on the docker-compose setup
+    environment:
+      # used for setting the address manager address
+      URL: http://deployer:8081/addresses.json
+      # connect to the 2 layers
+      DATA_TRANSPORT_LAYER__L1_RPC_ENDPOINT: http://l1_chain:8545
+      DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: http://l2geth-peer:8545
+      DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
+      DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 1088
+    ports:
+      - ${DTL_PORT:-7880}:7878
+    restart: on-failure
+    volumes:
+      - /tmp/mvm/dtlPeer:/data/db
 
   l2geth:
     depends_on:
@@ -142,7 +200,7 @@ services:
       ROLLUP_TIMESTAMP_REFRESH: 5s
       ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
       # connecting to the DTL
-      ROLLUP_CLIENT_HTTP: http://dtl:7878
+      ROLLUP_CLIENT_HTTP: http://dtlB:7878
       L2_URL: http://l2geth:8545
       L2_MAIN_IP: l2geth
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
@@ -181,7 +239,7 @@ services:
       # used for getting the addresses
       URL: http://deployer:8081/addresses.json
       # connecting to the DTL
-      ROLLUP_CLIENT_HTTP: http://dtl:7878
+      ROLLUP_CLIENT_HTTP: http://dtlPeer:7878
       L2_URL: http://l2geth:8545
       L2_MAIN_IP: l2geth
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
@@ -192,6 +250,8 @@ services:
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
+      SEQSET_VALID_HEIGHT: 35
+      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     ports:
       - ${L2GETH_HTTP_PORT:-10545}:8545
       - ${L2GETH_WS_PORT:-10546}:8546
@@ -230,8 +290,8 @@ services:
       - deployer
       - l2geth
     image: ethereumoptimism/batch-submitter
-    deploy:
-      replicas: 0
+    # deploy:
+    #   replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.batch-submitter
@@ -270,10 +330,14 @@ services:
       ROLLUP_VERIFIER_ENABLE: 'true'
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
+      SEQSET_VALID_HEIGHT: 35
+      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     ports:
       - ${VERIFIER_HTTP_PORT:-8547}:8545
       - ${VERIFIER_WS_PORT:-8548}:8546
     restart: on-failure
+    volumes:
+      - /tmp/mvm/l2gethVerifier:/root/.ethereum
 
   replica:
     depends_on:
@@ -297,10 +361,14 @@ services:
       ROLLUP_VERIFIER_ENABLE: 'true'
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
+      SEQSET_VALID_HEIGHT: 35
+      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     ports:
       - ${VERIFIER_HTTP_PORT:-8551}:8545
       - ${VERIFIER_WS_PORT:-8552}:8546
     restart: on-failure
+    volumes:
+      - /tmp/mvm/l2gethReplica:/root/.ethereum
 
   gas_oracle:
     depends_on:

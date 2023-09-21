@@ -57,6 +57,8 @@ type EthAPIBackend struct {
 	MaxCallDataSize int
 	seqInfos        map[common.Address]string
 	seqRwMutex      sync.RWMutex
+	seqRpcClient    *ethclient.Client
+	seqRpcUrl       string
 }
 
 func NewEthAPIBackend(extRPCEnabled bool, eth *Ethereum, gpo *gasprice.Oracle, rollupGpo *gasprice.RollupOracle, verifier bool, gasLimit uint64, UsingOVM bool, MaxCallDataSize int) *EthAPIBackend {
@@ -332,8 +334,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	if err != nil {
 		return err
 	}
-	syncIndex := b.eth.syncService.GetLatestIndex()
-	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex, "syncIndex", *syncIndex)
+	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex)
 	if b.UsingOVM {
 		log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
 		to := signedTx.To()
@@ -358,7 +359,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			return fmt.Errorf("sequencer %v setting missing on %v", expectSeq.String(), b.eth.syncService.SeqAddress)
 		}
 		log.Info("SendTx use proxy setting to send", "l2Url", l2Url, "checkIndex", checkIndex)
-		rpcClient, err := ethclient.Dial(l2Url)
+		err := b.EnsureSeqRpcClient(l2Url)
 		if err != nil {
 			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
 			return err
@@ -367,7 +368,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 		// TODO, if self's block latest time in 5 seconds, and height + 200 < ExpectHeight, don't check?
 		ctxHeader, cancelHeader := context.WithTimeout(ctx, timeout)
 		defer cancelHeader()
-		header, err := rpcClient.HeaderByNumber(ctxHeader, nil)
+		header, err := b.seqRpcClient.HeaderByNumber(ctxHeader, nil)
 		if err != nil {
 			log.Warn("Sequencer height check", "url", l2Url, "err", err)
 			return err
@@ -380,7 +381,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 		ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
 		defer cancelSend()
 		signedTx.SetL2Tx(2)
-		err = rpcClient.SendTransaction(ctxSend, signedTx)
+		err = b.seqRpcClient.SendTransaction(ctxSend, signedTx)
 		signedTx.SetL2Tx(1)
 		return err
 	}
@@ -516,6 +517,24 @@ func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (
 	}
 	return b.eth.rpcClient.EstimateGasByArg(ctx, arg)
 }
+
+// Cache a rpc client until sequencer rpc url changed
+func (b *EthAPIBackend) EnsureSeqRpcClient(url string) error {
+	if b.seqRpcClient == nil || b.seqRpcUrl != url {
+		if b.seqRpcClient != nil {
+			b.seqRpcClient.Close()
+		}
+		rpcClient, err := ethclient.Dial(url)
+		if err != nil {
+			return err
+		}
+		b.seqRpcClient = rpcClient
+		b.seqRpcUrl = url
+		return nil
+	}
+	return nil
+}
+
 func (b *EthAPIBackend) IsSequencerWorking() bool {
 	pending, queued := b.eth.txPool.Stats()
 	log.Info("IsSequencerWorking", "pending ", pending, "queued", queued)
@@ -528,6 +547,7 @@ func (b *EthAPIBackend) IsSequencerWorking() bool {
 	}
 	return true
 }
+
 func (b *EthAPIBackend) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
 	if strings.EqualFold(seq.SequencerAddress.String(), b.eth.syncService.SeqAddress) {
 		return errors.New("no need to add self address")
@@ -537,6 +557,7 @@ func (b *EthAPIBackend) AddSeqencerInfo(ctx context.Context, seq *types.Sequence
 	b.seqInfos[seq.SequencerAddress] = seq.SequencerUrl
 	return nil
 }
+
 func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 	b.seqRwMutex.RLock()
 	defer b.seqRwMutex.RUnlock()
@@ -549,6 +570,7 @@ func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 	}
 	return ""
 }
+
 func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
 	var list types.SequencerInfoList
 	b.seqRwMutex.RLock()
@@ -563,13 +585,13 @@ func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
 
 	for i, seq := range list.SeqList {
 		l2Url := seq.SequencerUrl
-		rpcClient, err := ethclient.Dial(l2Url)
+		err := b.EnsureSeqRpcClient(l2Url)
 		if err != nil {
 			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
 			// return err
 			continue
 		}
-		header, err := rpcClient.HeaderByNumber(context.TODO(), nil)
+		header, err := b.seqRpcClient.HeaderByNumber(context.TODO(), nil)
 		if err != nil {
 			log.Warn("HeaderByNumber ", "url", l2Url, "err", err)
 			// return err

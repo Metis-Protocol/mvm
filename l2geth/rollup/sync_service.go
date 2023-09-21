@@ -886,8 +886,8 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 
 	blockNumber := *index + 1
 	log.Info("applyHistoricalTransaction", "index", blockNumber)
-	// check sequencer
-	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= s.seqAdapter.GetSeqValidHeight() {
+	// check sequencer, enqueue tx seq sign should be nil
+	if tx.QueueOrigin() != types.QueueOriginL1ToL2 && s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
 		if signature == nil {
 			errInfo := fmt.Sprintf("tx in block %x, seqSign is null", blockNumber)
@@ -945,6 +945,16 @@ func (s *SyncService) recoverSeqAddress(tx *types.Transaction) (string, error) {
 
 func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
 	if tx.GetSeqSign() != nil {
+		return nil
+	}
+	// enqueue tx should not sign, set zero
+	if tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+		seqSign := &types.SeqSign{
+			R: big.NewInt(0),
+			S: big.NewInt(0),
+			V: big.NewInt(0),
+		}
+		tx.SetSeqSign(seqSign)
 		return nil
 	}
 	if s.seqPriv == "" {
@@ -1036,16 +1046,21 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	// 	expectSeq, err = s.GetTxSeqencer(tx, *index+1)
 	// }
 	blockNumber := s.bc.CurrentBlock().Number().Uint64()
-	expectSeq, err = s.GetTxSeqencer(tx, blockNumber+1)
+	if fromLocal {
+		// for verifier & sequencer model, expect miner block number need to plus 1
+		// for peer node (peer or backup sequencer), this step has mined, so keep block number
+		blockNumber = blockNumber + 1
+	}
+	expectSeq, err = s.GetTxSeqencer(tx, blockNumber)
 	if err != nil {
 		log.Error("GetTxSeqencer err ", err)
 		return err
 	}
 	// current is not seq, just skip it
-	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
-	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber+1 >= s.seqAdapter.GetSeqValidHeight() {
+	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= s.seqAdapter.GetSeqValidHeight() {
 		signature := tx.GetSeqSign()
-		if signature == nil && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
+		// enqueue tx seq sign should be nil
+		if signature == nil && tx.QueueOrigin() != types.QueueOriginL1ToL2 && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
 			errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
 			log.Info(errInfo)
 			return errors.New(errInfo)
@@ -1125,15 +1140,15 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			tx.SetIndex(*index + 1)
 		}
 	}
-	// add seq signature
-	// if index != nil && *index >= s.seqAdapter.GetSeqValidHeight() {
-	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber+1 >= s.seqAdapter.GetSeqValidHeight() {
+	// add seq signature for self sequencer TX
+	if s.seqAdapter.GetSeqValidHeight() > 0 && blockNumber >= s.seqAdapter.GetSeqValidHeight() {
+		// verifier model has sign by rollup
 		if tx.GetSeqSign() == nil {
 			err = s.addSeqSignature(tx)
-		}
-		if err != nil {
-			log.Error("addSeqSignature err ", err)
-			return err
+			if err != nil {
+				log.Error("addSeqSignature err ", err)
+				return err
+			}
 		}
 	}
 	// On restart, these values are repaired to handle
@@ -1222,7 +1237,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 }
 
-// when mpc usage, bakup node should not to apply rollup blocks,
+// when mpc usage, backup node should not to apply rollup blocks,
 // it will sync from p2p
 // verifier: do not skip
 // sequencer: from remote tx do not skip, from local tx skip when is backup node
@@ -1629,6 +1644,14 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 
 func (s *SyncService) SubscribeNewOtherTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
 	return s.txOtherScope.Track(s.txOtherFeed.Subscribe(ch))
+}
+
+func (s *SyncService) RollupClient() RollupClient {
+	return s.client
+}
+
+func (s *SyncService) RollupAdapter() RollupAdapter {
+	return s.seqAdapter
 }
 
 func stringify(i *uint64) string {

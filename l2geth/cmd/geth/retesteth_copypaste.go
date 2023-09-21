@@ -40,6 +40,10 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+
+	SeqR *hexutil.Big `json:"seqR"`
+	SeqS *hexutil.Big `json:"seqS"`
+	SeqV *hexutil.Big `json:"seqV"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -69,6 +73,13 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockHash = blockHash
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = hexutil.Uint(index)
+	}
+	if meta := tx.GetMeta(); meta != nil {
+		if meta.R != nil {
+			result.SeqR = (*hexutil.Big)(meta.R)
+			result.SeqS = (*hexutil.Big)(meta.S)
+			result.SeqV = (*hexutil.Big)(meta.V)
+		}
 	}
 	return result
 }
