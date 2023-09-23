@@ -8,7 +8,7 @@ import { L1IngestionService } from '../l1-ingestion/service'
 import { L1TransportServer } from '../server/service'
 import { validators } from '../../utils'
 import { L2IngestionService } from '../l2-ingestion/service'
-import { TransportDB, TransportDBMapHolder, TransportDBMap} from '../../db/transport-db'
+import { TransportDBMapHolder } from '../../db/transport-db'
 import { Counter } from 'prom-client'
 
 export interface L1DataTransportServiceOptions {

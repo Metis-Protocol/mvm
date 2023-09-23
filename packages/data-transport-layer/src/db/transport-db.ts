@@ -4,7 +4,6 @@ import level from 'level'
 import { BigNumber } from 'ethers'
 // 1088 patch only
 import patch01 from './patch-01'
-
 /* Imports: Internal */
 import {
   EnqueueEntry,
@@ -14,7 +13,7 @@ import {
   TransactionEntry,
   VerifierResultEntry,
   VerifierStakeEntry,
-  AppendBatchElementEntry
+  AppendBatchElementEntry,
 } from '../types/database-types'
 import { SimpleDB } from './simple-db'
 
@@ -34,30 +33,30 @@ const TRANSPORT_DB_KEYS = {
   VERIFIER_FAILED: `verifier:failed`,
   VERIFIER_SUCCESSFUL: `verifier:successful`,
   MVM_CTC_VERIFIER_STAKE: `mvmctc:verifierstake`,
-  MVM_CTC_BATCH_ELEMENT: `mvmctc:batchelement`
+  MVM_CTC_BATCH_ELEMENT: `mvmctc:batchelement`,
 }
 
 interface Indexed {
   index: number
 }
 
-export interface TransportDBMap {
-}
+export interface TransportDBMap {}
 
 export class TransportDBMapHolder {
-  public dbPath:string
-  public dbs:TransportDBMap
+  public dbPath: string
+  public dbs: TransportDBMap
+
   constructor(dbPath: string) {
     this.dbPath = dbPath
-    this.dbs={}
+    this.dbs = {}
   }
 
-  public async getTransportDbByChainId(chainId):Promise<TransportDB>{
-    var db=this.dbs[chainId]
+  public async getTransportDbByChainId(chainId): Promise<TransportDB> {
+    let db = this.dbs[chainId]
     if (!db) {
-      var leveldb = level(this.dbPath+"_"+chainId)
+      const leveldb = level(this.dbPath + '_' + chainId)
       await leveldb.open()
-      db = new TransportDB(leveldb)
+      db = new TransportDB(leveldb, Number(chainId) === 1088)
       this.dbs[chainId] = db
     }
     return db
@@ -66,9 +65,11 @@ export class TransportDBMapHolder {
 
 export class TransportDB {
   public db: SimpleDB
+  private enablePatch01: boolean
 
-  constructor(leveldb: LevelUp) {
+  constructor(leveldb: LevelUp, enablePatch01: boolean) {
     this.db = new SimpleDB(leveldb)
+    this.enablePatch01 = enablePatch01
   }
 
   public async putEnqueueEntries(entries: EnqueueEntry[]): Promise<void> {
@@ -126,7 +127,9 @@ export class TransportDB {
     success: boolean,
     entry: VerifierResultEntry
   ): Promise<void> {
-    const key = success ? TRANSPORT_DB_KEYS.VERIFIER_SUCCESSFUL : TRANSPORT_DB_KEYS.VERIFIER_FAILED
+    const key = success
+      ? TRANSPORT_DB_KEYS.VERIFIER_SUCCESSFUL
+      : TRANSPORT_DB_KEYS.VERIFIER_FAILED
     await this.db.put<VerifierResultEntry>([
       {
         key: `${key}:latest`,
@@ -147,27 +150,44 @@ export class TransportDB {
   ): Promise<void> {
     await this._putEntries(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, entries)
     if (entries.length > 0) {
-      this._putLatestEntryIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, entries[entries.length - 1].index)
+      this._putLatestEntryIndex(
+        TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE,
+        entries[entries.length - 1].index
+      )
     }
   }
 
   public async getLatestVerifierStake(): Promise<VerifierStakeEntry> {
-    const index = await this._getLatestEntryIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE)
-    return this._getEntryByIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, index)
+    const index = await this._getLatestEntryIndex(
+      TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE
+    )
+    return this._getEntryByIndex(
+      TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE,
+      index
+    )
   }
 
-  public async getVerifierStakeByIndex(index: number): Promise<VerifierStakeEntry> {
-    return this._getEntryByIndex(TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE, index)
+  public async getVerifierStakeByIndex(
+    index: number
+  ): Promise<VerifierStakeEntry> {
+    return this._getEntryByIndex(
+      TRANSPORT_DB_KEYS.MVM_CTC_VERIFIER_STAKE,
+      index
+    )
   }
 
-  public async getBatchElementByIndex(index: number): Promise<AppendBatchElementEntry> {
+  public async getBatchElementByIndex(
+    index: number
+  ): Promise<AppendBatchElementEntry> {
     return this._getEntryByIndex(TRANSPORT_DB_KEYS.MVM_CTC_BATCH_ELEMENT, index)
   }
 
   public async getLastVerifierEntry(
     success: boolean
   ): Promise<VerifierResultEntry> {
-    const key = success ? TRANSPORT_DB_KEYS.VERIFIER_SUCCESSFUL : TRANSPORT_DB_KEYS.VERIFIER_FAILED
+    const key = success
+      ? TRANSPORT_DB_KEYS.VERIFIER_SUCCESSFUL
+      : TRANSPORT_DB_KEYS.VERIFIER_FAILED
     return this.db.get<VerifierResultEntry>(`${key}:latest`, 0)
   }
 
@@ -266,7 +286,9 @@ export class TransportDB {
   public async putHighestL2BlockNumber(
     block: number | BigNumber
   ): Promise<void> {
-    if (block <= (await this.getHighestL2BlockNumber())) {
+    if (
+      BigNumber.from(block).toNumber() <= (await this.getHighestL2BlockNumber())
+    ) {
       return
     }
 
@@ -354,8 +376,8 @@ export class TransportDB {
         },
       }
     } else {
-      const txBlockNumber = (transaction.index+1).toString()
-      if (patch01[txBlockNumber]) {
+      const txBlockNumber = (transaction.index + 1).toString()
+      if (this.enablePatch01 && patch01[txBlockNumber]) {
         transaction.blockNumber = patch01[txBlockNumber][0]
         transaction.timestamp = patch01[txBlockNumber][1]
       }
@@ -380,23 +402,23 @@ export class TransportDB {
 
     const fullTransactions = []
     for (const transaction of transactions) {
-      const txBlockNumber = (transaction.index+1).toString()
-      if (patch01[txBlockNumber]) {
+      const txBlockNumber = (transaction.index + 1).toString()
+      if (this.enablePatch01 && patch01[txBlockNumber]) {
         transaction.blockNumber = patch01[txBlockNumber][0]
         transaction.timestamp = patch01[txBlockNumber][1]
       }
       if (transaction.queueOrigin === 'l1') {
         // Andromeda failed 20397 queue, skip one for verifier batch only
-        let queueIndex = transaction.queueIndex;
+        let queueIndex = transaction.queueIndex
         if (queueIndex >= 20397) {
-            queueIndex++;
+          queueIndex++
         }
         const enqueue = await this.getEnqueueByIndex(queueIndex)
         if (enqueue === null) {
           return null
         }
-        
-        if (patch01[txBlockNumber]) {
+
+        if (this.enablePatch01 && patch01[txBlockNumber]) {
           fullTransactions.push({
             ...transaction,
             ...{
@@ -404,11 +426,10 @@ export class TransportDB {
               target: enqueue.target,
               origin: enqueue.origin,
               data: enqueue.data,
-              queueIndex: queueIndex,
+              queueIndex,
             },
           })
-        }
-        else {
+        } else {
           fullTransactions.push({
             ...transaction,
             ...{
@@ -418,12 +439,13 @@ export class TransportDB {
               target: enqueue.target,
               origin: enqueue.origin,
               data: enqueue.data,
-              queueIndex: queueIndex,
+              queueIndex,
             },
           })
         }
       } else {
-        transaction.origin = transaction.origin || '0x0000000000000000000000000000000000000000'
+        transaction.origin =
+          transaction.origin || '0x0000000000000000000000000000000000000000'
         fullTransactions.push(transaction)
       }
     }

@@ -1779,9 +1779,6 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		return common.Hash{}, errors.New("not support submit transaction")
 	}
 
-	if !tx.Protected() {
-		return common.Hash{}, errors.New("cannot submit unprotected transaction")
-	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
