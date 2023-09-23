@@ -1,7 +1,10 @@
 /* Imports: Internal */
 import { BigNumber } from 'ethers'
-import { EventArgsVerifierStake, EventHandlerSet, VerifierStakeEntry } from '../../../types'
-import { MissingElementError } from './errors'
+import {
+  EventArgsVerifierStake,
+  EventHandlerSet,
+  VerifierStakeEntry,
+} from '../../../types'
 
 export const handleEventsVerifierStake: EventHandlerSet<
   EventArgsVerifierStake,
@@ -28,7 +31,7 @@ export const handleEventsVerifierStake: EventHandlerSet<
   storeEvent: async (entry, db) => {
     // console.log(`start save VerifierStakeEntry ${JSON.stringify(entry)}`)
     if (!entry) {
-      return;
+      return
     }
     await db.putVerifierStakeEntries([entry])
   },

@@ -1,7 +1,10 @@
 /* Imports: Internal */
 import { BigNumber } from 'ethers'
-import { AppendBatchElementEntry, EventArgsAppendBatchElement, EventHandlerSet } from '../../../types'
-import { MissingElementError } from './errors'
+import {
+  AppendBatchElementEntry,
+  EventArgsAppendBatchElement,
+  EventHandlerSet,
+} from '../../../types'
 
 export const handleEventsAppendBatchElement: EventHandlerSet<
   EventArgsAppendBatchElement,
@@ -30,7 +33,7 @@ export const handleEventsAppendBatchElement: EventHandlerSet<
   storeEvent: async (entry, db) => {
     // console.log(`start save AppendBatchElementEntry ${JSON.stringify(entry)}`)
     if (!entry) {
-      return;
+      return
     }
     await db.putBatchElementEntries([entry])
   },

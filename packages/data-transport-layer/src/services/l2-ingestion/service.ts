@@ -8,7 +8,11 @@ import bfj from 'bfj'
 import { Gauge } from 'prom-client'
 
 /* Imports: Internal */
-import { TransportDB, TransportDBMapHolder, TransportDBMap} from '../../db/transport-db'
+import {
+  TransportDB,
+  TransportDBMapHolder,
+  TransportDBMap,
+} from '../../db/transport-db'
 import { sleep, toRpcHexString, validators } from '../../utils'
 import { L1DataTransportServiceOptions } from '../main/service'
 import { handleSequencerBlock } from './handlers/transaction'
@@ -86,7 +90,10 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
 
     this.l2IngestionMetrics = registerMetrics(this.metrics)
 
-    this.state.db = new TransportDB(this.options.db)
+    this.state.db = new TransportDB(
+      this.options.db,
+      this.options.l2ChainId === 1088
+    )
     this.state.dbs = {}
 
     this.state.l2RpcProvider =
@@ -232,9 +239,11 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
         block,
         this.options.l2ChainId
       )
-      var db = this.state.db
-      if (this.options.l2ChainId && this.options.l2ChainId >0){
-          db = await this.options.dbs.getTransportDbByChainId(this.options.l2ChainId)
+      let db = this.state.db
+      if (this.options.l2ChainId && this.options.l2ChainId > 0) {
+        db = await this.options.dbs.getTransportDbByChainId(
+          this.options.l2ChainId
+        )
       }
       await handleSequencerBlock.storeBlock(entry, db)
     }
