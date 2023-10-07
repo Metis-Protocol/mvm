@@ -388,9 +388,7 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		log.Warn("Failed transaction send attempt", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
 		return common.Hash{}, err
 	}
-	log.Info("PrivateAccountAPI SendTransaction   s.b.IsVerifier() ", s.b.IsVerifier())
 	if s.b.IsVerifier() {
-		log.Info("PrivateAccountAPI SendTransaction   s.b.IsVerifier() true")
 		client, err := dialSequencerClientWithTimeout(ctx, s.b.SequencerClientHttp())
 		if err != nil {
 			return common.Hash{}, err
@@ -1021,18 +1019,19 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	)
 
 	// rpc proxy check
-	if b.IsRpcProxySupport() {
-		// callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
-		gasLimit, err := b.ProxyEstimateGas(ctx, args)
-		if err != nil {
-			return 0, err
-		}
-		// threshold if has Gas arg
-		// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
-		// 	gasLimit = uint64(*args.Gas)
-		// }
-		return hexutil.Uint64(gasLimit), nil
-	}
+	// if b.IsRpcProxySupport() {
+	// 	callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
+
+	// 	gasLimit, err := b.ProxyEstimateGas(ctx, toCallArg(callArgs))
+	// 	if err != nil {
+	// 		return 0, err
+	// 	}
+	// 	// threshold if has Gas arg
+	// 	// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
+	// 	// 	gasLimit = uint64(*args.Gas)
+	// 	// }
+	// 	return hexutil.Uint64(gasLimit), nil
+	// }
 
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
@@ -1111,9 +1110,14 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 // encode the fee in wei as gas price is always 1
 func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
 	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
-	// if s.b.IsRpcProxySupport() {
-	// 	blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-	// }
+	if s.b.IsRpcProxySupport() {
+		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+	} else {
+		// backup sequencer model check
+		if rpc.LatestBlockNumber > rpc.PendingBlockNumber && rpc.LatestBlockNumber > 0 {
+			blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+		}
+	}
 	return DoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
 }
 
@@ -1752,12 +1756,10 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	nodeHTTPModules := b.NodeHTTPModules()
-	if len(nodeHTTPModules) == 0 {
+	if nodeHTTPModules == nil || len(nodeHTTPModules) == 0 {
 		return common.Hash{}, errors.New("not support submit transaction")
 	}
-	log.Info("SubmitTransaction", "api SubmitTransaction nodeHTTPModules ", nodeHTTPModules)
 	if b.IsRpcProxySupport() {
-		log.Info("api SubmitTransaction b.IsRpcProxySupport() true")
 		tx.SetL2Tx(2)
 		errRpc := b.ProxyTransaction(ctx, tx)
 		tx.SetL2Tx(1)
@@ -1799,9 +1801,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-	log.Info("PublicTransactionPoolAPI SendTransaction")
 	if rcfg.UsingOVM {
-		log.Info("PublicTransactionPoolAPI SendTransaction rcfg.UsingOVM true")
 		return common.Hash{}, errOVMUnsupported
 	}
 	// Look up the wallet containing the requested signer
@@ -1855,7 +1855,6 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
-	log.Info("PublicTransactionPoolAPI SendRawTransaction")
 	if s.b.IsVerifier() && !s.b.IsRpcProxySupport() {
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}

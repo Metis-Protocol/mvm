@@ -487,6 +487,7 @@ func (w *worker) mainLoop() {
 				}
 			}
 		case ev := <-w.rollupOtherTxCh:
+			// Read chainHeadCh which pushed by p2p block inserted
 			if len(ev.Txs) == 0 {
 				log.Warn("No transaction sent to miner from syncservice rollupOtherTxCh")
 				// if ev.ErrCh != nil {
@@ -1161,15 +1162,6 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
-	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String())
-	for i, tx := range w.current.txs {
-		if tx.GetMeta() != nil && tx.GetMeta().Index != nil {
-			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index)
-		} else {
-			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash())
-		}
-
-	}
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
 		return err

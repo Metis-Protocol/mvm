@@ -100,7 +100,7 @@ func (miner *Miner) update() {
 			case downloader.StartEvent:
 				atomic.StoreInt32(&miner.canStart, 0)
 				if miner.Mining() {
-					//miner.Stop()
+					miner.Stop()
 					atomic.StoreInt32(&miner.shouldStart, 1)
 					log.Info("Mining aborted due to sync")
 				}

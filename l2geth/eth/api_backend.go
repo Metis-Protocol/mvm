@@ -317,18 +317,9 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // Transactions originating from the RPC endpoints are added to remotes so that
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-
-	// index := b.eth.syncService.GetLatestIndex()
 	index := b.eth.blockchain.CurrentBlock().Header().Number.Uint64()
 	var expectSeq common.Address
 	var err error
-	// checkIndex := uint64(0)
-	// if index == nil {
-	// 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	// } else {
-	// 	checkIndex = *index + 1
-	// 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	// }
 	checkIndex := index + 1
 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
 	if err != nil {
@@ -365,24 +356,24 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			return err
 		}
 		timeout := 5 * time.Second
-		// TODO, if self's block latest time in 5 seconds, and height + 200 < ExpectHeight, don't check?
-		ctxHeader, cancelHeader := context.WithTimeout(ctx, timeout)
-		defer cancelHeader()
-		header, err := b.seqRpcClient.HeaderByNumber(ctxHeader, nil)
-		if err != nil {
-			log.Warn("Sequencer height check", "url", l2Url, "err", err)
-			return err
+		maxRetries := 3
+		retryDelay := 500 * time.Millisecond
+
+		for retry := 0; retry < maxRetries; retry++ {
+			ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
+			defer cancelSend()
+			signedTx.SetL2Tx(2)
+			err = b.seqRpcClient.SendTransaction(ctxSend, signedTx)
+			signedTx.SetL2Tx(1)
+			if err == nil {
+				return nil
+			}
+			if retry < maxRetries-1 {
+				log.Warn("SendTx to real sequencer failed", "retries", retry+1, "err", err)
+				time.Sleep(retryDelay)
+			}
 		}
-		seqIndex := header.Number.Uint64()
-		log.Debug("Checked sequencer and self height", "sequencer", seqIndex, "self", index)
-		if seqIndex < index {
-			return errors.New("the sequencer has not been synchronized to the latest block yet")
-		}
-		ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
-		defer cancelSend()
-		signedTx.SetL2Tx(2)
-		err = b.seqRpcClient.SendTransaction(ctxSend, signedTx)
-		signedTx.SetL2Tx(1)
+
 		return err
 	}
 	// OVM Disabled
@@ -536,14 +527,12 @@ func (b *EthAPIBackend) EnsureSeqRpcClient(url string) error {
 }
 
 func (b *EthAPIBackend) IsSequencerWorking() bool {
-	pending, queued := b.eth.txPool.Stats()
-	log.Info("IsSequencerWorking", "pending ", pending, "queued", queued)
-	if pending > 0 || queued > 0 {
-		indexTime := b.eth.syncService.GetLatestIndexTime()
-		log.Info("IsSequencerWorking", "pending ", pending, "queued", queued, "indexTime", indexTime)
-		if time.Now().Unix()-int64(*indexTime) > 10 {
-			return false
-		}
+	indexTime := b.eth.syncService.GetLatestIndexTime()
+	if indexTime == nil {
+		return false
+	}
+	if time.Now().Unix()-int64(*indexTime) > 60 {
+		return false
 	}
 	return true
 }

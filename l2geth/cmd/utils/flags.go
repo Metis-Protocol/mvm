@@ -909,7 +909,7 @@ var (
 		EnvVar: "SEQSET_VALID_HEIGHT",
 	}
 
-	SeqsetConrtractFlag = cli.StringFlag{
+	SeqsetContractFlag = cli.StringFlag{
 		Name:   "seqset.contract",
 		Usage:  "seqset contract address ",
 		EnvVar: "SEQSET_CONTRACT",
@@ -1213,8 +1213,8 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	} else {
 		cfg.LocalL2ClientHttp = "http://localhost:8545"
 	}
-	if ctx.GlobalIsSet(SeqsetConrtractFlag.Name) {
-		contractAddress := ctx.GlobalString(SeqsetConrtractFlag.Name)
+	if ctx.GlobalIsSet(SeqsetContractFlag.Name) {
+		contractAddress := ctx.GlobalString(SeqsetContractFlag.Name)
 		cfg.SeqsetContract = common.HexToAddress(contractAddress)
 	}
 	if ctx.GlobalIsSet(SeqsetValidHeightFlag.Name) {
@@ -1414,7 +1414,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 
 	if ctx.GlobalBool(DeveloperFlag.Name) {
 		// --dev mode can't use p2p networking.
-		cfg.MaxPeers = 10
+		// cfg.MaxPeers = 10
 		//cfg.ListenAddr = ":0"
 		cfg.NoDiscovery = true
 		cfg.DiscoveryV5 = false

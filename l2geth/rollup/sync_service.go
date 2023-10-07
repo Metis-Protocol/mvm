@@ -766,17 +766,13 @@ func (s *SyncService) GetNextIndex() uint64 {
 
 // SetLatestIndex writes the last CTC index that was processed
 func (s *SyncService) SetLatestIndex(index *uint64) {
-	log.Debug("SetLatestIndex start")
 	if index != nil {
-		log.Debug("SetLatestIndex end", "index", *index)
 		rawdb.WriteHeadIndex(s.db, *index)
 	}
 }
 
 func (s *SyncService) SetLatestIndexTime(indexTime int64) {
-
 	rawdb.WriteHeadIndexTime(s.db, indexTime)
-
 }
 
 // GetLatestVerifiedIndex reads the last verified CTC index that was processed
