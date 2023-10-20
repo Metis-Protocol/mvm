@@ -260,9 +260,9 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					}
 					continue
 				}
-				expectSeq, err := seqAdapter.GetTxSeqencer(tx, blockNumber)
+				expectSeq, err := seqAdapter.GetTxSequencer(tx, blockNumber)
 				if err != nil {
-					log.Error("handler blocksBeforeInsert GetTxSeqencer err", err)
+					log.Error("handler blocksBeforeInsert GetTxSequencer err", err)
 					return err
 				}
 				if !strings.EqualFold(expectSeq.String(), recoverSeq) {

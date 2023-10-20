@@ -2260,9 +2260,9 @@ func (s *PublicNetAPI) Version() string {
 func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
 	return api.b.IsSequencerWorking()
 }
-func (api *PublicRollupAPI) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
-	return api.b.AddSeqencerInfo(ctx, seq)
+func (api *PublicRollupAPI) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
+	return api.b.AddSequencerInfo(ctx, seq)
 }
-func (api *PublicRollupAPI) ListSeqencerInfo() *types.SequencerInfoList {
-	return api.b.ListSeqencerInfo()
+func (api *PublicRollupAPI) ListSequencerInfo() *types.SequencerInfoList {
+	return api.b.ListSequencerInfo()
 }

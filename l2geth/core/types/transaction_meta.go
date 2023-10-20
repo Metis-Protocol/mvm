@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/rlp"
 	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
 )
 
@@ -62,6 +63,11 @@ type TransactionMeta struct {
 	R *big.Int `json:"seqR"`
 	S *big.Int `json:"seqS"`
 	V *big.Int `json:"seqV"`
+}
+
+// DecodeRLP implements rlp.Decoder
+func (tm *TransactionMeta) DecodeRLP(s *rlp.Stream) error {
+	return s.DecodeTxMeta(tm)
 }
 
 // NewTransactionMeta creates a TransactionMeta

@@ -134,7 +134,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	client := NewClient(cfg.RollupClientHttp, chainID)
 	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64(), "ctc-deploy-height", cfg.CanonicalTransactionChainDeployHeight)
 
-	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp)
+	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp, db)
 	log.Info("Configured seqAdapter", "url", cfg.PosClientHttp, "SeqsetContract", cfg.SeqsetContract, "SeqsetValidHeight", cfg.SeqsetValidHeight)
 	log.Info("Configured seqAdapter", "SeqAddress", cfg.SeqAddress, "seqPriv", cfg.SeqPriv, "LocalL2ClientHttp", cfg.LocalL2ClientHttp)
 	// Ensure sane values for the fee thresholds
@@ -890,9 +890,9 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 			log.Error(errInfo)
 			return errors.New(errInfo)
 		}
-		expectSeq, err := s.GetTxSeqencer(tx, blockNumber)
+		expectSeq, err := s.GetTxSequencer(tx, blockNumber)
 		if err != nil {
-			log.Error("tx %v, GetTxSeqencer err %v", err)
+			log.Error("tx %v, GetTxSequencer err %v", err)
 			return err
 		}
 		recoverSeq, err := s.recoverSeqAddress(tx)
@@ -984,8 +984,8 @@ func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
 	return nil
 }
 
-func (s *SyncService) GetTxSeqencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
-	return s.seqAdapter.GetTxSeqencer(tx, expectIndex)
+func (s *SyncService) GetTxSequencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
+	return s.seqAdapter.GetTxSequencer(tx, expectIndex)
 }
 
 // applyTransactionToTip will do sanity checks on the transaction before
@@ -1031,15 +1031,15 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		return nil
 	}
 
-	// check is current address is seqencer
+	// check is current address is sequencer
 	// index := s.GetLatestIndex()
 	var expectSeq common.Address
 	// var err error
 	// if index == nil {
-	// 	expectSeq, err = s.GetTxSeqencer(tx, 0)
+	// 	expectSeq, err = s.GetTxSequencer(tx, 0)
 	// } else {
 	// 	log.Info("try to applyTransactionToTip ", "index", *index+1)
-	// 	expectSeq, err = s.GetTxSeqencer(tx, *index+1)
+	// 	expectSeq, err = s.GetTxSequencer(tx, *index+1)
 	// }
 	blockNumber := s.bc.CurrentBlock().Number().Uint64()
 	if fromLocal {
@@ -1047,9 +1047,9 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		// for peer node (peer or backup sequencer), this step has mined, so keep block number
 		blockNumber = blockNumber + 1
 	}
-	expectSeq, err = s.GetTxSeqencer(tx, blockNumber)
+	expectSeq, err = s.GetTxSequencer(tx, blockNumber)
 	if err != nil {
-		log.Error("GetTxSeqencer err ", err)
+		log.Error("GetTxSequencer err ", err)
 		return err
 	}
 	// current is not seq, just skip it
@@ -1249,13 +1249,13 @@ func (s *SyncService) checkApplySkip(tx *types.Transaction, fromLocal bool) (boo
 	var expectSeq common.Address
 	var err error
 	// if index == nil {
-	// 	expectSeq, err = s.GetTxSeqencer(tx, 0)
+	// 	expectSeq, err = s.GetTxSequencer(tx, 0)
 	// } else {
-	// 	expectSeq, err = s.GetTxSeqencer(tx, *index+1)
+	// 	expectSeq, err = s.GetTxSequencer(tx, *index+1)
 	// }
-	expectSeq, err = s.GetTxSeqencer(tx, blockNumber+1)
+	expectSeq, err = s.GetTxSequencer(tx, blockNumber+1)
 	if err != nil {
-		log.Error("GetTxSeqencer err ", err)
+		log.Error("GetTxSequencer err ", err)
 		return true, err
 	}
 	return !strings.EqualFold(expectSeq.String(), s.SeqAddress), nil

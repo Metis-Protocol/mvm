@@ -321,7 +321,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	var expectSeq common.Address
 	var err error
 	checkIndex := index + 1
-	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
+	expectSeq, err = b.eth.syncService.GetTxSequencer(signedTx, checkIndex)
 	if err != nil {
 		return err
 	}
@@ -537,7 +537,7 @@ func (b *EthAPIBackend) IsSequencerWorking() bool {
 	return true
 }
 
-func (b *EthAPIBackend) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
+func (b *EthAPIBackend) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
 	if strings.EqualFold(seq.SequencerAddress.String(), b.eth.syncService.SeqAddress) {
 		return errors.New("no need to add self address")
 	}
@@ -560,7 +560,7 @@ func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 	return ""
 }
 
-func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
+func (b *EthAPIBackend) ListSequencerInfo() *types.SequencerInfoList {
 	var list types.SequencerInfoList
 	b.seqRwMutex.RLock()
 	for k, v := range b.seqInfos {
