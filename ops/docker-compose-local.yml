@@ -125,6 +125,8 @@ services:
       - deployer
       - l2geth-peer
     image: ethereumoptimism/data-transport-layer
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.data-transport-layer
@@ -225,8 +227,8 @@ services:
       - l2geth
       - l2gethB
     image: ethereumoptimism/l2geth-peer
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth.peer
