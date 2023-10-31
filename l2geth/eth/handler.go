@@ -759,6 +759,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		filter := len(transactions) > 0 || len(uncles) > 0
 		if filter {
 			transactions, uncles = pm.fetcher.FilterBodies(p.id, transactions, uncles, time.Now())
+			log.Debug("Handler handleMsg FilterBodies", "tx len", len(transactions), "uncle len", len(uncles))
 		}
 		if len(transactions) > 0 || len(uncles) > 0 || !filter {
 			err := pm.downloader.DeliverBodies(p.id, transactions, uncles)

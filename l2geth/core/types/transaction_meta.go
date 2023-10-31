@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
@@ -65,9 +66,74 @@ type TransactionMeta struct {
 	V *big.Int `json:"seqV"`
 }
 
+// TransactionMeta version before MPC, as V1
+// EncodeRLP of blocks V1 will use this
+// TransactionMeta.R is nil
+type TransactionMetaV1 struct {
+	L1BlockNumber   *big.Int        `json:"l1BlockNumber"`
+	L1Timestamp     uint64          `json:"l1Timestamp"`
+	L1MessageSender *common.Address `json:"l1MessageSender" gencodec:"required"`
+	QueueOrigin     QueueOrigin     `json:"queueOrigin" gencodec:"required"`
+	// The canonical transaction chain index
+	Index *uint64 `json:"index" gencodec:"required"`
+	// The queue index, nil for queue origin sequencer transactions
+	QueueIndex     *uint64 `json:"queueIndex" gencodec:"required"`
+	RawTransaction []byte  `json:"rawTransaction" gencodec:"required"`
+}
+
+// TransactionMeta version from MPC, as V2
+// EncodeRLP of blocks V2 will use this
+// TransactionMeta.R is not nil, *R should be 0 or other big.Int
+type TransactionMetaV2 struct {
+	L1BlockNumber   *big.Int        `json:"l1BlockNumber"`
+	L1Timestamp     uint64          `json:"l1Timestamp"`
+	L1MessageSender *common.Address `json:"l1MessageSender" gencodec:"required"`
+	QueueOrigin     QueueOrigin     `json:"queueOrigin" gencodec:"required"`
+	// The canonical transaction chain index
+	Index *uint64 `json:"index" gencodec:"required"`
+	// The queue index, nil for queue origin sequencer transactions
+	QueueIndex     *uint64 `json:"queueIndex" gencodec:"required"`
+	RawTransaction []byte  `json:"rawTransaction" gencodec:"required"`
+
+	R *big.Int `json:"seqR"`
+	S *big.Int `json:"seqS"`
+	V *big.Int `json:"seqV"`
+}
+
 // DecodeRLP implements rlp.Decoder
 func (tm *TransactionMeta) DecodeRLP(s *rlp.Stream) error {
 	return s.DecodeTxMeta(tm)
+}
+
+// EncodeRLP implements rlp.Encoder
+func (tm *TransactionMeta) EncodeRLP(w io.Writer) error {
+	// V1, before MPC upgrade
+	if tm.R == nil {
+		err := rlp.Encode(w, &TransactionMetaV1{
+			L1BlockNumber:   tm.L1BlockNumber,
+			L1Timestamp:     tm.L1Timestamp,
+			L1MessageSender: tm.L1MessageSender,
+			QueueOrigin:     tm.QueueOrigin,
+			Index:           tm.Index,
+			QueueIndex:      tm.QueueIndex,
+			RawTransaction:  tm.RawTransaction,
+		})
+		return err
+	}
+	// V2, from MPC upgrade
+	err := rlp.Encode(w, &TransactionMetaV2{
+		L1BlockNumber:   tm.L1BlockNumber,
+		L1Timestamp:     tm.L1Timestamp,
+		L1MessageSender: tm.L1MessageSender,
+		QueueOrigin:     tm.QueueOrigin,
+		Index:           tm.Index,
+		QueueIndex:      tm.QueueIndex,
+		RawTransaction:  tm.RawTransaction,
+		R:               tm.R,
+		S:               tm.S,
+		V:               tm.V,
+	})
+	return err
 }
 
 // NewTransactionMeta creates a TransactionMeta

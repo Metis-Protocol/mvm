@@ -1202,6 +1202,10 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 		val := ctx.GlobalFloat64(RollupFeeThresholdUpFlag.Name)
 		cfg.FeeThresholdUp = new(big.Float).SetFloat64(val)
 	}
+	if ctx.GlobalIsSet(L2UrlFlag.Name) {
+		// set L2Url (Metis peer setting) to SequencerClientHttp by default, it can be replaced by SequencerClientHttpFlag
+		cfg.SequencerClientHttp = ctx.GlobalString(L2UrlFlag.Name)
+	}
 	if ctx.GlobalIsSet(SequencerClientHttpFlag.Name) {
 		cfg.SequencerClientHttp = ctx.GlobalString(SequencerClientHttpFlag.Name)
 	}

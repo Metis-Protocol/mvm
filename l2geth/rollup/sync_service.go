@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum-optimism/optimism/l2geth/core"
 	"github.com/ethereum-optimism/optimism/l2geth/core/state"
 	"github.com/ethereum-optimism/optimism/l2geth/crypto"
+	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
 	"github.com/ethereum-optimism/optimism/l2geth/ethdb"
 	"github.com/ethereum-optimism/optimism/l2geth/event"
 	"github.com/ethereum-optimism/optimism/l2geth/log"
@@ -91,6 +92,7 @@ type SyncService struct {
 	feeThresholdDown  *big.Float
 	applyLock         sync.Mutex
 	decSeqValidHeight uint64
+	startSeqHeight    uint64
 	SeqAddress        string
 	seqPriv           string
 
@@ -179,6 +181,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		feeThresholdUp:   cfg.FeeThresholdUp,
 
 		decSeqValidHeight:   cfg.SeqsetValidHeight,
+		startSeqHeight:      uint64(0),
 		SeqAddress:          cfg.SeqAddress,
 		seqPriv:             cfg.SeqPriv,
 		syncQueueFromOthers: syncQueueFromOthers,
@@ -255,6 +258,21 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		// Be sure this is set to false later.
 		if !service.verifier {
 			service.setSyncStatus(true)
+		}
+
+		if cfg.SequencerClientHttp != "" {
+			// check Main sequencer latest height
+			ctxt, cancel := context.WithTimeout(context.TODO(), 15*time.Second)
+			defer cancel()
+			sequencerClient, err := ethclient.DialContext(ctxt, cfg.SequencerClientHttp)
+			if err != nil {
+				return nil, fmt.Errorf("Cannot connect to the default sequencer client: %w", err)
+			}
+			sequencerHeader, err := sequencerClient.HeaderByNumber(context.TODO(), nil)
+			if err != nil {
+				return nil, fmt.Errorf("Cannot check the default sequencer height: %w", err)
+			}
+			service.startSeqHeight = sequencerHeader.Number.Uint64()
 		}
 	}
 	return &service, nil
@@ -536,6 +554,13 @@ func (s *SyncService) sequence() error {
 }
 
 func (s *SyncService) syncQueueToTip() error {
+	pauseWithSeq, err := s.waitingSequencerTip()
+	if err != nil {
+		return fmt.Errorf("Cannot sync queue to tip waitingSequencerTip: %w", err)
+	}
+	if pauseWithSeq {
+		return nil
+	}
 	if err := s.syncToTip(s.syncQueue, s.client.GetLatestEnqueueIndex); err != nil {
 		return fmt.Errorf("Cannot sync queue to tip: %w", err)
 	}
@@ -550,6 +575,13 @@ func (s *SyncService) syncBatchesToTip() error {
 }
 
 func (s *SyncService) syncTransactionsToTip() error {
+	pauseWithSeq, err := s.waitingSequencerTip()
+	if err != nil {
+		return fmt.Errorf("Verifier waitingSequencerTip cannot sync transactions with backend %s: %w", s.backend.String(), err)
+	}
+	if pauseWithSeq {
+		return nil
+	}
 	sync := func() (*uint64, error) {
 		return s.syncTransactions(s.backend)
 	}
@@ -560,6 +592,35 @@ func (s *SyncService) syncTransactionsToTip() error {
 		return fmt.Errorf("Verifier cannot sync transactions with backend %s: %w", s.backend.String(), err)
 	}
 	return nil
+}
+
+// waitingSequencerTip skips sync from L1 queue and batch when backup sequencer node startup
+// until sync the same height from main sequencer node p2p, syncQueueToTip loop works
+func (s *SyncService) waitingSequencerTip() (bool, error) {
+	seqModel := !s.verifier && s.backend == BackendL1
+	mpcEnabled := s.seqAdapter.GetSeqValidHeight() > 0
+	if !seqModel || !mpcEnabled || s.startSeqHeight == 0 {
+		return false, nil
+	}
+	// check is current address is sequencer
+	blockNumber := uint64(0)
+	block := s.bc.CurrentBlock()
+	if block != nil {
+		blockNumber = block.Number().Uint64()
+	}
+	blockNumber = blockNumber + 1
+	if blockNumber <= s.startSeqHeight {
+		return true, nil
+	}
+	expectSeq, err := s.GetTxSequencer(nil, blockNumber)
+	if err != nil {
+		log.Error("GetTxSequencer err in waitingSequencerTip", err)
+		return false, err
+	}
+	if !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
+		return true, nil
+	}
+	return false, nil
 }
 
 // updateL1GasPrice queries for the current L1 gas price and then stores it
@@ -837,10 +898,10 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction, fromLocal b
 	if index == nil {
 		return errors.New("No index found in applyIndexedTransaction")
 	}
-	if *index > s.decSeqValidHeight && tx.GetSeqSign() == nil {
-		log.Trace("no seq signature after seq sign valid height")
-		return errors.New("no seq signature after seq sign valid height")
-	}
+	// if *index > s.decSeqValidHeight && tx.GetSeqSign() == nil {
+	// 	log.Trace("no seq signature after seq sign valid height")
+	// 	return errors.New("no seq signature after seq sign valid height")
+	// }
 	log.Trace("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
 	if *index == next {
@@ -989,13 +1050,21 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			// mpc status 1. when in mpc sequencer model, enqueue or other rollup L1 tx is not acceptable
 			return nil
 		}
+		if seqModel && mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+			// mpc status 2. add sequencer signature to tx in sequencer model, QueueOriginL1ToL2 always give 0 to sign
+			err = s.addSeqSignature(tx)
+			if err != nil {
+				log.Error("addSeqSignature err QueueOriginL1ToL2", err)
+				return err
+			}
+		}
 		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
 			// when block number >= seqValidHeight && !QueueOriginL1ToL2
 			if seqModel {
 				// mpc status 2. add sequencer signature to tx in sequencer model
 				err = s.addSeqSignature(tx)
 				if err != nil {
-					log.Error("addSeqSignature err ", err)
+					log.Error("addSeqSignature err QueueOriginSequencer", err)
 					return err
 				}
 			} else {
