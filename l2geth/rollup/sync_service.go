@@ -273,6 +273,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 				return nil, fmt.Errorf("Cannot check the default sequencer height: %w", err)
 			}
 			service.startSeqHeight = sequencerHeader.Number.Uint64()
+			log.Info("Initial Rollup Start Sequencer Height", "start-seq-height", service.startSeqHeight)
 		}
 	}
 	return &service, nil
@@ -427,7 +428,9 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 					log.Info("Found correct staring queue index", "queue-index", *qi)
 				} else {
 					log.Info("Found incorrect staring queue index, fixing", "old", *queueIndex, "new", *qi)
-					queueIndex = qi
+					if *qi > *queueIndex {
+						queueIndex = qi
+					}
 				}
 				break
 			}
