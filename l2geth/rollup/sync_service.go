@@ -559,6 +559,10 @@ func (s *SyncService) sequence() error {
 func (s *SyncService) syncQueueToTip() error {
 	pauseWithSeq, err := s.waitingSequencerTip()
 	if err != nil {
+		if err.Error() == "get sequencer incorrect epoch number" {
+			// this error means that current block number over epoch endBlock of seqSetContract
+			return nil
+		}
 		return fmt.Errorf("Cannot sync queue to tip waitingSequencerTip: %w", err)
 	}
 	if pauseWithSeq {
@@ -580,6 +584,10 @@ func (s *SyncService) syncBatchesToTip() error {
 func (s *SyncService) syncTransactionsToTip() error {
 	pauseWithSeq, err := s.waitingSequencerTip()
 	if err != nil {
+		if err.Error() == "get sequencer incorrect epoch number" {
+			// this error means that current block number over epoch endBlock of seqSetContract
+			return nil
+		}
 		return fmt.Errorf("Verifier waitingSequencerTip cannot sync transactions with backend %s: %w", s.backend.String(), err)
 	}
 	if pauseWithSeq {
