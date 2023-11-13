@@ -9,6 +9,7 @@ import {
   EventArgsSequencerBatchAppended,
   MinioClient,
   MinioConfig,
+  remove0x,
 } from '@metis.io/core-utils'
 
 /* Imports: Internal */
@@ -181,6 +182,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           queueIndex: null,
           decoded,
           confirmed: true,
+          seqSign: null,
         })
         // block number = index + 1
         leafs.push(
@@ -202,6 +204,34 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         )
         nextTxPointer += 3 + sequencerTransaction.length
         transactionIndex++
+      }
+
+      // TODO restore sequencer sign
+      if (nextTxPointer < calldata.length) {
+        for (let j = 0; j < context.numSequencedTransactions; j++) {
+          const sequencerSign = parseSequencerBatchTransaction(
+            calldata,
+            nextTxPointer
+          )
+          const decodedSign = remove0x(toHexString(sequencerSign))
+          // sign length is 64 * 2 + 2, or '000000'
+          if (decodedSign && decodedSign === '000000') {
+            transactionEntries[j].seqSign = '0x0,0x0,0x0'
+          } else if (!decodedSign || decodedSign.length < 130) {
+            transactionEntries[j].seqSign = ''
+          } else {
+            const seqR = '0x' + decodedSign.substring(0, 64)
+            const seqS = '0x' + decodedSign.substring(64, 128)
+            let seqV = decodedSign.substring(128)
+            if (seqV === '00') {
+              seqV = '0x0'
+            } else {
+              seqV = '0x' + seqV
+            }
+            transactionEntries[j].seqSign = `${seqR},${seqS},${seqV}`
+          }
+          nextTxPointer += 3 + sequencerSign.length
+        }
       }
 
       for (let j = 0; j < context.numSubsequentQueueTransactions; j++) {
@@ -237,6 +267,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           queueIndex: queueIndex.toNumber(),
           decoded: null,
           confirmed: true,
+          seqSign: null, //enqueue always set to null
         })
 
         enqueuedCount++

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/common/hexutil"
@@ -80,6 +81,7 @@ type transaction struct {
 	QueueOrigin string          `json:"queueOrigin"`
 	QueueIndex  *uint64         `json:"queueIndex"`
 	Decoded     *decoded        `json:"decoded"`
+	SeqSign     string          `json:"seqSign"`
 }
 
 // Enqueue represents an `enqueue` transaction or a L1 to L2 transaction.
@@ -409,6 +411,27 @@ func batchedTransactionToTransaction(res *transaction, signerChain *types.EIP155
 		tx, err := tx.WithSignature(signer, sig[:])
 		if err != nil {
 			return nil, fmt.Errorf("Cannot add signature to transaction: %w", err)
+		}
+
+		// restore sequencer sign
+		if len(res.SeqSign) > 0 {
+			signResult := strings.Split(res.SeqSign, ",")
+			seqSign := &types.SeqSign{
+				R: big.NewInt(0),
+				S: big.NewInt(0),
+				V: big.NewInt(0),
+			}
+			if len(signResult) == 3 {
+				seqR, _ := hexutil.DecodeBig(signResult[0])
+				seqS, _ := hexutil.DecodeBig(signResult[1])
+				seqV, _ := hexutil.DecodeBig(signResult[2])
+				seqSign = &types.SeqSign{
+					R: seqR,
+					S: seqS,
+					V: seqV,
+				}
+			}
+			tx.SetSeqSign(seqSign)
 		}
 
 		return tx, nil

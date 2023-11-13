@@ -75,6 +75,10 @@ export const handleSequencerBlock = {
         decoded: decodedTransaction,
         queueIndex: null,
       }
+      // l2 de-seq sign
+      if (transaction.seqR) {
+        transactionEntry.seqSign = `${transaction.seqR},${transaction.seqS},${transaction.seqV}`
+      }
     } else {
       transactionEntry = {
         ...transactionEntry,

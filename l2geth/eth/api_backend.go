@@ -588,10 +588,7 @@ func (b *EthAPIBackend) ListSequencerInfo() *types.SequencerInfoList {
 		}
 		list.SeqList[i].SequencerHeight = header.Number.Uint64()
 	}
-	ownerHeight := uint64(0)
-	if b.eth.syncService.GetLatestIndex() != nil {
-		ownerHeight = *b.eth.syncService.GetLatestIndex()
-	}
+	ownerHeight := b.eth.blockchain.CurrentBlock().Header().Number.Uint64()
 	seqOwner := types.SequencerInfo{
 		SequencerAddress: common.HexToAddress(b.eth.config.Rollup.SeqAddress),
 		SequencerUrl:     "localhost",
