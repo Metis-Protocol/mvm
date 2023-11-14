@@ -52,7 +52,7 @@ export const encodeAppendSequencerBatch = async (
   if (b.seqSigns.length > 0) {
     const encodedSeqSignData = b.seqSigns.reduce((acc, cur) => {
       if (cur.length % 2 !== 0) {
-        throw new Error('Unexpected uneven hex string value!')
+        throw new Error('Unexpected uneven hex string value! cur:' + cur)
       }
       const encodedSignDataHeader = remove0x(
         BigNumber.from(remove0x(cur).length / 2).toHexString()

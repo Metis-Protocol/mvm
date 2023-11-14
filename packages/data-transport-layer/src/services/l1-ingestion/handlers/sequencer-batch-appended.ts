@@ -220,13 +220,13 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
           } else if (!decodedSign || decodedSign.length < 130) {
             transactionEntries[j].seqSign = ''
           } else {
-            const seqR = '0x' + decodedSign.substring(0, 64)
-            const seqS = '0x' + decodedSign.substring(64, 128)
+            const seqR = '0x' + removeLeadingZeros(decodedSign.substring(0, 64))
+            const seqS = '0x' + removeLeadingZeros(decodedSign.substring(64, 128))
             let seqV = decodedSign.substring(128)
-            if (seqV === '00') {
-              seqV = '0x0'
+            if (seqV.length > 0) {
+              seqV = '0x' + removeLeadingZeros(seqV)
             } else {
-              seqV = '0x' + seqV
+              seqV = '0x0'
             }
             transactionEntries[j].seqSign = `${seqR},${seqS},${seqV}`
           }
@@ -410,4 +410,9 @@ const decodeSequencerBatchTransaction = (
       s: toHexString(decodedTx.s),
     },
   }
+}
+
+const removeLeadingZeros = (inputString: string): string => {
+  const trimmedString = inputString.replace(/^0+/, '')
+  return trimmedString || '0'
 }

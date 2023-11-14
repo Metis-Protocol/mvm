@@ -310,8 +310,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     //     this.encodeSequencerBatchOptions
     //   )
     // unsigned tx
-    const tx =
-      await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
+    const tx = this.useMinio ? await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
+        batchParams,
+        this.encodeSequencerBatchOptions
+      ) : await this.chainContract.customPopulateTransaction.appendSequencerBatch(
         batchParams,
         this.encodeSequencerBatchOptions
       )
@@ -934,12 +936,16 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         let v = remove0x(block.transactions[0].seqV)
         if (r === '0') {
           r = '00'
+        } else {
+          r = this.padZerosToLeft(r)
         }
         if (s === '0') {
           s = '00'
+        } else {
+          s = this.padZerosToLeft(s)
         }
-        if (v === '0') {
-          v = '00'
+        if (v.length % 2 === 1) {
+          v = `0${v}`
         }
         // restore: '' has no sign, '000000' is zero sign, `{64}{64}{n}` if n is 00, seqV is 0x0
         batchElement.seqSign = `${r}${s}${v}`
@@ -970,4 +976,16 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       return '0x' + toHexString(n).slice(2).replace(/^0+/, '')
     }
   }
+
+  private padZerosToLeft(inputString: string): string {
+    const targetLength = 64
+    if (inputString.length >= targetLength) {
+        return inputString
+    }
+
+    const zerosToPad = targetLength - inputString.length
+    const paddedString = '0'.repeat(zerosToPad) + inputString
+    return paddedString
+}
+
 }

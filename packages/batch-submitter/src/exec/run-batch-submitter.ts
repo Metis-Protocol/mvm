@@ -389,6 +389,9 @@ export const run = async () => {
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {
+    if (key === 'MPC_URL')  {
+      continue
+    }
     if (val === null || val === undefined) {
       logger.warn('Missing environment variable', {
         key,

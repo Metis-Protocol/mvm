@@ -648,6 +648,7 @@ func (w *worker) taskLoop() {
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
 				w.handleErrInTask(errors.New("Block sealing ignored"), true)
+				log.Error("Block sealing ignored", "sealHash", sealHash)
 				continue
 			}
 			// Interrupt previous sealing operation
@@ -656,6 +657,7 @@ func (w *worker) taskLoop() {
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				w.handleErrInTask(errors.New("Block sealing skiped"), true)
+				log.Error("Block sealing skiped", "sealHash", sealHash)
 				continue
 			}
 			w.pendingMu.Lock()
@@ -664,7 +666,7 @@ func (w *worker) taskLoop() {
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				w.handleErrInTask(err, true)
-				log.Warn("Block sealing failed", "err", err)
+				log.Error("Block sealing failed", "err", err)
 			}
 		case <-w.exitCh:
 			interrupt()
