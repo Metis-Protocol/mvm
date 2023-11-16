@@ -1223,8 +1223,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.SetLatestL1BlockNumber(bn)
 		s.SetLatestIndex(index)
 		s.SetLatestVerifiedIndex(index)
-		// ignore if a miner error
-		s.shiftTxApplyError()
 		return err
 	case txApplyErr := <-s.txApplyErrCh:
 		log.Error("Got error when added to chain", "err", txApplyErr)
@@ -1232,23 +1230,8 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.SetLatestL1BlockNumber(bn)
 		s.SetLatestIndex(index)
 		s.SetLatestVerifiedIndex(index)
-		// when miner sealing failed or ignored, chainHeadCh clear
-		// if tx len is 0, chainHeadCh will not fill
-		if len(s.chainHeadCh) > 0 {
-			<-s.chainHeadCh
-		}
 		return txApplyErr
 	case <-s.chainHeadCh:
-		// when miner sealing failed or ignored, txApplyErrCh will fill
-		if len(s.txApplyErrCh) > 0 {
-			txApplyErr := <-s.txApplyErrCh
-			log.Error("Got error when added to chain", "err", txApplyErr)
-			s.SetLatestL1Timestamp(ts)
-			s.SetLatestL1BlockNumber(bn)
-			s.SetLatestIndex(index)
-			s.SetLatestVerifiedIndex(index)
-			return txApplyErr
-		}
 		// Update the cache when the transaction is from the owner
 		// of the gas price oracle
 		sender, _ := types.Sender(s.signer, tx)
