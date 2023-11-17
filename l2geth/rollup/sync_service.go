@@ -1154,13 +1154,20 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// store current time for the last index time
 
+	metaIndex := uint64(0)
 	index := s.GetLatestIndex()
 	if tx.GetMeta().Index == nil {
 		if index == nil {
 			tx.SetIndex(0)
 		} else {
 			tx.SetIndex(*index + 1)
+			metaIndex = *index + 1
 		}
+	}
+	// Check meta index again
+	if fromLocal && metaIndex + 1 != blockNumber {
+		log.Warn("correction tx meta index", "wrong", metaIndex, "right", blockNumber - 1)
+		tx.SetIndex(blockNumber - 1)
 	}
 	// On restart, these values are repaired to handle
 	// the case where the index is updated but the
