@@ -82,14 +82,18 @@ func cachedTypeInfo(typ reflect.Type, tags tags) *typeinfo {
 		return info
 	}
 	// not in the cache, need to generate info for this type.
-	typeCacheMutex.Lock()
-	defer typeCacheMutex.Unlock()
+	// fix map panic, use Lock in cachedTypeInfo1 for it is called by many other func
+	// typeCacheMutex.Lock()
+	// defer typeCacheMutex.Unlock()
 	return cachedTypeInfo1(typ, tags)
 }
 
 func cachedTypeInfo1(typ reflect.Type, tags tags) *typeinfo {
+	// fix map panic
+	typeCacheMutex.RLock()
 	key := typekey{typ, tags}
 	info := typeCache[key]
+	typeCacheMutex.RUnlock()
 	if info != nil {
 		// another goroutine got the write lock first
 		return info
@@ -97,6 +101,8 @@ func cachedTypeInfo1(typ reflect.Type, tags tags) *typeinfo {
 	// put a dummy value into the cache before generating.
 	// if the generator tries to lookup itself, it will get
 	// the dummy value and won't call itself recursively.
+	typeCacheMutex.Lock()
+	defer typeCacheMutex.Unlock()
 	info = new(typeinfo)
 	typeCache[key] = info
 	info.generate(typ, tags)
