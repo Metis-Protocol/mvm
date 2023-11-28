@@ -37,7 +37,7 @@ type RollupAdapter interface {
 	//
 	GetSeqValidHeight() uint64
 	CheckPosLayerSynced() (bool, error)
-	ParseUpdateSeqData(data []byte) (bool, common.Address)
+	ParseUpdateSeqData(data []byte) (bool, common.Address, *big.Int, *big.Int)
 	IsSeqSetContractCall(tx *types.Transaction) (bool, []byte)
 }
 
@@ -82,16 +82,19 @@ func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, 
 	}
 }
 
-func (s *SeqAdapter) ParseUpdateSeqData(data []byte) (bool, common.Address) {
+func (s *SeqAdapter) ParseUpdateSeqData(data []byte) (bool, common.Address, *big.Int, *big.Int) {
+	zeroBigInt := new(big.Int).SetUint64(0)
 	if len(data) < updateSeqDataLen {
-		return false, common.HexToAddress("0x0")
+		return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
 	}
-	method := hex.EncodeToString(data[0:4])
-	address := common.BytesToAddress(data[4*32+16 : 4*32+36])
+	method     := hex.EncodeToString(data[0:4])
+	startBlock := new(big.Int).SetBytes(data[2*32+4 : 3*32+4])
+	endBlock   := new(big.Int).SetBytes(data[3*32+4 : 4*32+4])
+	address    := common.BytesToAddress(data[4*32+16 : 4*32+36])
 	if method == updateSeqMethod {
-		return true, address
+		return true, address, startBlock, endBlock
 	}
-	return false, common.HexToAddress("0x0")
+	return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
 }
 
 func (s *SeqAdapter) getSequencer(expectIndex uint64) (common.Address, error) {
@@ -169,13 +172,16 @@ func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
 	}
 	hashBytes := tx.Hash().Bytes()
 	rBytes := seqSign.R.Bytes()
-	var padBytes [32]byte
 	if len(rBytes) < 32 {
-		rBytes = append(padBytes[0:32-len(rBytes)], rBytes...)
+		rBytesPadded := make([]byte, 32)
+		copy(rBytesPadded[32-len(rBytes):], rBytes)
+		rBytes = rBytesPadded
 	}
 	sBytes := seqSign.S.Bytes()
 	if len(sBytes) < 32 {
-		sBytes = append(padBytes[0:32-len(sBytes)], sBytes...)
+		sBytesPadded := make([]byte, 32)
+		copy(sBytesPadded[32-len(sBytes):], sBytes)
+		sBytes = sBytesPadded
 	}
 	var signBytes []byte
 	signBytes = append(signBytes, rBytes...)
@@ -215,11 +221,14 @@ func (s *SeqAdapter) GetTxSequencer(tx *types.Transaction, expectIndex uint64) (
 	if tx != nil {
 		seqOper, data := s.IsSeqSetContractCall(tx)
 		if seqOper {
-			updateSeq, newSeq := s.ParseUpdateSeqData(data)
+			updateSeq, newSeq, startBlock, endBlock := s.ParseUpdateSeqData(data)
 			if updateSeq {
 				// clear epoch cache
 				log.Info("get tx seqeuencer clear epoch cache", "pre-status", s.cachedSeqEpoch.Status, "pre-start", s.cachedSeqEpoch.StartBlock.Uint64(), "pre-end", s.cachedSeqEpoch.EndBlock.Uint64(), "pre-signer", s.cachedSeqEpoch.Signer.String())
-				s.cachedSeqEpoch.Status = false
+				s.cachedSeqEpoch.Status     = true
+				s.cachedSeqEpoch.StartBlock = startBlock
+				s.cachedSeqEpoch.EndBlock   = endBlock
+				s.cachedSeqEpoch.Signer     = newSeq
 				return newSeq, nil
 			}
 		}

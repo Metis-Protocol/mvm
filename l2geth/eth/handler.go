@@ -247,7 +247,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 				// check sequencer contract special tx, if true, check recoverSeq equals to special address arg, the expect sequencer can be read until the special tx block inserted
 				seqOper, operData := seqAdapter.IsSeqSetContractCall(tx)
 				if seqOper {
-					updateSeq, newSeq := seqAdapter.ParseUpdateSeqData(operData)
+					updateSeq, newSeq, _, _ := seqAdapter.ParseUpdateSeqData(operData)
 					if updateSeq {
 						recommitSeq = newSeq
 					}
