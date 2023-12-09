@@ -569,6 +569,11 @@ func (s *SyncService) syncQueueToTip() error {
 		return nil
 	}
 	if err := s.syncToTip(s.syncQueue, s.client.GetLatestEnqueueIndex); err != nil {
+		// when startup, bc height got 0, write will fail with sequencer epoch, try with return nil
+		if strings.Contains(err.Error(), "get sequencer incorrect epoch number") {
+			log.Error("Cannot sync queue to tip, ignore incorrect epoch number: %w", err)
+			return nil
+		}
 		return fmt.Errorf("Cannot sync queue to tip: %w", err)
 	}
 	return nil
