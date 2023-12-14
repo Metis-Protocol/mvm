@@ -1855,7 +1855,7 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
-	if s.b.IsVerifier() && !s.b.IsRpcProxySupport() {
+	if s.b.IsVerifier() {
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}
 	if s.b.IsSyncing() {
@@ -2263,6 +2263,6 @@ func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
 func (api *PublicRollupAPI) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
 	return api.b.AddSequencerInfo(ctx, seq)
 }
-func (api *PublicRollupAPI) ListSequencerInfo() *types.SequencerInfoList {
-	return api.b.ListSequencerInfo()
+func (api *PublicRollupAPI) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
+	return api.b.ListSequencerInfo(ctx)
 }

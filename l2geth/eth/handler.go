@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -191,7 +190,6 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 			block *types.Block
 		)
 		rollupClient := manager.syncService.RollupClient()
-		recommitSeq := common.Address{}
 		syncEnqueueIndex := manager.syncService.GetLatestEnqueueIndex()
 		var latestEnqueueIndex uint64
 		if syncEnqueueIndex != nil {
@@ -244,32 +242,8 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					log.Error("handler blocksBeforeInsert RecoverSeqAddress err", err)
 					return err
 				}
-				// check sequencer contract special tx, if true, check recoverSeq equals to special address arg, the expect sequencer can be read until the special tx block inserted
-				seqOper, operData := seqAdapter.IsSeqSetContractCall(tx)
-				if seqOper {
-					updateSeq, newSeq, _, _ := seqAdapter.ParseUpdateSeqData(operData)
-					if updateSeq {
-						recommitSeq = newSeq
-					}
-				}
-				if recommitSeq != (common.Address{}) {
-					if !strings.EqualFold(recommitSeq.String(), recoverSeq) {
-						errInfo := fmt.Sprintf("handler blocksBeforeInsert tx seq %v, is not recommit seq %v", recoverSeq, recommitSeq.String())
-						log.Error(errInfo)
-						return errors.New(errInfo)
-					}
-					continue
-				}
-				expectSeq, err := seqAdapter.GetTxSequencer(tx, blockNumber)
-				if err != nil {
-					log.Error("handler blocksBeforeInsert GetTxSequencer err", err)
-					return err
-				}
-				if !strings.EqualFold(expectSeq.String(), recoverSeq) {
-					errInfo := fmt.Sprintf("handler blocksBeforeInsert tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
-					log.Error(errInfo)
-					return errors.New(errInfo)
-				}
+				log.Debug(fmt.Sprintf("handler blocksBeforeInsert tx seq %v", recoverSeq))
+				// TODO check prevent sequencer signer and height of PoS
 			}
 		}
 		return nil
@@ -406,7 +380,7 @@ func (pm *ProtocolManager) startFetcherTicker() {
 					pm.removePeer(p.id)
 					pm.handle(p)
 				}
-				pm.peerSyncTime = 0
+				pm.peerSyncTime = time.Now().Unix()
 				log.Info("All peers reconnecting", "peers len", pm.peers.Len())
 			}
 		}

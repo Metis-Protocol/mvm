@@ -85,6 +85,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.SeqsetContractFlag,
 			utils.SeqAddressFlag,
 			utils.SeqPrivFlag,
+			utils.SeqBridgeUrlFlag,
 		},
 	},
 	{

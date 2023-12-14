@@ -317,17 +317,7 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // Transactions originating from the RPC endpoints are added to remotes so that
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	index := b.eth.blockchain.CurrentBlock().Header().Number.Uint64()
-	var expectSeq common.Address
-	var err error
-	checkIndex := index + 1
-	expectSeq, err = b.eth.syncService.GetTxSequencer(signedTx, checkIndex)
-	if err != nil {
-		return err
-	}
-	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex)
 	if b.UsingOVM {
-		log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
 		to := signedTx.To()
 		if to != nil {
 			// Prevent QueueOriginSequencer transactions that are too large to
@@ -337,47 +327,12 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			// a layer two transaction from not being able to be batch submitted
 			// to layer one.
 			if len(signedTx.Data()) > b.MaxCallDataSize {
-				return fmt.Errorf("calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
+				return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 			}
 		}
-		if strings.EqualFold(expectSeq.String(), b.eth.syncService.SeqAddress) {
-			// Sequencer is self, validate and apply tx
-			return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
-		}
-		// Send to current sequencer
-		l2Url := b.GetSeqUrl(expectSeq)
-		if l2Url == "" {
-			return fmt.Errorf("sequencer %v setting missing on %v", expectSeq.String(), b.eth.syncService.SeqAddress)
-		}
-		log.Info("SendTx use proxy setting to send", "l2Url", l2Url, "checkIndex", checkIndex)
-		err := b.EnsureSeqRpcClient(l2Url)
-		if err != nil {
-			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
-			return err
-		}
-		timeout := 5 * time.Second
-		maxRetries := 3
-		retryDelay := 500 * time.Millisecond
-
-		for retry := 0; retry < maxRetries; retry++ {
-			ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
-			defer cancelSend()
-			signedTx.SetL2Tx(2)
-			err = b.seqRpcClient.SendTransaction(ctxSend, signedTx)
-			signedTx.SetL2Tx(1)
-			if err == nil {
-				return nil
-			}
-			if retry < maxRetries-1 {
-				log.Warn("SendTx to real sequencer failed", "retries", retry+1, "err", err)
-				time.Sleep(retryDelay)
-			}
-		}
-
-		return err
+		return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
 	}
 	// OVM Disabled
-	log.Info("current b usingovm false, begin to AddLocal")
 	return b.eth.txPool.AddLocal(signedTx)
 }
 
@@ -510,12 +465,14 @@ func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (
 }
 
 // Cache a rpc client until sequencer rpc url changed
-func (b *EthAPIBackend) EnsureSeqRpcClient(url string) error {
+func (b *EthAPIBackend) EnsureSeqRpcClient(ctx context.Context, url string) error {
 	if b.seqRpcClient == nil || b.seqRpcUrl != url {
 		if b.seqRpcClient != nil {
 			b.seqRpcClient.Close()
 		}
-		rpcClient, err := ethclient.Dial(url)
+		ctxt, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		rpcClient, err := ethclient.DialContext(ctxt, url)
 		if err != nil {
 			return err
 		}
@@ -560,7 +517,7 @@ func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 	return ""
 }
 
-func (b *EthAPIBackend) ListSequencerInfo() *types.SequencerInfoList {
+func (b *EthAPIBackend) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
 	var list types.SequencerInfoList
 	b.seqRwMutex.RLock()
 	for k, v := range b.seqInfos {
@@ -574,7 +531,7 @@ func (b *EthAPIBackend) ListSequencerInfo() *types.SequencerInfoList {
 
 	for i, seq := range list.SeqList {
 		l2Url := seq.SequencerUrl
-		err := b.EnsureSeqRpcClient(l2Url)
+		err := b.EnsureSeqRpcClient(ctx, l2Url)
 		if err != nil {
 			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
 			// return err

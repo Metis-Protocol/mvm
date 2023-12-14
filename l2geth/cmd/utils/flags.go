@@ -926,6 +926,13 @@ var (
 		Usage:  "sequencer priv key",
 		EnvVar: "SEQ_PRIV",
 	}
+
+	SeqBridgeUrlFlag = cli.StringFlag{
+		Name:   "seq_bridge_url",
+		Usage:  "seq bridge url set to enable RPC only node role",
+		Value:  "",
+		EnvVar: "SEQ_BRIDGE_URL",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1230,6 +1237,9 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(SeqPrivFlag.Name) {
 		cfg.SeqPriv = ctx.GlobalString(SeqPrivFlag.Name)
+	}
+	if ctx.GlobalIsSet(SeqBridgeUrlFlag.Name) {
+		cfg.SeqBridgeUrl = ctx.GlobalString(SeqBridgeUrlFlag.Name)
 	}
 }
 

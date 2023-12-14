@@ -7,12 +7,13 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum-optimism/optimism/l2geth/contracts/checkpointoracle/contract/seqset"
+	"github.com/ethereum-optimism/optimism/l2geth/core"
 	"github.com/ethereum-optimism/optimism/l2geth/crypto"
-	"github.com/ethereum-optimism/optimism/l2geth/ethdb"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
@@ -46,6 +47,7 @@ type CachedSeqEpoch struct {
 	Signer     common.Address
 	StartBlock *big.Int
 	EndBlock   *big.Int
+	RespanArr  []*big.Int
 	Status     bool
 }
 
@@ -59,12 +61,12 @@ type SeqAdapter struct {
 	localL2Conn            *ethclient.Client
 	metisPosURL            string
 	metisPosClient         *http.Client
-	db                     ethdb.Database
+	bc                     *core.BlockChain
 	seqContract            *seqset.Seqset
 	cachedSeqEpoch         *CachedSeqEpoch
 }
 
-func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, posClientUrl, localL2Url string, db ethdb.Database) *SeqAdapter {
+func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, posClientUrl, localL2Url string, bc *core.BlockChain) *SeqAdapter {
 	return &SeqAdapter{
 		l2SeqContract:          l2SeqContract,
 		seqContractValidHeight: seqContractValidHeight,
@@ -72,7 +74,7 @@ func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, 
 		localL2Url:             localL2Url,
 
 		metisPosClient: &http.Client{},
-		db:             db,
+		bc:             bc,
 		cachedSeqEpoch: &CachedSeqEpoch{
 			Signer:     common.HexToAddress("0x0"),
 			StartBlock: new(big.Int).SetUint64(0),
@@ -87,14 +89,38 @@ func (s *SeqAdapter) ParseUpdateSeqData(data []byte) (bool, common.Address, *big
 	if len(data) < updateSeqDataLen {
 		return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
 	}
-	method     := hex.EncodeToString(data[0:4])
+	method := hex.EncodeToString(data[0:4])
 	startBlock := new(big.Int).SetBytes(data[2*32+4 : 3*32+4])
-	endBlock   := new(big.Int).SetBytes(data[3*32+4 : 4*32+4])
-	address    := common.BytesToAddress(data[4*32+16 : 4*32+36])
+	endBlock := new(big.Int).SetBytes(data[3*32+4 : 4*32+4])
+	address := common.BytesToAddress(data[4*32+16 : 4*32+36])
 	if method == updateSeqMethod {
 		return true, address, startBlock, endBlock
 	}
 	return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
+}
+
+func (s *SeqAdapter) insertRespanNumber(arr []*big.Int, value *big.Int) []*big.Int {
+	index := sort.Search(len(arr), func(i int) bool {
+		return arr[i].Cmp(value) >= 0
+	})
+
+	arr = append(arr, nil)
+	if index < len(arr)-1 {
+		copy(arr[index+1:], arr[index:])
+	}
+	arr[index] = new(big.Int).Set(value)
+
+	return arr
+}
+
+func (s *SeqAdapter) removeFirstRespan(arr []*big.Int) []*big.Int {
+	if len(arr) > 0 {
+		index := 0
+		copy(arr[index:], arr[index+1:])
+		arr = arr[:len(arr)-1]
+	}
+
+	return arr
 }
 
 func (s *SeqAdapter) getSequencer(expectIndex uint64) (common.Address, error) {
@@ -113,6 +139,25 @@ func (s *SeqAdapter) getSequencer(expectIndex uint64) (common.Address, error) {
 	}
 	if s.cachedSeqEpoch.Status && (s.cachedSeqEpoch.StartBlock.Uint64() > expectIndex || s.cachedSeqEpoch.EndBlock.Uint64() < expectIndex) {
 		s.cachedSeqEpoch.Status = false
+	}
+	// check RespanArr[0]
+	blockNumber := uint64(0)
+	block := s.bc.CurrentBlock()
+	if block != nil {
+		blockNumber = block.Number().Uint64()
+	}
+	if len(s.cachedSeqEpoch.RespanArr) > 0 {
+		// at this time, blockChain has not reach the respan height, pause sequencer with an error
+		respanStart := s.cachedSeqEpoch.RespanArr[0].Uint64()
+		if expectIndex > respanStart && blockNumber < respanStart {
+			log.Error("Get sequencer error when check respan", "expectIndex", expectIndex, "blockNumber", blockNumber, "respanStart", respanStart)
+			return common.Address{}, errors.New("get sequencer error when check respan")
+		}
+		if blockNumber >= respanStart {
+			// remove [0], reload cache
+			s.cachedSeqEpoch.RespanArr = s.removeFirstRespan(s.cachedSeqEpoch.RespanArr)
+			s.cachedSeqEpoch.Status = false
+		}
 	}
 	if !s.cachedSeqEpoch.Status {
 		// start loading cache
@@ -145,16 +190,6 @@ func (s *SeqAdapter) getSequencer(expectIndex uint64) (common.Address, error) {
 		log.Info("get tx seqeuencer loaded epoch cache", "status", s.cachedSeqEpoch.Status, "start", s.cachedSeqEpoch.StartBlock.Uint64(), "end", s.cachedSeqEpoch.EndBlock.Uint64(), "signer", s.cachedSeqEpoch.Signer.String())
 	}
 	return s.cachedSeqEpoch.Signer, nil
-	// seqAddress, err := s.seqContract.GetMetisSequencer(nil, big.NewInt(int64(expectIndex)))
-	// if err != nil {
-	// 	log.Error("Get sequencer error", "err", err)
-	// 	return common.Address{}, err
-	// }
-	// // if there is no epoch in contract, it will return zero address
-	// if (seqAddress == common.Address{}) {
-	// 	return common.Address{}, errors.New("get sequencer incorrect address")
-	// }
-	// return seqAddress, nil
 }
 
 func (s *SeqAdapter) GetSeqValidHeight() uint64 {
@@ -208,27 +243,20 @@ func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) 
 func (s *SeqAdapter) GetTxSequencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {
 	// check is update sequencer operate
 	if expectIndex <= s.seqContractValidHeight {
-		// return default address 0x00000398232E2064F896018496b4b44b3D62751F
+		// return default address
 		return rcfg.DefaultSeqAdderss, nil
 	}
-	// if expectIndex%2 == 0 {
-	// 	log.Debug("sequencer %v, for index %v", "0x00000398232E2064F896018496b4b44b3D62751F", expectIndex, "tx", tx.Hash().Hex())
-	// 	return common.HexToAddress("0x00000398232E2064F896018496b4b44b3D62751F"), nil
-	// }
-	// log.Debug("sequencer %v, for index %v", "0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933", expectIndex, "tx", tx.Hash().Hex())
-	// return common.HexToAddress("0xc213298c9e90e1ae7b4b97c95a7be1b811e7c933"), nil
 
 	if tx != nil {
 		seqOper, data := s.IsSeqSetContractCall(tx)
 		if seqOper {
 			updateSeq, newSeq, startBlock, endBlock := s.ParseUpdateSeqData(data)
 			if updateSeq {
-				// clear epoch cache
-				log.Info("get tx seqeuencer clear epoch cache", "pre-status", s.cachedSeqEpoch.Status, "pre-start", s.cachedSeqEpoch.StartBlock.Uint64(), "pre-end", s.cachedSeqEpoch.EndBlock.Uint64(), "pre-signer", s.cachedSeqEpoch.Signer.String())
-				s.cachedSeqEpoch.Status     = true
-				s.cachedSeqEpoch.StartBlock = startBlock
-				s.cachedSeqEpoch.EndBlock   = endBlock
-				s.cachedSeqEpoch.Signer     = newSeq
+				// respan
+				log.Info("get tx seqeuencer respan", "respan-start", startBlock.Uint64(), "respan-end", endBlock.Uint64(), "respan-signer", newSeq.String())
+				// cache the respan start block
+				s.cachedSeqEpoch.RespanArr = s.insertRespanNumber(s.cachedSeqEpoch.RespanArr, startBlock)
+				// return the respan sequencer, it will mine. it can success or fail
 				return newSeq, nil
 			}
 		}
@@ -241,12 +269,6 @@ func (s *SeqAdapter) GetTxSequencer(tx *types.Transaction, expectIndex uint64) (
 	log.Debug("GetTxSequencer ", "getSequencer address", address, "expectIndex", expectIndex, "contract address ", s.l2SeqContract, "err", err)
 	return address, err
 }
-
-// CheckSequencerIsWorking check current sequencer is working
-// func (s *SeqAdapter) CheckSequencerIsWorking() bool {
-// 	// check mempool and last tx id info
-// 	return true
-// }
 
 func (s *SeqAdapter) CheckPosLayerSynced() (bool, error) {
 	// get pos layer synced

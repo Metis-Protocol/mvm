@@ -247,7 +247,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 
 	// create ethclient
 	// NOTE: MPC added rollup check for proxy
-	l2Url := ctx.L2Url()
+	// RPC node has SeqBridgeUrl, use it first. peer, verifier, replica can use l2Url
+	l2Url := config.Rollup.SeqBridgeUrl
+	if l2Url == "" {
+		l2Url = ctx.L2Url()
+	}
 	if l2Url != "" {
 		eth.rpcClient, err = ethclient.Dial(l2Url)
 		if err != nil {

@@ -171,6 +171,7 @@ var (
 		utils.SeqsetContractFlag,
 		utils.SeqAddressFlag,
 		utils.SeqPrivFlag,
+		utils.SeqBridgeUrlFlag,
 	}
 
 	rpcFlags = []cli.Flag{

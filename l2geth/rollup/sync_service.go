@@ -136,7 +136,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	client := NewClient(cfg.RollupClientHttp, chainID)
 	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64(), "ctc-deploy-height", cfg.CanonicalTransactionChainDeployHeight)
 
-	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp, db)
+	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp, bc)
 	log.Info("Configured seqAdapter", "url", cfg.PosClientHttp, "SeqsetContract", cfg.SeqsetContract, "SeqsetValidHeight", cfg.SeqsetValidHeight)
 	log.Info("Configured seqAdapter", "SeqAddress", cfg.SeqAddress, "seqPriv", cfg.SeqPriv, "LocalL2ClientHttp", cfg.LocalL2ClientHttp)
 	// Ensure sane values for the fee thresholds
@@ -571,7 +571,7 @@ func (s *SyncService) syncQueueToTip() error {
 	if err := s.syncToTip(s.syncQueue, s.client.GetLatestEnqueueIndex); err != nil {
 		// when startup, bc height got 0, write will fail with sequencer epoch, try with return nil
 		if strings.Contains(err.Error(), "get sequencer incorrect epoch number") {
-			log.Error("Cannot sync queue to tip, ignore incorrect epoch number: %w", err)
+			log.Warn("Cannot sync queue to tip, ignore incorrect epoch number: %w", err)
 			return nil
 		}
 		return fmt.Errorf("Cannot sync queue to tip: %w", err)
@@ -619,12 +619,15 @@ func (s *SyncService) waitingSequencerTip() (bool, error) {
 		return false, nil
 	}
 	// check is current address is sequencer
+	index := s.GetLatestIndex()
 	blockNumber := uint64(0)
-	block := s.bc.CurrentBlock()
-	if block != nil {
-		blockNumber = block.Number().Uint64()
+	// lastIndex + 1 = lastBlock.number
+	// expect check blockNumber = lastBlock.number + 1
+	if index != nil {
+		blockNumber = *index + 2
+	} else {
+		blockNumber = uint64(1)
 	}
-	blockNumber = blockNumber + 1
 	if blockNumber <= s.startSeqHeight {
 		return true, nil
 	}
@@ -1050,11 +1053,14 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 
 	// check is current address is sequencer
 	var expectSeq common.Address
-	blockNumber := s.bc.CurrentBlock().Number().Uint64()
-	if fromLocal {
-		// for verifier & sequencer model, expect miner block number need to plus 1
-		// for peer node (peer or backup sequencer), this step has mined, so keep block number
-		blockNumber = blockNumber + 1
+	index := s.GetLatestIndex()
+	blockNumber := uint64(0)
+	// lastIndex + 1 = lastBlock.number
+	// expect check blockNumber = lastBlock.number + 1
+	if index != nil {
+		blockNumber = *index + 2
+	} else {
+		blockNumber = uint64(1)
 	}
 	expectSeq, err := s.GetTxSequencer(tx, blockNumber)
 	if err != nil {
@@ -1064,13 +1070,15 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	if fromLocal {
 		if seqModel && mpcEnabled && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
 			// mpc status 1. when in mpc sequencer model, enqueue or other rollup L1 tx is not acceptable
-			return nil
+			err = errors.New("current sequencer incorrect")
+			log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "expectSeq", expectSeq.String(), "selfSeq", s.SeqAddress)
+			return err
 		}
 		if seqModel && mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() == types.QueueOriginL1ToL2 {
 			// mpc status 2. add sequencer signature to tx in sequencer model, QueueOriginL1ToL2 always give 0 to sign
 			err = s.addSeqSignature(tx)
 			if err != nil {
-				log.Error("addSeqSignature err QueueOriginL1ToL2", err)
+				log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
 				return err
 			}
 		}
@@ -1080,7 +1088,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 				// mpc status 2. add sequencer signature to tx in sequencer model
 				err = s.addSeqSignature(tx)
 				if err != nil {
-					log.Error("addSeqSignature err QueueOriginSequencer", err)
+					log.Error("addSeqSignature err QueueOriginSequencer", "err", err)
 					return err
 				}
 			} else {
@@ -1160,7 +1168,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	// store current time for the last index time
 
 	metaIndex := uint64(0)
-	index := s.GetLatestIndex()
 	if tx.GetMeta().Index == nil {
 		if index == nil {
 			tx.SetIndex(0)
@@ -1170,8 +1177,8 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		}
 	}
 	// Check meta index again
-	if fromLocal && metaIndex + 1 != blockNumber {
-		log.Warn("correction tx meta index", "wrong", metaIndex, "right", blockNumber - 1)
+	if fromLocal && metaIndex+1 != blockNumber {
+		log.Warn("correction tx meta index", "wrong", metaIndex, "right", blockNumber-1)
 		tx.SetIndex(blockNumber - 1)
 	}
 	// On restart, these values are repaired to handle

@@ -367,6 +367,6 @@ func (b *LesApiBackend) IsSequencerWorking() bool {
 func (b *LesApiBackend) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
 	return nil
 }
-func (b *LesApiBackend) ListSequencerInfo() *types.SequencerInfoList {
+func (b *LesApiBackend) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
 	return nil
 }

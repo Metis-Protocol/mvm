@@ -47,6 +47,7 @@ type Config struct {
 	// HTTP endpoint of the sequencer
 	SequencerClientHttp string
 	// sequencer address  and sequencer priv
-	SeqAddress string
-	SeqPriv    string
+	SeqAddress   string
+	SeqPriv      string
+	SeqBridgeUrl string
 }
