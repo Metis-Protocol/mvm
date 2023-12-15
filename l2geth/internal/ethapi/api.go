@@ -2086,6 +2086,18 @@ func (api *PublicRollupAPI) GasPrices(ctx context.Context) (*gasPrices, error) {
 	}, nil
 }
 
+func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
+	return api.b.IsSequencerWorking()
+}
+
+func (api *PublicRollupAPI) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
+	return api.b.AddSequencerInfo(ctx, seq)
+}
+
+func (api *PublicRollupAPI) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
+	return api.b.ListSequencerInfo(ctx)
+}
+
 // PrivatelRollupAPI provides private RPC methods to control the sequencer.
 // These methods can be abused by external users and must be considered insecure for use by untrusted users.
 type PrivateRollupAPI struct {
@@ -2107,6 +2119,20 @@ func (api *PrivateRollupAPI) SetL1GasPrice(ctx context.Context, gasPrice hexutil
 // SetL2GasPrice sets the gas price to be used when executing transactions on
 func (api *PrivateRollupAPI) SetL2GasPrice(ctx context.Context, gasPrice hexutil.Big) error {
 	return api.b.SetL2GasPrice(ctx, (*big.Int)(&gasPrice))
+}
+
+// BridgeRollupAPI provides private RPC methods to control the sequencer with bridge.
+// These methods can be abused by external users and must be considered insecure for use by untrusted users.
+type BridgeRollupAPI struct {
+	b Backend
+}
+
+func NewBridgeRollupAPI(b Backend) *BridgeRollupAPI {
+	return &BridgeRollupAPI{b: b}
+}
+
+func (api *BridgeRollupAPI) SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error {
+	return api.b.SetPreRespan(ctx, oldAddress, newAddress, number)
 }
 
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
@@ -2255,14 +2281,4 @@ func (s *PublicNetAPI) PeerCount() hexutil.Uint {
 // Version returns the current ethereum protocol version.
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)
-}
-
-func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
-	return api.b.IsSequencerWorking()
-}
-func (api *PublicRollupAPI) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
-	return api.b.AddSequencerInfo(ctx, seq)
-}
-func (api *PublicRollupAPI) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
-	return api.b.ListSequencerInfo(ctx)
 }

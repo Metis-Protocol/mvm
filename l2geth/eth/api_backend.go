@@ -554,3 +554,9 @@ func (b *EthAPIBackend) ListSequencerInfo(ctx context.Context) *types.SequencerI
 	list.SeqList = append(list.SeqList, seqOwner)
 	return &list
 }
+
+func (b *EthAPIBackend) SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error {
+	b.seqRwMutex.Lock()
+	defer b.seqRwMutex.Unlock()
+	return b.eth.syncService.RollupAdapter().SetPreRespan(oldAddress, newAddress, number)
+}

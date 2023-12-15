@@ -370,3 +370,7 @@ func (b *LesApiBackend) AddSequencerInfo(ctx context.Context, seq *types.Sequenc
 func (b *LesApiBackend) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
 	return nil
 }
+
+func (b *LesApiBackend) SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error {
+	return nil
+}

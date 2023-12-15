@@ -40,6 +40,8 @@ type RollupAdapter interface {
 	CheckPosLayerSynced() (bool, error)
 	ParseUpdateSeqData(data []byte) (bool, common.Address, *big.Int, *big.Int)
 	IsSeqSetContractCall(tx *types.Transaction) (bool, []byte)
+	SetPreRespan(oldAddress common.Address, newAddress common.Address, number uint64) error
+	IsPreRespanSequencer(seqAddress string, number uint64) bool
 }
 
 // Cached seq epoch, if recommit or block number < start | > end, clear cache with status false
@@ -49,6 +51,13 @@ type CachedSeqEpoch struct {
 	EndBlock   *big.Int
 	RespanArr  []*big.Int
 	Status     bool
+}
+
+// RreRespan is called by bridge, to notify sequencer to prevent save p2p blocks >= RespanStartBlock
+type PreRespan struct {
+	PreSigner        common.Address
+	NewSigner        common.Address
+	RespanStartBlock uint64
 }
 
 // SeqAdapter is an adpater used by sequencer based RollupClient
@@ -64,6 +73,7 @@ type SeqAdapter struct {
 	bc                     *core.BlockChain
 	seqContract            *seqset.Seqset
 	cachedSeqEpoch         *CachedSeqEpoch
+	preRespan              *PreRespan
 }
 
 func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, posClientUrl, localL2Url string, bc *core.BlockChain) *SeqAdapter {
@@ -145,6 +155,11 @@ func (s *SeqAdapter) getSequencer(expectIndex uint64) (common.Address, error) {
 	block := s.bc.CurrentBlock()
 	if block != nil {
 		blockNumber = block.Number().Uint64()
+	}
+	// clear preRespan when block >= respanStart
+	if s.preRespan != nil && s.preRespan.RespanStartBlock <= blockNumber {
+		log.Info("clear pre respan")
+		s.preRespan = nil
 	}
 	if len(s.cachedSeqEpoch.RespanArr) > 0 {
 		// at this time, blockChain has not reach the respan height, pause sequencer with an error
@@ -238,6 +253,26 @@ func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) 
 		return true, tx.Data()
 	}
 	return false, nil
+}
+
+func (s *SeqAdapter) SetPreRespan(oldAddress common.Address, newAddress common.Address, number uint64) error {
+	s.preRespan = &PreRespan{
+		PreSigner:        oldAddress,
+		NewSigner:        newAddress,
+		RespanStartBlock: number,
+	}
+	log.Info("set pre respan", "preSigner", oldAddress.Hex(), "newSigner", newAddress.Hex(), "startBlock", number)
+	return nil
+}
+
+func (s *SeqAdapter) IsPreRespanSequencer(seqAddress string, number uint64) bool {
+	if s.preRespan == nil || s.preRespan.RespanStartBlock == 0 || (s.preRespan.PreSigner == common.Address{}) {
+		return false
+	}
+	if number >= s.preRespan.RespanStartBlock && s.preRespan.PreSigner.Hex() == seqAddress {
+		return true
+	}
+	return false
 }
 
 func (s *SeqAdapter) GetTxSequencer(tx *types.Transaction, expectIndex uint64) (common.Address, error) {

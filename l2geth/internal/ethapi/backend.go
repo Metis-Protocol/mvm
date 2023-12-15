@@ -105,6 +105,8 @@ type Backend interface {
 	IsSequencerWorking() bool
 	AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error
 	ListSequencerInfo(ctx context.Context) *types.SequencerInfoList
+	// rollup bridge API
+	SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
@@ -134,6 +136,10 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "rollup_personal",
 			Version:   "1.0",
 			Service:   NewPrivateRollupAPI(apiBackend),
+		}, {
+			Namespace: "rollupbridge",
+			Version:   "1.0",
+			Service:   NewBridgeRollupAPI(apiBackend),
 		}, {
 			Namespace: "txpool",
 			Version:   "1.0",

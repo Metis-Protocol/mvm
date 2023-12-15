@@ -243,7 +243,13 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					return err
 				}
 				log.Debug(fmt.Sprintf("handler blocksBeforeInsert tx seq %v", recoverSeq))
-				// TODO check prevent sequencer signer and height of PoS
+				// check prevent sequencer signer and height of PoS
+				shouldPrevent := seqAdapter.IsPreRespanSequencer(recoverSeq, blockNumber)
+				if shouldPrevent {
+					errInfo := "handler blocksBeforeInsert with prevent by respan"
+					log.Error(errInfo, "recoverSeq", recoverSeq, "number", blockNumber)
+					return errors.New(errInfo)
+				}
 			}
 		}
 		return nil
