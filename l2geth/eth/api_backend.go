@@ -455,12 +455,55 @@ func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transact
 		return nil
 	}
 	if rcfg.UsingOVM {
-		err := b.eth.syncService.ValidateTx(tx)
+		err := b.validateTx(ctx, tx)
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid transaction: %w", err)
 		}
 	}
 	return b.eth.rpcClient.SendTransaction(ctx, tx)
+}
+
+// Proxy to rpc should validate tx first
+func (b *EthAPIBackend) validateTx(ctx context.Context, tx *types.Transaction) error {
+	if tx == nil {
+		return errors.New("nil transaction passed to ValidateAndApplySequencerTransaction")
+	}
+	// Transactions can't be negative. This may never happen using RLP decoded
+	// transactions but may occur if you create a transaction using the RPC.
+	if tx.Value().Sign() < 0 {
+		return core.ErrNegativeValue
+	}
+	header := b.CurrentBlock().Header()
+	state, err := b.eth.BlockChain().StateAt(header.Root)
+	if state == nil {
+		return fmt.Errorf("invalid state")
+	}
+	if err != nil {
+		return err
+	}
+	// Make sure the transaction is signed properly
+	from, err := types.Sender(b.eth.protocolManager.signer, tx)
+	if err != nil {
+		return core.ErrInvalidSender
+	}
+	if state.GetNonce(from) != tx.Nonce() {
+		return core.ErrNonceTooLow
+	}
+	if state.GetBalance(from).Cmp(tx.Cost()) < 0 {
+		return core.ErrInsufficientFunds
+	}
+
+	next := new(big.Int).Add(header.Number, big.NewInt(1))
+	istanbul := b.ChainConfig().IsIstanbul(next)
+	// Ensure the transaction has more gas than the basic tx fee.
+	intrGas, err := core.IntrinsicGas(tx.Data(), tx.To() == nil, true, istanbul)
+	if err != nil {
+		return err
+	}
+	if tx.Gas() < intrGas {
+		return core.ErrIntrinsicGas
+	}
+	return nil
 }
 
 func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (uint64, error) {

@@ -1367,21 +1367,6 @@ func (s *SyncService) verifyFee(tx *types.Transaction) error {
 	return nil
 }
 
-// Proxy to rpc should validate tx first
-func (s *SyncService) ValidateTx(tx *types.Transaction) error {
-	if tx == nil {
-		return errors.New("nil transaction passed to ValidateAndApplySequencerTransaction")
-	}
-	// Don't call verify fee before proxy, estimate method does not have the same, oracle perhaps not the latest
-	// if err := s.verifyFee(tx); err != nil {
-	// 	return err
-	// }
-	if err := s.txpool.ValidateTx(tx); err != nil {
-		return fmt.Errorf("invalid transaction: %w", err)
-	}
-	return nil
-}
-
 // Higher level API for applying transactions. Should only be called for
 // queue origin sequencer transactions, as the contracts on L1 manage the same
 // validity checks that are done here.
