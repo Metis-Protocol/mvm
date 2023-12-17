@@ -454,6 +454,12 @@ func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transact
 	if !b.IsRpcProxySupport() {
 		return nil
 	}
+	if rcfg.UsingOVM {
+		err := b.eth.syncService.ValidateTx(tx)
+		if err != nil {
+			return err
+		}
+	}
 	return b.eth.rpcClient.SendTransaction(ctx, tx)
 }
 
