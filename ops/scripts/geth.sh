@@ -8,7 +8,6 @@ VERBOSITY=${VERBOSITY:-6}
 EXTERNAL_IP=${EXTERNAL_IP:-default-ip}
 PORT=${PORT:-30303}
 NAT_SET="any"
-# V5DISC=${V5DISC:-false}
 BOOTNODES=${BOOTNODES:-}
 if [ "$EXTERNAL_IP" != "default-ip" ]; then
     NAT_SET="extip:$EXTERNAL_IP"
@@ -16,7 +15,6 @@ fi
 echo "Nat set is $NAT_SET"
 echo "P2P port is $PORT"
 echo "BOOTNODES is $BOOTNODES"
-# echo "V5DISC is $V5DISC"
 
 # get the genesis file from the deployer
 curl \
@@ -68,7 +66,6 @@ exec geth \
   --nat=$NAT_SET \
   --port ${PORT} \
   --bootnodes="${BOOTNODES}" \
-#   --v5disc \
   --syncmode full \
   --gcmode archive \
   "$@"
