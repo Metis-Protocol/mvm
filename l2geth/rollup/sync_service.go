@@ -251,7 +251,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 			block = types.NewBlock(&types.Header{}, nil, nil, nil)
 		}
 		header := block.Header()
-		log.Info("Initial Rollup State", "state", header.Root.Hex(), "index", stringify(index), "queue-index", stringify(queueIndex), "verified-index", verifiedIndex)
+		log.Info("Initial Rollup State", "state", header.Root.Hex(), "index", stringify(index), "queue-index", stringify(queueIndex), "verified-index", stringify(verifiedIndex))
 
 		// The sequencer needs to sync to the tip at start up
 		// By setting the sync status to true, it will prevent RPC calls.
@@ -369,6 +369,7 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 				idx = &num
 			}
 			s.SetLatestIndex(idx)
+			s.SetLatestVerifiedIndex(idx)
 			log.Info("Block not found, resetting index", "new", stringify(idx), "old", *index)
 			log.Info("initializeLatestL1", "blockNum", blockNum)
 		}
@@ -1108,6 +1109,40 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 					errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
 					log.Error(errInfo)
 					return errors.New(errInfo)
+				}
+			}
+		}
+
+		// Check if it has txApplyErr, perhaps LatestIndex is not right
+		// compare index and current block number
+		if len(s.txApplyErrCh) > 0 {
+			applyErr := <-s.txApplyErrCh
+			log.Error("Found txApplyErr when applyTransactionToTip", "err", applyErr)
+			if !s.verifier {
+				parent := s.bc.CurrentBlock()
+				parentNumber := parent.Number().Uint64()
+				expectMetaIndex := uint64(0)
+				if index != nil {
+					expectMetaIndex = *index + 1
+				}
+				if expectMetaIndex == parentNumber {
+					log.Info("The sync index is correct, nothing to do with txApplyErr")
+				} else if expectMetaIndex == parentNumber+1 {
+					// need restore by the next index, others due to worker
+					txs := parent.Transactions()
+					if len(txs) != 1 {
+						log.Error("Unexpected number of transactions in block", "count", len(txs), "number", parentNumber)
+					} else {
+						ptx := txs[0]
+						log.Warn("Try to restore sync index with txApplyErr", "expect", expectMetaIndex, "parent", parentNumber, "resetIndex", stringify(ptx.GetMeta().Index))
+						s.SetLatestL1Timestamp(ptx.L1Timestamp())
+						s.SetLatestL1BlockNumber(ptx.L1BlockNumber().Uint64())
+						s.SetLatestIndex(ptx.GetMeta().Index)
+						s.SetLatestVerifiedIndex(ptx.GetMeta().Index)
+					}
+					return errors.New("unexpect meta index, please try again later")
+				} else {
+					log.Warn("The sync index is incorrect with txApplyErr", "expect", expectMetaIndex, "parent", parentNumber)
 				}
 			}
 		}
