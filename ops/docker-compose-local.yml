@@ -179,6 +179,10 @@ services:
       SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
       SEQ_ADDRESS: "0x1267397fb5BF6f6Dcc3d18d673616D512dbcd8F0"
       SEQ_PRIV: "ed3f195449409dc1d22f0119da7678200710a447ff75baa06bfc42829d02d28c"
+      # aws or docker, set EXTERNAL_IP to inner ip
+      # EXTERNAL_IP: 
+      # boot node to discover p2p fastly
+      # BOOTNODES:
     ports:
       - ${L2GETH_HTTP_PORT:-8545}:8545
       - ${L2GETH_WS_PORT:-8546}:8546
@@ -191,10 +195,10 @@ services:
     depends_on:
       - l1_chain
       - deployer
-    image: ethereumoptimism/l2geth-backupseq
+    image: ethereumoptimism/l2geth
     build:
       context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth.backupseq
+      dockerfile: ./ops/docker/Dockerfile.geth
     # override with the geth script and the env vars required for it
     # entrypoint: sh ./geth.sh
     env_file:
@@ -205,8 +209,8 @@ services:
       ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
       # connecting to the DTL
       ROLLUP_CLIENT_HTTP: http://dtlB:7878
-      L2_URL: http://l2geth:8545
-      L2_MAIN_IP: l2geth
+      # L2_URL: http://l2geth:8545
+      # L2_MAIN_IP: l2geth
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
       RETRIES: 60
       # no need to keep this secret, only used internally to sign blocks
@@ -216,6 +220,10 @@ services:
       SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
       SEQ_ADDRESS: "0xC213298C9e90e1AE7b4B97C95A7BE1B811E7c933"
       SEQ_PRIV: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
+      # aws or docker, set EXTERNAL_IP to inner ip
+      # EXTERNAL_IP: 
+      # boot node to discover p2p fastly
+      # BOOTNODES:
     ports:
       - ${L2GETH_HTTP_PORT:-18545}:8545
       - ${L2GETH_WS_PORT:-18546}:8546
@@ -228,10 +236,10 @@ services:
     depends_on:
       - l1_chain
       - deployer
-    image: ethereumoptimism/l2geth-backupseq
+    image: ethereumoptimism/l2geth
     build:
       context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth.backupseq
+      dockerfile: ./ops/docker/Dockerfile.geth
     # override with the geth script and the env vars required for it
     # entrypoint: sh ./geth.sh
     env_file:
@@ -242,8 +250,8 @@ services:
       ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
       # connecting to the DTL
       ROLLUP_CLIENT_HTTP: http://dtlB:7878
-      L2_URL: http://l2gethB:8545
-      L2_MAIN_IP: l2gethB
+      # L2_URL: http://l2gethB:8545
+      # L2_MAIN_IP: l2gethB
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
       RETRIES: 60
       # no need to keep this secret, only used internally to sign blocks
@@ -253,6 +261,10 @@ services:
       SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
       # seq bridge url set to enable RPC only node role
       SEQ_BRIDGE_URL: http://l2gethB:8545 
+      # aws or docker, set EXTERNAL_IP to inner ip
+      # EXTERNAL_IP: 
+      # boot node to discover p2p fastly
+      # BOOTNODES:
     ports:
       - ${L2GETH_HTTP_PORT:-18547}:8545
       - ${L2GETH_WS_PORT:-18548}:8546
