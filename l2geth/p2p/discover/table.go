@@ -445,6 +445,10 @@ func (tab *Table) bucketLen(id enode.ID) int {
 // bucket returns the bucket for the given node ID hash.
 func (tab *Table) bucket(id enode.ID) *bucket {
 	d := enode.LogDist(tab.self().ID(), id)
+	return tab.bucketAtDistance(d)
+}
+
+func (tab *Table) bucketAtDistance(d int) *bucket {
 	if d <= bucketMinDistance {
 		return tab.buckets[0]
 	}
@@ -537,6 +541,9 @@ func (tab *Table) delete(node *node) {
 }
 
 func (tab *Table) addIP(b *bucket, ip net.IP) bool {
+	if len(ip) == 0 {
+		return false // Nodes without IP cannot be added.
+	}
 	if netutil.IsLAN(ip) {
 		return true
 	}
