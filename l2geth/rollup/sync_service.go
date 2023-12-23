@@ -988,12 +988,13 @@ func (s *SyncService) addSeqSignature(tx *types.Transaction) error {
 		tx.SetSeqSign(seqSign)
 		return nil
 	}
-	if s.seqPriv == "" {
+	if s.seqPriv == "" || s.seqPriv == "0x" {
 		return errors.New("seq priv not set")
 	}
+	seqPriv := strings.Replace(s.seqPriv, "0x", "", 1)
 	hash := tx.Hash().Bytes()
 
-	privKey, err := hex.DecodeString(s.seqPriv)
+	privKey, err := hex.DecodeString(seqPriv)
 	if err != nil {
 		return err
 	}
