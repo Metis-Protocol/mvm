@@ -43,6 +43,7 @@ type RollupAdapter interface {
 	IsSeqSetContractCall(tx *types.Transaction) (bool, []byte)
 	SetPreRespan(oldAddress common.Address, newAddress common.Address, number uint64) error
 	IsPreRespanSequencer(seqAddress string, number uint64) bool
+	IsNotNextRespanSequencer(seqAddress string, number uint64) bool
 }
 
 // Cached seq epoch, if recommit or block number < start | > end, clear cache with status false
@@ -246,7 +247,7 @@ func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
 }
 
 func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) {
-	if (s.l2SeqContract == common.Address{}) {
+	if (tx.To() == nil || s.l2SeqContract == common.Address{}) {
 		return false, nil
 	}
 	toAddress := tx.To()
@@ -270,7 +271,17 @@ func (s *SeqAdapter) IsPreRespanSequencer(seqAddress string, number uint64) bool
 	if s.preRespan == nil || s.preRespan.RespanStartBlock == 0 || (s.preRespan.PreSigner == common.Address{}) {
 		return false
 	}
-	if number >= s.preRespan.RespanStartBlock && s.preRespan.PreSigner.Hex() == seqAddress {
+	if number >= s.preRespan.RespanStartBlock && strings.EqualFold(s.preRespan.PreSigner.Hex(), seqAddress) {
+		return true
+	}
+	return false
+}
+
+func (s *SeqAdapter) IsNotNextRespanSequencer(seqAddress string, number uint64) bool {
+	if s.preRespan == nil || s.preRespan.RespanStartBlock == 0 || (s.preRespan.NewSigner == common.Address{}) {
+		return false
+	}
+	if number >= s.preRespan.RespanStartBlock && !strings.EqualFold(s.preRespan.NewSigner.Hex(), seqAddress) {
 		return true
 	}
 	return false

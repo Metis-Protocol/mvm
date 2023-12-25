@@ -253,13 +253,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		header := block.Header()
 		log.Info("Initial Rollup State", "state", header.Root.Hex(), "index", stringify(index), "queue-index", stringify(queueIndex), "verified-index", stringify(verifiedIndex))
 
-		// The sequencer needs to sync to the tip at start up
-		// By setting the sync status to true, it will prevent RPC calls.
-		// Be sure this is set to false later.
-		if !service.verifier {
-			service.setSyncStatus(true)
-		}
-
 		if cfg.SequencerClientHttp != "" {
 			// check Main sequencer latest height
 			ctxt, cancel := context.WithTimeout(context.TODO(), 15*time.Second)
@@ -273,7 +266,17 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 				return nil, fmt.Errorf("Cannot check the default sequencer height: %w", err)
 			}
 			service.startSeqHeight = sequencerHeader.Number.Uint64()
-			log.Info("Initial Rollup Start Sequencer Height", "start-seq-height", service.startSeqHeight)
+		}
+		if service.startSeqHeight == 0 {
+			service.startSeqHeight = header.Number.Uint64()
+		}
+		log.Info("Initial Rollup Start Sequencer Height", "start-seq-height", service.startSeqHeight)
+
+		// The sequencer needs to sync to the tip at start up
+		// By setting the sync status to true, it will prevent RPC calls.
+		// Be sure this is set to false later.
+		if !service.verifier {
+			service.setSyncStatus(true)
 		}
 	}
 	return &service, nil
@@ -1087,6 +1090,12 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
 			// when block number >= seqValidHeight && !QueueOriginL1ToL2
 			if seqModel {
+				// check pre-respan first
+				if s.seqAdapter.IsNotNextRespanSequencer(s.SeqAddress, blockNumber) {
+					err = errors.New("pre-respan to other sequencer")
+					log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "blockNumber", blockNumber, "selfSeq", s.SeqAddress)
+					return err
+				}
 				// mpc status 2. add sequencer signature to tx in sequencer model
 				err = s.addSeqSignature(tx)
 				if err != nil {
