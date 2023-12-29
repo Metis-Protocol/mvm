@@ -145,6 +145,71 @@ func (b *EthAPIBackend) SetHead(number uint64) {
 
 	b.eth.syncService.SetLatestL1Timestamp(tx.L1Timestamp())
 	b.eth.syncService.SetLatestL1BlockNumber(blockNumber.Uint64())
+
+	// Make sure to reset the LatestIndex, Verified index
+	b.eth.syncService.SetLatestIndex(tx.GetMeta().Index)
+	b.eth.syncService.SetLatestIndexTime(time.Now().Unix())
+	b.eth.syncService.SetLatestVerifiedIndex(tx.GetMeta().Index)
+
+	// If rollup reset LatestEnqueueIndex
+	if b.UsingOVM && b.eth.config.Rollup.Eth1SyncServiceEnable {
+		queueIndex := b.eth.syncService.GetLatestEnqueueIndex()
+		if queueIndex == nil {
+			enqueue, err := b.eth.syncService.RollupClient().GetLastConfirmedEnqueue()
+			// Other unexpected error
+			if err != nil {
+				log.Error("Not reset queue index", "err", err)
+				return
+			}
+			// No error, the queue element was found
+			queueIndex = enqueue.GetMeta().QueueIndex
+		} else {
+			log.Info("Found latest queue index", "queue-index", *queueIndex)
+			// The queue index is defined. Work backwards from the tip
+			// to make sure that the indexed queue index is the latest
+			// enqueued transaction
+			for {
+				// There are no blocks in the chain
+				// This should never happen
+				if block == nil {
+					log.Warn("Found no genesis block when fixing queue index")
+					break
+				}
+				num := block.Number().Uint64()
+				// Handle the genesis block
+				if num == 0 {
+					log.Info("Hit genesis block when fixing queue index")
+					queueIndex = nil
+					break
+				}
+				txs := block.Transactions()
+				// This should never happen
+				if len(txs) != 1 {
+					log.Warn("Found block with unexpected number of txs", "count", len(txs), "height", num)
+					break
+				}
+				tx := txs[0]
+				qi := tx.GetMeta().QueueIndex
+				// When the queue index is set
+				if tx.QueueOrigin() == types.QueueOriginL1ToL2 && qi != nil {
+					if *qi == *queueIndex {
+						log.Info("Found correct staring queue index", "queue-index", *qi)
+					} else {
+						log.Info("Found incorrect staring queue index, fixing", "old", *queueIndex, "new", *qi)
+						queueIndex = qi
+					}
+					break
+				}
+				block = b.eth.BlockChain().GetBlockByNumber(num - 1)
+			}
+		}
+		log.Info("Reset queue index")
+		b.eth.syncService.SetLatestEnqueueIndex(queueIndex)
+		err := b.eth.syncService.SetStartSeqHeight()
+		if err != nil {
+			log.Error("Reset start sequencer height", "err", err)
+		}
+	}
 }
 
 func (b *EthAPIBackend) IngestTransactions(txs []*types.Transaction) error {

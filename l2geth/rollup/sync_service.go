@@ -93,6 +93,7 @@ type SyncService struct {
 	applyLock         sync.Mutex
 	decSeqValidHeight uint64
 	startSeqHeight    uint64
+	seqClientHttp     string
 	SeqAddress        string
 	seqPriv           string
 
@@ -182,6 +183,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 		decSeqValidHeight:   cfg.SeqsetValidHeight,
 		startSeqHeight:      uint64(0),
+		seqClientHttp:       cfg.SequencerClientHttp,
 		SeqAddress:          cfg.SeqAddress,
 		seqPriv:             cfg.SeqPriv,
 		syncQueueFromOthers: syncQueueFromOthers,
@@ -253,24 +255,14 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		header := block.Header()
 		log.Info("Initial Rollup State", "state", header.Root.Hex(), "index", stringify(index), "queue-index", stringify(queueIndex), "verified-index", stringify(verifiedIndex))
 
-		if cfg.SequencerClientHttp != "" {
-			// check Main sequencer latest height
-			ctxt, cancel := context.WithTimeout(context.TODO(), 15*time.Second)
-			defer cancel()
-			sequencerClient, err := ethclient.DialContext(ctxt, cfg.SequencerClientHttp)
-			if err != nil {
-				return nil, fmt.Errorf("Cannot connect to the default sequencer client: %w", err)
-			}
-			sequencerHeader, err := sequencerClient.HeaderByNumber(context.TODO(), nil)
-			if err != nil {
-				return nil, fmt.Errorf("Cannot check the default sequencer height: %w", err)
-			}
-			service.startSeqHeight = sequencerHeader.Number.Uint64()
+		err = service.SetStartSeqHeight()
+		if err != nil {
+			return nil, err
 		}
 		if service.startSeqHeight == 0 {
 			service.startSeqHeight = header.Number.Uint64()
+			log.Info("Initial Rollup Start Sequencer Height without http", "start-seq-height", service.startSeqHeight)
 		}
-		log.Info("Initial Rollup Start Sequencer Height", "start-seq-height", service.startSeqHeight)
 
 		// The sequencer needs to sync to the tip at start up
 		// By setting the sync status to true, it will prevent RPC calls.
@@ -288,6 +280,25 @@ func (s *SyncService) ensureClient() error {
 	_, err := s.client.GetLatestEthContext()
 	if err != nil {
 		return fmt.Errorf("Cannot connect to data service: %w", err)
+	}
+	return nil
+}
+
+func (s *SyncService) SetStartSeqHeight() error {
+	if s.seqClientHttp != "" {
+		// check Main sequencer latest height
+		ctxt, cancel := context.WithTimeout(context.TODO(), 15*time.Second)
+		defer cancel()
+		sequencerClient, err := ethclient.DialContext(ctxt, s.seqClientHttp)
+		if err != nil {
+			return fmt.Errorf("Cannot connect to the default sequencer client: %w", err)
+		}
+		sequencerHeader, err := sequencerClient.HeaderByNumber(context.TODO(), nil)
+		if err != nil {
+			return fmt.Errorf("Cannot check the default sequencer height: %w", err)
+		}
+		s.startSeqHeight = sequencerHeader.Number.Uint64()
+		log.Info("Initial Rollup Start Sequencer Height", "start-seq-height", s.startSeqHeight)
 	}
 	return nil
 }
@@ -427,14 +438,12 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			tx := txs[0]
 			qi := tx.GetMeta().QueueIndex
 			// When the queue index is set
-			if qi != nil && *qi != 0 {
+			if tx.QueueOrigin() == types.QueueOriginL1ToL2 && qi != nil {
 				if *qi == *queueIndex {
 					log.Info("Found correct staring queue index", "queue-index", *qi)
 				} else {
 					log.Info("Found incorrect staring queue index, fixing", "old", *queueIndex, "new", *qi)
-					if *qi > *queueIndex {
-						queueIndex = qi
-					}
+					queueIndex = qi
 				}
 				break
 			}
@@ -921,10 +930,6 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction, fromLocal b
 	if index == nil {
 		return errors.New("No index found in applyIndexedTransaction")
 	}
-	// if *index > s.decSeqValidHeight && tx.GetSeqSign() == nil {
-	// 	log.Trace("no seq signature after seq sign valid height")
-	// 	return errors.New("no seq signature after seq sign valid height")
-	// }
 	log.Trace("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
 	if *index == next {
