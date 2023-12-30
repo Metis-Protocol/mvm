@@ -73,7 +73,7 @@ export class Watcher {
 
     const msgHashes = []
     const sentMessageEventId = ethers.utils.id(
-      'SentMessage(address,address,bytes,uint256,uint256)'
+      'SentMessage(address,address,bytes,uint256,uint256,uint256)'
     )
     const l2CrossDomainMessengerRelayAbi = [
       'function relayMessage(address _target,address _sender,bytes memory _message,uint256 _messageNonce)',
