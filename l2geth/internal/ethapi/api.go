@@ -800,6 +800,7 @@ type CallArgs struct {
 	GasPrice *hexutil.Big    `json:"gasPrice"`
 	Value    *hexutil.Big    `json:"value"`
 	Data     *hexutil.Bytes  `json:"data"`
+	Input    *hexutil.Bytes  `json:"input"`
 }
 
 // account indicates the overriding fields of account during the execution of
@@ -886,6 +887,8 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	var data []byte
 	if args.Data != nil {
 		data = []byte(*args.Data)
+	} else if args.Input != nil {
+		data = []byte(*args.Input)
 	}
 
 	// Currently, the blocknumber and timestamp actually refer to the L1BlockNumber and L1Timestamp
@@ -1108,17 +1111,20 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block. This is modified to
 // encode the fee in wei as gas price is always 1
-func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
-	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
+	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if s.b.IsRpcProxySupport() {
-		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+		bNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 	} else {
 		// backup sequencer model check
 		if rpc.LatestBlockNumber > rpc.PendingBlockNumber && rpc.LatestBlockNumber > 0 {
-			blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+			bNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 		}
 	}
-	return DoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+	return DoEstimateGas(ctx, s.b, args, bNrOrHash, s.b.RPCGasCap())
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
