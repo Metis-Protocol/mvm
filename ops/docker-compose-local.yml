@@ -50,7 +50,9 @@ services:
       # skip compilation when run in docker-compose, since the contracts
       # were already compiled in the builder step
       NO_COMPILE: 1
-      SEQENCER_ADDRESS: "0x53ca1ea34ecd6c395d7b8f63f603f801d1680d70"
+      # mpc 0: 0x4835bd266b19887d56972474ec22fa769fd2a77b
+      SEQENCER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+      # mpc 1: 0xd9ced9f5917c40c171a85764805d41052cfb8fee
       PROPOSER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
       RELAYER_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
       METIS_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
@@ -119,12 +121,14 @@ services:
     volumes:
       - /tmp/mvm/dtlB:/data/db
 
-  dtlPeer:
+  dtlReplica:
     depends_on:
       - l1_chain
       - deployer
       - l2geth-peer
     image: ethereumoptimism/data-transport-layer
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.data-transport-layer
@@ -139,14 +143,14 @@ services:
       URL: http://deployer:8081/addresses.json
       # connect to the 2 layers
       DATA_TRANSPORT_LAYER__L1_RPC_ENDPOINT: http://l1_chain:8545
-      DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: http://l2geth-peer:8545
-      DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
+      DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: http://l2geth:8545
+      DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'true'
       DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 1088
     ports:
       - ${DTL_PORT:-7880}:7878
     restart: on-failure
     volumes:
-      - /tmp/mvm/dtlPeer:/data/db
+      - /tmp/mvm/dtlReplica:/data/db
 
   l2geth:
     depends_on:
@@ -172,9 +176,13 @@ services:
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQSET_VALID_HEIGHT: 35
-      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+      SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
       SEQ_ADDRESS: "0x1267397fb5BF6f6Dcc3d18d673616D512dbcd8F0"
       SEQ_PRIV: "ed3f195449409dc1d22f0119da7678200710a447ff75baa06bfc42829d02d28c"
+      # aws or docker, set EXTERNAL_IP to inner ip
+      # EXTERNAL_IP: 
+      # boot node to discover p2p fastly
+      # BOOTNODES:
     ports:
       - ${L2GETH_HTTP_PORT:-8545}:8545
       - ${L2GETH_WS_PORT:-8546}:8546
@@ -187,10 +195,10 @@ services:
     depends_on:
       - l1_chain
       - deployer
-    image: ethereumoptimism/l2geth-backupseq
+    image: ethereumoptimism/l2geth
     build:
       context: ..
-      dockerfile: ./ops/docker/Dockerfile.geth.backupseq
+      dockerfile: ./ops/docker/Dockerfile.geth
     # override with the geth script and the env vars required for it
     # entrypoint: sh ./geth.sh
     env_file:
@@ -201,17 +209,21 @@ services:
       ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
       # connecting to the DTL
       ROLLUP_CLIENT_HTTP: http://dtlB:7878
-      L2_URL: http://l2geth:8545
-      L2_MAIN_IP: l2geth
+      # L2_URL: http://l2geth:8545
+      # L2_MAIN_IP: l2geth
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
       RETRIES: 60
       # no need to keep this secret, only used internally to sign blocks
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQSET_VALID_HEIGHT: 35
-      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+      SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
       SEQ_ADDRESS: "0xC213298C9e90e1AE7b4B97C95A7BE1B811E7c933"
       SEQ_PRIV: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
+      # aws or docker, set EXTERNAL_IP to inner ip
+      # EXTERNAL_IP: 
+      # boot node to discover p2p fastly
+      # BOOTNODES:
     ports:
       - ${L2GETH_HTTP_PORT:-18545}:8545
       - ${L2GETH_WS_PORT:-18546}:8546
@@ -219,14 +231,55 @@ services:
     restart: on-failure
     volumes:
       - /tmp/mvm/l2gethB:/root/.ethereum
+  
+  l2gethB-rpc:
+    depends_on:
+      - l1_chain
+      - deployer
+    image: ethereumoptimism/l2geth
+    build:
+      context: ..
+      dockerfile: ./ops/docker/Dockerfile.geth
+    # override with the geth script and the env vars required for it
+    # entrypoint: sh ./geth.sh
+    env_file:
+      - ./envs/geth-rpc.env
+    environment:
+      ETH1_HTTP: http://l1_chain:8545
+      ROLLUP_TIMESTAMP_REFRESH: 5s
+      ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
+      # connecting to the DTL
+      ROLLUP_CLIENT_HTTP: http://dtlB:7878
+      # L2_URL: http://l2gethB:8545
+      # L2_MAIN_IP: l2gethB
+      ETH1_CTC_DEPLOYMENT_HEIGHT: 8
+      RETRIES: 60
+      # no need to keep this secret, only used internally to sign blocks
+      BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
+      BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
+      SEQSET_VALID_HEIGHT: 35
+      SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+      # seq bridge url set to enable RPC only node role
+      SEQ_BRIDGE_URL: http://l2gethB:8545 
+      # aws or docker, set EXTERNAL_IP to inner ip
+      # EXTERNAL_IP: 
+      # boot node to discover p2p fastly
+      # BOOTNODES:
+    ports:
+      - ${L2GETH_HTTP_PORT:-18547}:8545
+      - ${L2GETH_WS_PORT:-18548}:8546
+      - ${L2GETH_NODE_PORT:-40304}:30303
+    restart: on-failure
+    volumes:
+      - /tmp/mvm/l2gethBrpc:/root/.ethereum
 
   l2geth-peer:
     depends_on:
       - l2geth
       - l2gethB
     image: ethereumoptimism/l2geth-peer
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth.peer
@@ -251,7 +304,7 @@ services:
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQSET_VALID_HEIGHT: 35
-      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+      SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     ports:
       - ${L2GETH_HTTP_PORT:-10545}:8545
       - ${L2GETH_WS_PORT:-10546}:8546
@@ -266,6 +319,8 @@ services:
       - deployer
       - l2geth
     image: ethereumoptimism/message-relayer
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.message-relayer
@@ -290,8 +345,8 @@ services:
       - deployer
       - l2geth
     image: ethereumoptimism/batch-submitter
-    # deploy:
-    #   replicas: 0
+    deploy:
+      replicas: 0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.batch-submitter
@@ -303,7 +358,8 @@ services:
       L2_NODE_WEB3_URL: http://l2geth:8545
       URL: http://deployer:8081/addresses.json
       SEQUENCER_PRIVATE_KEY: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
-      MPC_URL: http://3.213.188.165:1317
+      # test mpc with chain id 5 http://3.213.188.165:1317
+      MPC_URL: ""
     restart: on-failure
 
   verifier:
@@ -331,7 +387,7 @@ services:
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQSET_VALID_HEIGHT: 35
-      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+      SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     ports:
       - ${VERIFIER_HTTP_PORT:-8547}:8545
       - ${VERIFIER_WS_PORT:-8548}:8546
@@ -341,7 +397,7 @@ services:
 
   replica:
     depends_on:
-      - dtl
+      - dtlReplica
     image: ethereumoptimism/l2geth
     deploy:
       replicas: 0
@@ -354,7 +410,7 @@ services:
     environment:
       ETH1_HTTP: http://l1_chain:8545
       ROLLUP_STATE_DUMP_PATH: http://deployer:8081/state-dump.latest.json
-      ROLLUP_CLIENT_HTTP: http://dtl:7878
+      ROLLUP_CLIENT_HTTP: http://dtlReplica:7878
       ROLLUP_BACKEND: 'l2'
       ETH1_CTC_DEPLOYMENT_HEIGHT: 8
       RETRIES: 60
@@ -362,7 +418,7 @@ services:
       BLOCK_SIGNER_KEY: "6587ae678cf4fc9a33000cdbf9f35226b71dcc6a4684a31203241f9bcfd55d27"
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQSET_VALID_HEIGHT: 35
-      SEQSET_CONTRACT: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+      SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     ports:
       - ${VERIFIER_HTTP_PORT:-8551}:8545
       - ${VERIFIER_WS_PORT:-8552}:8546

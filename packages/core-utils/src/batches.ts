@@ -31,6 +31,9 @@ export interface L2Transaction extends TransactionResponse {
   l1TxOrigin: string
   queueOrigin: string
   rawTransaction: string
+  seqR: string | undefined | null
+  seqS: string | undefined | null
+  seqV: string | undefined | null
 }
 
 export interface L2Block extends BlockWithTransactions {
@@ -48,6 +51,7 @@ export interface BatchElement {
   rawTransaction: undefined | string
   timestamp: number
   blockNumber: number
+  seqSign: string | undefined | null
 }
 
 export type Batch = BatchElement[]

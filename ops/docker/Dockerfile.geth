@@ -14,5 +14,4 @@ COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
 
 EXPOSE 8545 8546 8547
 COPY ./ops/scripts/geth.sh .
-COPY ./ops/scripts/genesis.json .
 ENTRYPOINT ["sh", "./geth.sh"]

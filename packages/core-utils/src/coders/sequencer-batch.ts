@@ -16,6 +16,7 @@ export interface AppendSequencerBatchParams {
   contexts: BatchContext[] // total_elements[fixed_size[]]
   transactions: string[] // total_size_bytes[],total_size_bytes[]
   blockNumbers: number[]
+  seqSigns: string[] // de-sequencer block sign, length equals sequencerTx
 }
 
 export interface EncodeSequencerBatchOptions {
@@ -47,6 +48,19 @@ export const encodeAppendSequencerBatch = async (
     ).padStart(6, '0')
     return acc + encodedTxDataHeader + remove0x(cur)
   }, '')
+  // encode sequencer signs, append to encodedTransactionData
+  if (b.seqSigns.length > 0) {
+    const encodedSeqSignData = b.seqSigns.reduce((acc, cur) => {
+      if (cur.length % 2 !== 0) {
+        throw new Error('Unexpected uneven hex string value! cur:' + cur)
+      }
+      const encodedSignDataHeader = remove0x(
+        BigNumber.from(remove0x(cur).length / 2).toHexString()
+      ).padStart(6, '0')
+      return acc + encodedSignDataHeader + remove0x(cur)
+    }, '')
+    encodedTransactionData += encodedSeqSignData
+  }
 
   console.info('input data', b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData.length)
 
@@ -164,6 +178,7 @@ export const decodeAppendSequencerBatch = async (
   }
 
   const transactions = []
+  const seqSigns = []
   for (const context of contexts) {
     for (let j = 0; j < context.numSequencedTransactions; j++) {
       const size = b.slice(offset, offset + 6)
@@ -171,6 +186,21 @@ export const decodeAppendSequencerBatch = async (
       const raw = b.slice(offset, offset + parseInt(size, 16) * 2)
       transactions.push(add0x(raw))
       offset += raw.length
+    }
+    // decode sequencer signs
+    if (offset < b.length) {
+      for (let j = 0; j < context.numSequencedTransactions; j++) {
+        const size = b.slice(offset, offset + 6)
+        offset += 6
+        const signLen = parseInt(size, 16) * 2
+        if (signLen === 0) {
+          seqSigns.push('')
+        } else {
+          const raw = b.slice(offset, offset + signLen)
+          seqSigns.push(raw)
+          offset += raw.length
+        }
+      }
     }
   }
 
@@ -180,6 +210,7 @@ export const decodeAppendSequencerBatch = async (
     contexts,
     transactions,
     blockNumbers: [],
+    seqSigns,
   }
 }
 

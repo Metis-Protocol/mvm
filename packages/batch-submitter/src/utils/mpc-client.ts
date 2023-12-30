@@ -9,13 +9,17 @@ export class MpcClient {
     this.url = url
   }
 
-  protected httpRequest(url: string, options: http.RequestOptions | https.RequestOptions, data?: any): Promise<string> {
+  protected httpRequest(
+    url: string,
+    options: http.RequestOptions | https.RequestOptions,
+    data?: any
+  ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const protocol = url.toLowerCase().startsWith('https') ? https : http
-      const req = protocol.request(options, response => {
+      const req = protocol.request(options, (response) => {
         let responseData = ''
 
-        response.on('data', chunk => {
+        response.on('data', (chunk) => {
           responseData += chunk
         })
 
@@ -24,7 +28,7 @@ export class MpcClient {
         })
       })
 
-      req.on('error', error => {
+      req.on('error', (error) => {
         reject(error)
       })
 
@@ -36,13 +40,13 @@ export class MpcClient {
     })
   }
 
-  public async getLatestMpc(): Promise<any> {
-    const getUrl = new URL('/mpc/latest', this.url)
+  public async getLatestMpc(id: string = '0'): Promise<any> {
+    const getUrl = new URL(`/mpc/latest/${id}`, this.url)
     const getOptions: http.RequestOptions | https.RequestOptions = {
-        method: 'GET',
-        hostname: getUrl.hostname,
-        port: getUrl.port,
-        path: getUrl.pathname
+      method: 'GET',
+      hostname: getUrl.hostname,
+      port: getUrl.port,
+      path: getUrl.pathname,
     }
     const resp = await this.httpRequest(this.url, getOptions)
     console.debug('getLatestMpc resp', resp)
@@ -64,9 +68,9 @@ export class MpcClient {
       port: postUrl.port,
       path: postUrl.pathname,
       headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(JSON.stringify(data))
-      }
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(JSON.stringify(data)),
+      },
     }
     const resp = await this.httpRequest(this.url, postOptions, data)
     console.info('proposeMpcSign resp', resp)
@@ -80,14 +84,13 @@ export class MpcClient {
     return obj
   }
 
-
   public async getMpcSign(id: string): Promise<string> {
     const getUrl = new URL(`/mpc/sign/${id}`, this.url)
     const getOptions: http.RequestOptions | https.RequestOptions = {
-        method: 'GET',
-        hostname: getUrl.hostname,
-        port: getUrl.port,
-        path: getUrl.pathname
+      method: 'GET',
+      hostname: getUrl.hostname,
+      port: getUrl.port,
+      path: getUrl.pathname,
     }
     const resp = await this.httpRequest(this.url, getOptions)
     console.info('getMpcSign resp', resp)
@@ -104,26 +107,33 @@ export class MpcClient {
     return ''
   }
 
-  public async getMpcSignWithTimeout(id: string, maxTimeout: number, interval: number): Promise<string> {
+  public async getMpcSignWithTimeout(
+    id: string,
+    maxTimeout: number,
+    interval: number
+  ): Promise<string> {
     const startTime = Date.now()
     return new Promise<any>(async (resolve, reject) => {
-        const requestInterval = setInterval(async () => {
-            try {
-                const signedTx = await this.getMpcSign(id)
-                const currentTime = Date.now()
-                if (signedTx || currentTime - startTime >= maxTimeout) {
-                    clearInterval(requestInterval)
-                    resolve(signedTx)
-                }
-            } catch (error) {
-                clearInterval(requestInterval)
-                reject(error)
-            }
-        }, interval)
+      const requestInterval = setInterval(async () => {
+        try {
+          const signedTx = await this.getMpcSign(id)
+          const currentTime = Date.now()
+          if (signedTx || currentTime - startTime >= maxTimeout) {
+            clearInterval(requestInterval)
+            resolve(signedTx)
+          }
+        } catch (error) {
+          clearInterval(requestInterval)
+          reject(error)
+        }
+      }, interval)
     })
   }
 
-  public removeHexLeadingZero(hex: string, keepOneZero: boolean = false): string {
+  public removeHexLeadingZero(
+    hex: string,
+    keepOneZero: boolean = false
+  ): string {
     let toHex = hex.startsWith('0x') ? hex.substring(2) : hex
     toHex = toHex.replace(/^0+/, '')
     if (toHex.length == 0 && keepOneZero) {
@@ -140,5 +150,4 @@ export class MpcClient {
     const binaryData = Buffer.from(base64String, 'base64')
     return '0x' + binaryData.toString('hex')
   }
-
 }

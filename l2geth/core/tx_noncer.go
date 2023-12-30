@@ -21,7 +21,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/state"
-	"github.com/ethereum-optimism/optimism/l2geth/log"
 )
 
 // txNoncer is a tiny virtual state database to manage the executable nonces of
@@ -47,19 +46,17 @@ func (txn *txNoncer) get(addr common.Address) uint64 {
 	// We use mutex for get operation is the underlying
 	// state will mutate db even for read access.
 	txn.lock.Lock()
+	defer txn.lock.Unlock()
+
 	if _, ok := txn.nonces[addr]; !ok {
 		txn.nonces[addr] = txn.fallback.GetNonce(addr)
 	}
-	nonce := txn.nonces[addr]
-	txn.lock.Unlock()
-	log.Info("get", "addr ", addr.String(), "nonce ", nonce)
-	return nonce
+	return txn.nonces[addr]
 }
 
 // set inserts a new virtual nonce into the virtual state database to be returned
 // whenever the pool requests it instead of reaching into the real state database.
 func (txn *txNoncer) set(addr common.Address, nonce uint64) {
-	log.Info("set", "addr ", addr.String(), "nonce ", nonce)
 	txn.lock.Lock()
 	defer txn.lock.Unlock()
 
@@ -69,7 +66,6 @@ func (txn *txNoncer) set(addr common.Address, nonce uint64) {
 // setIfLower updates a new virtual nonce into the virtual state database if the
 // the new one is lower.
 func (txn *txNoncer) setIfLower(addr common.Address, nonce uint64) {
-	log.Info("setIfLower", "addr ", addr.String(), "nonce ", nonce)
 	txn.lock.Lock()
 	defer txn.lock.Unlock()
 

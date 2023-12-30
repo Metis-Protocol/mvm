@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -191,7 +190,11 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 			block *types.Block
 		)
 		rollupClient := manager.syncService.RollupClient()
-		recommitSeq := common.Address{}
+		syncEnqueueIndex := manager.syncService.GetLatestEnqueueIndex()
+		var latestEnqueueIndex uint64
+		if syncEnqueueIndex != nil {
+			latestEnqueueIndex = *syncEnqueueIndex
+		}
 		for i := 0; i < len(blocks); i++ {
 			block = blocks[i]
 			if block.Transactions().Len() == 0 {
@@ -207,6 +210,14 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					if queueIndex == nil {
 						return errors.New("handler blocksBeforeInsert invalid queue")
 					}
+					if syncEnqueueIndex != nil && *queueIndex <= latestEnqueueIndex {
+						// queueIndex should >= 0
+						errInfo := fmt.Sprintf("handler blocksBeforeInsert queue index replay, latest enqueue index %v, queue index %v", latestEnqueueIndex, *queueIndex)
+						log.Error(errInfo)
+						return errors.New(errInfo)
+					}
+					syncEnqueueIndex = queueIndex
+					latestEnqueueIndex = *queueIndex
 					// check args with dtl l1 enqueue
 					txEnqueue, err := rollupClient.GetEnqueue(*queueIndex)
 					if err != nil {
@@ -231,30 +242,12 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					log.Error("handler blocksBeforeInsert RecoverSeqAddress err", err)
 					return err
 				}
-				// check sequencer contract special tx, if true, check recoverSeq equals to special address arg, the expect sequencer can be read until the special tx block inserted
-				seqOper, operData := seqAdapter.IsSeqSetContractCall(tx)
-				if seqOper {
-					updateSeq, newSeq := seqAdapter.ParseUpdateSeqData(operData)
-					if updateSeq {
-						recommitSeq = newSeq
-					}
-				}
-				if recommitSeq != (common.Address{}) {
-					if !strings.EqualFold(recommitSeq.String(), recoverSeq) {
-						errInfo := fmt.Sprintf("handler blocksBeforeInsert tx seq %v, is not recommit seq %v", recoverSeq, recommitSeq.String())
-						log.Error(errInfo)
-						return errors.New(errInfo)
-					}
-					continue
-				}
-				expectSeq, err := seqAdapter.GetTxSeqencer(tx, blockNumber)
-				if err != nil {
-					log.Error("handler blocksBeforeInsert GetTxSeqencer err", err)
-					return err
-				}
-				if !strings.EqualFold(expectSeq.String(), recoverSeq) {
-					errInfo := fmt.Sprintf("handler blocksBeforeInsert tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
-					log.Error(errInfo)
+				log.Debug(fmt.Sprintf("handler blocksBeforeInsert tx seq %v", recoverSeq))
+				// check prevent sequencer signer and height of PoS
+				shouldPrevent := seqAdapter.IsPreRespanSequencer(recoverSeq, blockNumber)
+				if shouldPrevent {
+					errInfo := "handler blocksBeforeInsert with prevent by respan"
+					log.Error(errInfo, "recoverSeq", recoverSeq, "number", blockNumber)
 					return errors.New(errInfo)
 				}
 			}
@@ -393,7 +386,7 @@ func (pm *ProtocolManager) startFetcherTicker() {
 					pm.removePeer(p.id)
 					pm.handle(p)
 				}
-				pm.peerSyncTime = 0
+				pm.peerSyncTime = time.Now().Unix()
 				log.Info("All peers reconnecting", "peers len", pm.peers.Len())
 			}
 		}
@@ -538,9 +531,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 
-	// rollup node disable write msg
+	// rollup node should accept write msg
 	if pm.HasRPCModule("rollup") {
-		log.Info("in rollup mode", "get msg", msg.Code)
 		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
 			//return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
 			// should support NewBlockMsg
@@ -568,7 +560,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&query); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		log.Info("handleMsg GetBlockHeadersMsg", "msg", query)
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
@@ -656,7 +647,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&headers); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		log.Info("handleMsg BlockHeadersMsg", "msg", headers)
 		// If no headers were received, but we're expencting a checkpoint header, consider it that
 		if len(headers) == 0 && p.syncDrop != nil {
 			// Stop the timer either way, decide later to drop or not
@@ -706,7 +696,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetBlockBodiesMsg:
 		// Decode the retrieval message
-		log.Info("handleMsg GetBlockBodiesMsg")
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
 			return err
@@ -733,13 +722,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendBlockBodiesRLP(bodies)
 
 	case msg.Code == BlockBodiesMsg:
-
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		log.Info("handleMsg BlockBodiesMsg", "msg", request)
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
 		uncles := make([][]*types.Header, len(request))
@@ -752,6 +739,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		filter := len(transactions) > 0 || len(uncles) > 0
 		if filter {
 			transactions, uncles = pm.fetcher.FilterBodies(p.id, transactions, uncles, time.Now())
+			log.Debug("Handler handleMsg FilterBodies", "tx len", len(transactions), "uncle len", len(uncles))
 		}
 		if len(transactions) > 0 || len(uncles) > 0 || !filter {
 			err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
@@ -759,15 +747,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
 		}
-		// for _, txs := range transactions {
-		// 	if pm.txQueues != nil {
-		// 		for _, tx := range txs {
-		// 			pm.txQueues <- tx
-		// 		}
-		// 	}
-		// }
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
-		log.Info("handleMsg GetNodeDataMsg")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -795,7 +775,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendNodeData(data)
 
 	case p.version >= eth63 && msg.Code == NodeDataMsg:
-		log.Info("handleMsg NodeDataMsg")
 		// A batch of node state data arrived to one of our previous requests
 		var data [][]byte
 		if err := msg.Decode(&data); err != nil {
@@ -807,7 +786,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case p.version >= eth63 && msg.Code == GetReceiptsMsg:
-		log.Info("handleMsg GetReceiptsMsg")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -844,7 +822,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendReceiptsRLP(receipts)
 
 	case p.version >= eth63 && msg.Code == ReceiptsMsg:
-		log.Info("handleMsg ReceiptsMsg")
 		// A batch of receipts arrived to one of our previous requests
 		var receipts [][]*types.Receipt
 		if err := msg.Decode(&receipts); err != nil {
@@ -862,7 +839,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
-			log.Info("handleMsg newBlockHashesData", "block", block.Number)
 			p.MarkBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
@@ -897,7 +873,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
-		log.Info("handleMsg get block ", "ReceivedFrom", p.id, "ReceivedAt ", msg.ReceivedAt, "block", request.Block.Number())
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkBlock(request.Block.Hash())
 		pm.fetcher.Enqueue(p.id, request.Block)
@@ -920,20 +895,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-		// for _, tx := range request.Block.Transactions() {
-		// 	if pm.txQueues != nil {
-		// 		index := tx.GetMeta().Index
-		// 		if index == nil {
-		// 			continue
-		// 		}
-		// 		log.Info("handleMsg in rollup mode NewBlockMsg add ", "tx index", *index)
-		// 		if *index < 19 {
-		// 			log.Info("handleMsg in rollup mode NewBlockMsg add don't need to add to txQueues", "tx index", *index)
-		// 			//continue
-		// 		}
-		// 		pm.txQueues <- tx
-		// 	}
-		// }
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -949,7 +910,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
-			log.Info("handleMsg get tx from peer", "tx", tx.Hash().Hex())
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)

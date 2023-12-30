@@ -1,19 +1,15 @@
 /* External Imports */
 import { Promise as bPromise } from 'bluebird'
-import { Contract, Signer, providers } from 'ethers'
+import { Contract, ethers, Signer, providers } from 'ethers'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import { getContractFactory } from '@metis.io/contracts'
-import {
-  L2Block,
-  RollupInfo,
-  Bytes32,
-  remove0x,
-} from '@metis.io/core-utils'
+import { L2Block, RollupInfo, Bytes32, remove0x } from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
 /* Internal Imports */
 import { BlockRange, BatchSubmitter } from '.'
-import { TransactionSubmitter } from '../utils'
+import { TransactionSubmitter, MpcClient } from '../utils'
+import { randomUUID } from 'crypto'
 
 export class StateBatchSubmitter extends BatchSubmitter {
   // TODO: Change this so that we calculate start = scc.totalElements() and end = ctc.totalElements()!
@@ -25,6 +21,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
   protected ctcContract: Contract
   private fraudSubmissionAddress: string
   private transactionSubmitter: TransactionSubmitter
+  private mpcUrl: string
 
   constructor(
     signer: Signer,
@@ -42,7 +39,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
     blockOffset: number,
     logger: Logger,
     metrics: Metrics,
-    fraudSubmissionAddress: string
+    fraudSubmissionAddress: string,
+    mpcUrl: string
   ) {
     super(
       signer,
@@ -62,6 +60,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
     )
     this.fraudSubmissionAddress = fraudSubmissionAddress
     this.transactionSubmitter = transactionSubmitter
+    this.mpcUrl = mpcUrl
   }
 
   /*****************************
@@ -115,14 +114,18 @@ export class StateBatchSubmitter extends BatchSubmitter {
   public async _getBatchStartAndEnd(): Promise<BlockRange> {
     this.logger.info('Getting batch start and end for state batch submitter...')
     const startBlock: number =
-      (await this.chainContract.getTotalElementsByChainId(this.l2ChainId)).toNumber() +
-      this.blockOffset
+      (
+        await this.chainContract.getTotalElementsByChainId(this.l2ChainId)
+      ).toNumber() + this.blockOffset
     this.logger.info('Retrieved start block number from SCC', {
       startBlock,
     })
 
     // We will submit state roots for txs which have been in the tx chain for a while.
-    const totalElements: number = (await this.ctcContract.getTotalElementsByChainId(this.l2ChainId)).toNumber() + this.blockOffset
+    const totalElements: number =
+      (
+        await this.ctcContract.getTotalElementsByChainId(this.l2ChainId)
+      ).toNumber() + this.blockOffset
     //this.logger.info('Retrieved total elements from CTC', {
     //  totalElements,
     //})
@@ -153,7 +156,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
     startBlock: number,
     endBlock: number
   ): Promise<TransactionReceipt> {
-    const proposer = parseInt(this.l2ChainId.toString())+"_MVM_Proposer"
+    const proposer = parseInt(this.l2ChainId.toString()) + '_MVM_Proposer'
     const batch = await this._generateStateCommitmentBatch(startBlock, endBlock)
     const calldata = this.chainContract.interface.encodeFunctionData(
       'appendStateBatchByChainId',
@@ -175,15 +178,80 @@ export class StateBatchSubmitter extends BatchSubmitter {
     // Generate the transaction we will repeatedly submit
     const nonce = await this.signer.getTransactionCount() //mpc address , 2 mpc addresses
     // state ctc are different signer addresses.
-    const tx = await this.chainContract.populateTransaction.appendStateBatchByChainId(
-      this.l2ChainId,
-      batch,
-      offsetStartsAtIndex,
-      proposer,
-      { nonce }
-    )
+    const tx =
+      await this.chainContract.populateTransaction.appendStateBatchByChainId(
+        this.l2ChainId,
+        batch,
+        offsetStartsAtIndex,
+        proposer,
+        { nonce }
+      )
 
-    this.logger.info('Submitting batch.', { chainId:this.l2ChainId,proposer:proposer })
+    // MPC enabled: prepare nonce, gasPrice
+    if (this.mpcUrl) {
+      this.logger.info('submitter state with mpc', { url: this.mpcUrl })
+      const mpcClient = new MpcClient(this.mpcUrl)
+      const mpcInfo = await mpcClient.getLatestMpc('1')
+      if (!mpcInfo || !mpcInfo.mpc_address) {
+        throw new Error('MPC 1 info get failed')
+      }
+      const mpcAddress = mpcInfo.mpc_address
+      tx.nonce = await this.signer.provider.getTransactionCount(mpcAddress)
+      tx.gasLimit = await this.signer.provider.estimateGas({
+        to: tx.to,
+        from: mpcAddress,
+        data: tx.data,
+      })
+      tx.value = ethers.utils.parseEther('0')
+      // mpc model can't use ynatm, set more gas price?
+      const gasPrice = await this.signer.provider.getGasPrice()
+      // TODO
+      // gasPrice.add()
+      tx.gasPrice = gasPrice
+      // call mpc to sign tx
+      const serializedTransaction = JSON.stringify({
+        nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
+        gasPrice: mpcClient.removeHexLeadingZero(tx.gasPrice.toHexString()),
+        gasLimit: mpcClient.removeHexLeadingZero(tx.gasLimit.toHexString()),
+        to: tx.to,
+        value: mpcClient.removeHexLeadingZero(tx.value.toHexString(), true),
+        data: tx.data,
+      })
+      const signId = randomUUID()
+      const postData = {
+        sign_id: signId,
+        mpc_id: mpcInfo.mpc_id,
+        sign_type: '0',
+        sign_data: serializedTransaction,
+        sign_msg: '',
+      }
+      const signResp = await mpcClient.proposeMpcSign(postData)
+      if (!signResp) {
+        throw new Error('MPC 1 propose sign failed')
+      }
+
+      const signedTx = await mpcClient.getMpcSign(signId)
+      if (!signedTx) {
+        throw new Error('MPC 1 get sign failed')
+      }
+
+      const submitSignedTransaction = (): Promise<TransactionReceipt> => {
+        return this.transactionSubmitter.submitSignedTransaction(
+          tx,
+          signedTx,
+          this._makeHooks('appendSequencerBatch')
+        )
+      }
+      return this._submitAndLogTx(
+        submitSignedTransaction,
+        'Submitted state root batch with MPC!'
+      )
+    }
+
+    this.logger.info('Submitting batch.', {
+      chainId: this.l2ChainId,
+      proposer,
+    })
     const submitTransaction = (): Promise<TransactionReceipt> => {
       return this.transactionSubmitter.submitTransaction(
         tx,
@@ -228,7 +296,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
       { concurrency: 100 }
     )
 
-    const proposer = parseInt(this.l2ChainId.toString())+"_MVM_Proposer"
+    const proposer = parseInt(this.l2ChainId.toString()) + '_MVM_Proposer'
     let tx = this.chainContract.interface.encodeFunctionData(
       'appendStateBatchByChainId',
       [this.l2ChainId, batch, startBlock, proposer]
@@ -238,12 +306,10 @@ export class StateBatchSubmitter extends BatchSubmitter {
       this.logger.debug('Splicing batch...', {
         batchSizeInBytes: tx.length / 2,
       })
-      tx = this.chainContract.interface.encodeFunctionData('appendStateBatchByChainId', [
-        this.l2ChainId,
-        batch,
-        startBlock,
-        proposer,
-      ])
+      tx = this.chainContract.interface.encodeFunctionData(
+        'appendStateBatchByChainId',
+        [this.l2ChainId, batch, startBlock, proposer]
+      )
     }
 
     this.logger.info('Generated state commitment batch', {

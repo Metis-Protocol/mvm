@@ -5,6 +5,16 @@
 
 RETRIES=${RETRIES:-40}
 VERBOSITY=${VERBOSITY:-6}
+EXTERNAL_IP=${EXTERNAL_IP:-default-ip}
+PORT=${PORT:-30303}
+NAT_SET="any"
+BOOTNODES=${BOOTNODES:-}
+if [ "$EXTERNAL_IP" != "default-ip" ]; then
+    NAT_SET="extip:$EXTERNAL_IP"
+fi
+echo "Nat set is $NAT_SET"
+echo "P2P port is $PORT"
+echo "BOOTNODES is $BOOTNODES"
 
 # get the genesis file from the deployer
 curl \
@@ -41,7 +51,7 @@ echo "Initializing Geth node"
 geth --verbosity="$VERBOSITY" "$@" init genesis.json
 
 # remove static-node
-rm $(echo $DATADIR)/static-nodes.json
+# rm $(echo $DATADIR)/static-nodes.json
 
 # start the geth node
 echo "Starting Geth node"
@@ -52,6 +62,10 @@ exec geth \
   --unlock $BLOCK_SIGNER_ADDRESS \
   --mine \
   --miner.etherbase $BLOCK_SIGNER_ADDRESS \
+  --maxpeers 50 \
+  --nat=$NAT_SET \
+  --port ${PORT} \
+  --bootnodes="${BOOTNODES}" \
   --syncmode full \
   --gcmode archive \
   "$@"

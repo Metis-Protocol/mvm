@@ -14,12 +14,13 @@ import {
 } from '@metis.io/core-utils'
 
 interface AppendSequencerBatchParams {
-    chainId: number;
-    shouldStartAtElement: number;
-    totalElementsToAppend: number;
-    contexts: BatchContext[];
-    transactions: string[];
-    blockNumbers: number[];
+  chainId: number
+  shouldStartAtElement: number
+  totalElementsToAppend: number
+  contexts: BatchContext[]
+  transactions: string[]
+  blockNumbers: number[]
+  seqSigns: string[] // de-sequencer block sign, length equals sequencerTx
 }
 
 export { encodeAppendSequencerBatch, BatchContext, AppendSequencerBatchParams }

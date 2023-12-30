@@ -388,9 +388,7 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		log.Warn("Failed transaction send attempt", "from", args.From, "to", args.To, "value", args.Value.ToInt(), "err", err)
 		return common.Hash{}, err
 	}
-	log.Info("PrivateAccountAPI SendTransaction   s.b.IsVerifier() ", s.b.IsVerifier())
 	if s.b.IsVerifier() {
-		log.Info("PrivateAccountAPI SendTransaction   s.b.IsVerifier() true")
 		client, err := dialSequencerClientWithTimeout(ctx, s.b.SequencerClientHttp())
 		if err != nil {
 			return common.Hash{}, err
@@ -802,6 +800,7 @@ type CallArgs struct {
 	GasPrice *hexutil.Big    `json:"gasPrice"`
 	Value    *hexutil.Big    `json:"value"`
 	Data     *hexutil.Bytes  `json:"data"`
+	Input    *hexutil.Bytes  `json:"input"`
 }
 
 // account indicates the overriding fields of account during the execution of
@@ -888,6 +887,8 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	var data []byte
 	if args.Data != nil {
 		data = []byte(*args.Data)
+	} else if args.Input != nil {
+		data = []byte(*args.Input)
 	}
 
 	// Currently, the blocknumber and timestamp actually refer to the L1BlockNumber and L1Timestamp
@@ -1021,18 +1022,19 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	)
 
 	// rpc proxy check
-	if b.IsRpcProxySupport() {
-		// callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
-		gasLimit, err := b.ProxyEstimateGas(ctx, args)
-		if err != nil {
-			return 0, err
-		}
-		// threshold if has Gas arg
-		// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
-		// 	gasLimit = uint64(*args.Gas)
-		// }
-		return hexutil.Uint64(gasLimit), nil
-	}
+	// if b.IsRpcProxySupport() {
+	// 	callArgs := CallArgs{From: args.From, To: args.To, GasPrice: args.GasPrice, Data: args.Data}
+
+	// 	gasLimit, err := b.ProxyEstimateGas(ctx, toCallArg(callArgs))
+	// 	if err != nil {
+	// 		return 0, err
+	// 	}
+	// 	// threshold if has Gas arg
+	// 	// if args.Gas != nil && uint64(*args.Gas) < gasLimit {
+	// 	// 	gasLimit = uint64(*args.Gas)
+	// 	// }
+	// 	return hexutil.Uint64(gasLimit), nil
+	// }
 
 	ctx = context.WithValue(ctx, "IsEstimate", true)
 
@@ -1109,12 +1111,20 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block. This is modified to
 // encode the fee in wei as gas price is always 1
-func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
-	blockNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
-	// if s.b.IsRpcProxySupport() {
-	// 	blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-	// }
-	return DoEstimateGas(ctx, s.b, args, blockNrOrHash, s.b.RPCGasCap())
+func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
+	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	if s.b.IsRpcProxySupport() {
+		bNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+	} else {
+		// backup sequencer model check
+		if rpc.LatestBlockNumber > rpc.PendingBlockNumber && rpc.LatestBlockNumber > 0 {
+			bNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+		}
+	}
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+	return DoEstimateGas(ctx, s.b, args, bNrOrHash, s.b.RPCGasCap())
 }
 
 // ExecutionResult groups all structured logs emitted by the EVM
@@ -1752,12 +1762,10 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	nodeHTTPModules := b.NodeHTTPModules()
-	if len(nodeHTTPModules) == 0 {
+	if nodeHTTPModules == nil || len(nodeHTTPModules) == 0 {
 		return common.Hash{}, errors.New("not support submit transaction")
 	}
-	log.Info("SubmitTransaction", "api SubmitTransaction nodeHTTPModules ", nodeHTTPModules)
 	if b.IsRpcProxySupport() {
-		log.Info("api SubmitTransaction b.IsRpcProxySupport() true")
 		tx.SetL2Tx(2)
 		errRpc := b.ProxyTransaction(ctx, tx)
 		tx.SetL2Tx(1)
@@ -1799,9 +1807,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-	log.Info("PublicTransactionPoolAPI SendTransaction")
 	if rcfg.UsingOVM {
-		log.Info("PublicTransactionPoolAPI SendTransaction rcfg.UsingOVM true")
 		return common.Hash{}, errOVMUnsupported
 	}
 	// Look up the wallet containing the requested signer
@@ -1855,8 +1861,7 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
-	log.Info("PublicTransactionPoolAPI SendRawTransaction")
-	if s.b.IsVerifier() && !s.b.IsRpcProxySupport() {
+	if s.b.IsVerifier() {
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}
 	if s.b.IsSyncing() {
@@ -2087,6 +2092,18 @@ func (api *PublicRollupAPI) GasPrices(ctx context.Context) (*gasPrices, error) {
 	}, nil
 }
 
+func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
+	return api.b.IsSequencerWorking()
+}
+
+func (api *PublicRollupAPI) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
+	return api.b.AddSequencerInfo(ctx, seq)
+}
+
+func (api *PublicRollupAPI) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
+	return api.b.ListSequencerInfo(ctx)
+}
+
 // PrivatelRollupAPI provides private RPC methods to control the sequencer.
 // These methods can be abused by external users and must be considered insecure for use by untrusted users.
 type PrivateRollupAPI struct {
@@ -2108,6 +2125,20 @@ func (api *PrivateRollupAPI) SetL1GasPrice(ctx context.Context, gasPrice hexutil
 // SetL2GasPrice sets the gas price to be used when executing transactions on
 func (api *PrivateRollupAPI) SetL2GasPrice(ctx context.Context, gasPrice hexutil.Big) error {
 	return api.b.SetL2GasPrice(ctx, (*big.Int)(&gasPrice))
+}
+
+// BridgeRollupAPI provides private RPC methods to control the sequencer with bridge.
+// These methods can be abused by external users and must be considered insecure for use by untrusted users.
+type BridgeRollupAPI struct {
+	b Backend
+}
+
+func NewBridgeRollupAPI(b Backend) *BridgeRollupAPI {
+	return &BridgeRollupAPI{b: b}
+}
+
+func (api *BridgeRollupAPI) SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error {
+	return api.b.SetPreRespan(ctx, oldAddress, newAddress, number)
 }
 
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
@@ -2256,14 +2287,4 @@ func (s *PublicNetAPI) PeerCount() hexutil.Uint {
 // Version returns the current ethereum protocol version.
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)
-}
-
-func (api *PublicRollupAPI) CheckIsSeqWorking() bool {
-	return api.b.IsSequencerWorking()
-}
-func (api *PublicRollupAPI) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
-	return api.b.AddSeqencerInfo(ctx, seq)
-}
-func (api *PublicRollupAPI) ListSeqencerInfo() *types.SequencerInfoList {
-	return api.b.ListSeqencerInfo()
 }

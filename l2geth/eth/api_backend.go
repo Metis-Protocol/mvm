@@ -145,6 +145,71 @@ func (b *EthAPIBackend) SetHead(number uint64) {
 
 	b.eth.syncService.SetLatestL1Timestamp(tx.L1Timestamp())
 	b.eth.syncService.SetLatestL1BlockNumber(blockNumber.Uint64())
+
+	// Make sure to reset the LatestIndex, Verified index
+	b.eth.syncService.SetLatestIndex(tx.GetMeta().Index)
+	b.eth.syncService.SetLatestIndexTime(time.Now().Unix())
+	b.eth.syncService.SetLatestVerifiedIndex(tx.GetMeta().Index)
+
+	// If rollup reset LatestEnqueueIndex
+	if b.UsingOVM && b.eth.config.Rollup.Eth1SyncServiceEnable {
+		queueIndex := b.eth.syncService.GetLatestEnqueueIndex()
+		if queueIndex == nil {
+			enqueue, err := b.eth.syncService.RollupClient().GetLastConfirmedEnqueue()
+			// Other unexpected error
+			if err != nil {
+				log.Error("Not reset queue index", "err", err)
+				return
+			}
+			// No error, the queue element was found
+			queueIndex = enqueue.GetMeta().QueueIndex
+		} else {
+			log.Info("Found latest queue index", "queue-index", *queueIndex)
+			// The queue index is defined. Work backwards from the tip
+			// to make sure that the indexed queue index is the latest
+			// enqueued transaction
+			for {
+				// There are no blocks in the chain
+				// This should never happen
+				if block == nil {
+					log.Warn("Found no genesis block when fixing queue index")
+					break
+				}
+				num := block.Number().Uint64()
+				// Handle the genesis block
+				if num == 0 {
+					log.Info("Hit genesis block when fixing queue index")
+					queueIndex = nil
+					break
+				}
+				txs := block.Transactions()
+				// This should never happen
+				if len(txs) != 1 {
+					log.Warn("Found block with unexpected number of txs", "count", len(txs), "height", num)
+					break
+				}
+				tx := txs[0]
+				qi := tx.GetMeta().QueueIndex
+				// When the queue index is set
+				if tx.QueueOrigin() == types.QueueOriginL1ToL2 && qi != nil {
+					if *qi == *queueIndex {
+						log.Info("Found correct staring queue index", "queue-index", *qi)
+					} else {
+						log.Info("Found incorrect staring queue index, fixing", "old", *queueIndex, "new", *qi)
+						queueIndex = qi
+					}
+					break
+				}
+				block = b.eth.BlockChain().GetBlockByNumber(num - 1)
+			}
+		}
+		log.Info("Reset queue index")
+		b.eth.syncService.SetLatestEnqueueIndex(queueIndex)
+		err := b.eth.syncService.SetStartSeqHeight()
+		if err != nil {
+			log.Error("Reset start sequencer height", "err", err)
+		}
+	}
 }
 
 func (b *EthAPIBackend) IngestTransactions(txs []*types.Transaction) error {
@@ -317,26 +382,7 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // Transactions originating from the RPC endpoints are added to remotes so that
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-
-	// index := b.eth.syncService.GetLatestIndex()
-	index := b.eth.blockchain.CurrentBlock().Header().Number.Uint64()
-	var expectSeq common.Address
-	var err error
-	// checkIndex := uint64(0)
-	// if index == nil {
-	// 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	// } else {
-	// 	checkIndex = *index + 1
-	// 	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	// }
-	checkIndex := index + 1
-	expectSeq, err = b.eth.syncService.GetTxSeqencer(signedTx, checkIndex)
-	if err != nil {
-		return err
-	}
-	log.Info("SendTx", "expectSeq.String() ", expectSeq.String(), " b.eth.syncService.SeqAddress ", b.eth.syncService.SeqAddress, "checkIndex", checkIndex)
 	if b.UsingOVM {
-		log.Info("current b usingovm true, begin to ValidateAndApplySequencerTransaction")
 		to := signedTx.To()
 		if to != nil {
 			// Prevent QueueOriginSequencer transactions that are too large to
@@ -346,47 +392,12 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			// a layer two transaction from not being able to be batch submitted
 			// to layer one.
 			if len(signedTx.Data()) > b.MaxCallDataSize {
-				return fmt.Errorf("calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
+				return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 			}
 		}
-		if strings.EqualFold(expectSeq.String(), b.eth.syncService.SeqAddress) {
-			// Sequencer is self, validate and apply tx
-			return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
-		}
-		// Send to current sequencer
-		l2Url := b.GetSeqUrl(expectSeq)
-		if l2Url == "" {
-			return fmt.Errorf("sequencer %v setting missing on %v", expectSeq.String(), b.eth.syncService.SeqAddress)
-		}
-		log.Info("SendTx use proxy setting to send", "l2Url", l2Url, "checkIndex", checkIndex)
-		err := b.EnsureSeqRpcClient(l2Url)
-		if err != nil {
-			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
-			return err
-		}
-		timeout := 5 * time.Second
-		// TODO, if self's block latest time in 5 seconds, and height + 200 < ExpectHeight, don't check?
-		ctxHeader, cancelHeader := context.WithTimeout(ctx, timeout)
-		defer cancelHeader()
-		header, err := b.seqRpcClient.HeaderByNumber(ctxHeader, nil)
-		if err != nil {
-			log.Warn("Sequencer height check", "url", l2Url, "err", err)
-			return err
-		}
-		seqIndex := header.Number.Uint64()
-		log.Debug("Checked sequencer and self height", "sequencer", seqIndex, "self", index)
-		if seqIndex < index {
-			return errors.New("the sequencer has not been synchronized to the latest block yet")
-		}
-		ctxSend, cancelSend := context.WithTimeout(ctx, timeout)
-		defer cancelSend()
-		signedTx.SetL2Tx(2)
-		err = b.seqRpcClient.SendTransaction(ctxSend, signedTx)
-		signedTx.SetL2Tx(1)
-		return err
+		return b.eth.syncService.ValidateAndApplySequencerTransaction(signedTx)
 	}
 	// OVM Disabled
-	log.Info("current b usingovm false, begin to AddLocal")
 	return b.eth.txPool.AddLocal(signedTx)
 }
 
@@ -508,7 +519,56 @@ func (b *EthAPIBackend) ProxyTransaction(ctx context.Context, tx *types.Transact
 	if !b.IsRpcProxySupport() {
 		return nil
 	}
+	if rcfg.UsingOVM {
+		err := b.validateTx(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("invalid transaction: %w", err)
+		}
+	}
 	return b.eth.rpcClient.SendTransaction(ctx, tx)
+}
+
+// Proxy to rpc should validate tx first
+func (b *EthAPIBackend) validateTx(ctx context.Context, tx *types.Transaction) error {
+	if tx == nil {
+		return errors.New("nil transaction passed to ValidateAndApplySequencerTransaction")
+	}
+	// Transactions can't be negative. This may never happen using RLP decoded
+	// transactions but may occur if you create a transaction using the RPC.
+	if tx.Value().Sign() < 0 {
+		return core.ErrNegativeValue
+	}
+	header := b.CurrentBlock().Header()
+	state, err := b.eth.BlockChain().StateAt(header.Root)
+	if state == nil {
+		return fmt.Errorf("invalid state")
+	}
+	if err != nil {
+		return err
+	}
+	// Make sure the transaction is signed properly
+	from, err := types.Sender(b.eth.protocolManager.signer, tx)
+	if err != nil {
+		return core.ErrInvalidSender
+	}
+	if state.GetNonce(from) != tx.Nonce() {
+		return core.ErrNonceTooLow
+	}
+	if state.GetBalance(from).Cmp(tx.Cost()) < 0 {
+		return core.ErrInsufficientFunds
+	}
+
+	next := new(big.Int).Add(header.Number, big.NewInt(1))
+	istanbul := b.ChainConfig().IsIstanbul(next)
+	// Ensure the transaction has more gas than the basic tx fee.
+	intrGas, err := core.IntrinsicGas(tx.Data(), tx.To() == nil, true, istanbul)
+	if err != nil {
+		return err
+	}
+	if tx.Gas() < intrGas {
+		return core.ErrIntrinsicGas
+	}
+	return nil
 }
 
 func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (uint64, error) {
@@ -519,12 +579,14 @@ func (b *EthAPIBackend) ProxyEstimateGas(ctx context.Context, arg interface{}) (
 }
 
 // Cache a rpc client until sequencer rpc url changed
-func (b *EthAPIBackend) EnsureSeqRpcClient(url string) error {
+func (b *EthAPIBackend) EnsureSeqRpcClient(ctx context.Context, url string) error {
 	if b.seqRpcClient == nil || b.seqRpcUrl != url {
 		if b.seqRpcClient != nil {
 			b.seqRpcClient.Close()
 		}
-		rpcClient, err := ethclient.Dial(url)
+		ctxt, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		rpcClient, err := ethclient.DialContext(ctxt, url)
 		if err != nil {
 			return err
 		}
@@ -536,19 +598,17 @@ func (b *EthAPIBackend) EnsureSeqRpcClient(url string) error {
 }
 
 func (b *EthAPIBackend) IsSequencerWorking() bool {
-	pending, queued := b.eth.txPool.Stats()
-	log.Info("IsSequencerWorking", "pending ", pending, "queued", queued)
-	if pending > 0 || queued > 0 {
-		indexTime := b.eth.syncService.GetLatestIndexTime()
-		log.Info("IsSequencerWorking", "pending ", pending, "queued", queued, "indexTime", indexTime)
-		if time.Now().Unix()-int64(*indexTime) > 10 {
-			return false
-		}
+	indexTime := b.eth.syncService.GetLatestIndexTime()
+	if indexTime == nil {
+		return false
+	}
+	if time.Now().Unix()-int64(*indexTime) > 60 {
+		return false
 	}
 	return true
 }
 
-func (b *EthAPIBackend) AddSeqencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
+func (b *EthAPIBackend) AddSequencerInfo(ctx context.Context, seq *types.SequencerInfo) error {
 	if strings.EqualFold(seq.SequencerAddress.String(), b.eth.syncService.SeqAddress) {
 		return errors.New("no need to add self address")
 	}
@@ -571,7 +631,7 @@ func (b *EthAPIBackend) GetSeqUrl(seqAddr common.Address) string {
 	return ""
 }
 
-func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
+func (b *EthAPIBackend) ListSequencerInfo(ctx context.Context) *types.SequencerInfoList {
 	var list types.SequencerInfoList
 	b.seqRwMutex.RLock()
 	for k, v := range b.seqInfos {
@@ -585,7 +645,7 @@ func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
 
 	for i, seq := range list.SeqList {
 		l2Url := seq.SequencerUrl
-		err := b.EnsureSeqRpcClient(l2Url)
+		err := b.EnsureSeqRpcClient(ctx, l2Url)
 		if err != nil {
 			log.Warn("Dial to a new proxy rpc client failed", "url", l2Url, "err", err)
 			// return err
@@ -599,20 +659,18 @@ func (b *EthAPIBackend) ListSeqencerInfo() *types.SequencerInfoList {
 		}
 		list.SeqList[i].SequencerHeight = header.Number.Uint64()
 	}
-	ownerHeight := uint64(0)
-	if b.eth.syncService.GetLatestIndex() != nil {
-		ownerHeight = *b.eth.syncService.GetLatestIndex() + 1
-	}
+	ownerHeight := b.eth.blockchain.CurrentBlock().Header().Number.Uint64()
 	seqOwner := types.SequencerInfo{
 		SequencerAddress: common.HexToAddress(b.eth.config.Rollup.SeqAddress),
 		SequencerUrl:     "localhost",
 		SequencerHeight:  ownerHeight,
 	}
 	list.SeqList = append(list.SeqList, seqOwner)
-	// jsonData, err := json.Marshal(&list)
-	// if err != nil {
-	// 	return ""
-	// }
-	// return string(jsonData)
 	return &list
+}
+
+func (b *EthAPIBackend) SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error {
+	b.seqRwMutex.Lock()
+	defer b.seqRwMutex.Unlock()
+	return b.eth.syncService.RollupAdapter().SetPreRespan(oldAddress, newAddress, number)
 }

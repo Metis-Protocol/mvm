@@ -212,7 +212,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
-	syncQueueFromOthers := make(chan *types.Transaction, 100)
+	// chan size 128 set to downloader.MaxBlockFetch
+	syncQueueFromOthers := make(chan *types.Transaction, 128)
 	eth.syncService, err = rollup.NewSyncService(context.Background(), config.Rollup, eth.txPool, eth.blockchain, eth.chainDb, syncQueueFromOthers)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
@@ -246,7 +247,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 
 	// create ethclient
 	// NOTE: MPC added rollup check for proxy
-	l2Url := ctx.L2Url()
+	// RPC node has SeqBridgeUrl, use it first. peer, verifier, replica can use l2Url
+	l2Url := config.Rollup.SeqBridgeUrl
+	if l2Url == "" {
+		l2Url = ctx.L2Url()
+	}
 	if l2Url != "" {
 		eth.rpcClient, err = ethclient.Dial(l2Url)
 		if err != nil {

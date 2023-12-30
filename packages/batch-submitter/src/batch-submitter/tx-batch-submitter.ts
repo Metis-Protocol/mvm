@@ -12,7 +12,9 @@ import {
   QueueOrigin,
   EncodeSequencerBatchOptions,
   MinioClient,
-  MinioConfig
+  MinioConfig,
+  remove0x,
+  toHexString,
 } from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
@@ -308,8 +310,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     //     this.encodeSequencerBatchOptions
     //   )
     // unsigned tx
-    const tx =
-      await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
+    const tx = this.useMinio ? await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
+        batchParams,
+        this.encodeSequencerBatchOptions
+      ) : await this.chainContract.customPopulateTransaction.appendSequencerBatch(
         batchParams,
         this.encodeSequencerBatchOptions
       )
@@ -598,6 +602,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
               rawTransaction: undefined,
               timestamp,
               blockNumber,
+              seqSign: null,
             })
             nextQueueIndex++
           } else {
@@ -784,6 +789,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         rawTransaction: dummyTx,
         timestamp: queueElement.timestamp,
         blockNumber: queueElement.blockNumber,
+        seqSign: null, // NOTE dummyTx without sequencer sign, need compare in l2geth?
       }
     }
     if (
@@ -880,6 +886,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // Generate sequencer transactions
     const transactions: string[] = []
     const blockNumbers: number[] = []
+    const seqSigns: string[] = []
     let l2BlockNumber = shouldStartAtIndex
     for (const block of blocks) {
       if (!block.isSequencerTx) {
@@ -888,16 +895,18 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       }
       transactions.push(block.rawTransaction)
       blockNumbers.push(l2BlockNumber)
+      seqSigns.push(block.seqSign)
       l2BlockNumber++
     }
 
     return {
-      chainId:this.l2ChainId,
+      chainId: this.l2ChainId,
       shouldStartAtElement: shouldStartAtIndex - this.blockOffset,
       totalElementsToAppend,
       contexts,
       transactions,
       blockNumbers,
+      seqSigns,
     }
   }
 
@@ -913,22 +922,70 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       blockNumber: block.transactions[0].l1BlockNumber,
       isSequencerTx: false,
       rawTransaction: undefined,
+      seqSign: null,
     }
 
     if (this._isSequencerTx(block)) {
       batchElement.isSequencerTx = true
       batchElement.rawTransaction = block.transactions[0].rawTransaction
+      if (!block.transactions[0].seqR) {
+        batchElement.seqSign = ''
+      } else {
+        let r = remove0x(block.transactions[0].seqR)
+        let s = remove0x(block.transactions[0].seqS)
+        let v = remove0x(block.transactions[0].seqV)
+        if (r === '0') {
+          r = '00'
+        } else {
+          r = this.padZerosToLeft(r)
+        }
+        if (s === '0') {
+          s = '00'
+        } else {
+          s = this.padZerosToLeft(s)
+        }
+        if (v.length % 2 === 1) {
+          v = `0${v}`
+        }
+        // restore: '' has no sign, '000000' is zero sign, `{64}{64}{n}` if n is 00, seqV is 0x0
+        batchElement.seqSign = `${r}${s}${v}`
+      }
     }
 
     return batchElement
   }
 
   private async _getBlock(blockNumber: number): Promise<L2Block> {
-    const p = this.l2Provider.getBlockWithTransactions(blockNumber)
+    // const p = this.l2Provider.getBlockWithTransactions(blockNumber)
+    const p = this.l2Provider.send('eth_getBlockByNumber', [
+      this.toRpcHexString(blockNumber),
+      true,
+    ])
     return p as Promise<L2Block>
   }
 
   private _isSequencerTx(block: L2Block): boolean {
     return block.transactions[0].queueOrigin === QueueOrigin.Sequencer
   }
+
+  private toRpcHexString(n: number): string {
+    if (n === 0) {
+      return '0x0'
+    } else {
+      // prettier-ignore
+      return '0x' + toHexString(n).slice(2).replace(/^0+/, '')
+    }
+  }
+
+  private padZerosToLeft(inputString: string): string {
+    const targetLength = 64
+    if (inputString.length >= targetLength) {
+        return inputString
+    }
+
+    const zerosToPad = targetLength - inputString.length
+    const paddedString = '0'.repeat(zerosToPad) + inputString
+    return paddedString
+}
+
 }

@@ -68,6 +68,7 @@ export const submitSignedTransactionWithYNATM = async (
   numConfirmations: number,
   hooks: TxSubmissionHooks
 ): Promise<TransactionReceipt> => {
+  // TODO config.maxGasPriceInGwei compare to tx.gasPrice
   const sendTxAndWaitForReceipt = async (): Promise<TransactionReceipt> => {
     hooks.beforeSendTransaction(tx)
     const txResponse = await provider.sendTransaction(txSigned)

@@ -389,6 +389,9 @@ export const run = async () => {
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {
+    if (key === 'MPC_URL')  {
+      continue
+    }
     if (val === null || val === undefined) {
       logger.warn('Missing environment variable', {
         key,
@@ -478,7 +481,7 @@ export const run = async () => {
     autoFixBatchOptions,
     requiredEnvVars.MINIO_ENABLED,
     minioConfig,
-    requiredEnvVars.MPC_URL,
+    requiredEnvVars.MPC_URL
   )
 
   const stateBatchTxSubmitter: TransactionSubmitter =
@@ -503,7 +506,8 @@ export const run = async () => {
     BLOCK_OFFSET,
     logger.child({ name: STATE_BATCH_SUBMITTER_LOG_TAG }),
     metrics,
-    FRAUD_SUBMISSION_ADDRESS
+    FRAUD_SUBMISSION_ADDRESS,
+    requiredEnvVars.MPC_URL
   )
 
   // Loops infinitely!

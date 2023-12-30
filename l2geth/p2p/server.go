@@ -473,6 +473,7 @@ func (srv *Server) Start() (err error) {
 			return err
 		}
 	}
+	log.Debug("P2P info", "NoDiscovery", srv.NoDiscovery, "DiscoveryV5", srv.DiscoveryV5, "ListenAddr", srv.ListenAddr)
 	if err := srv.setupDiscovery(); err != nil {
 		return err
 	}

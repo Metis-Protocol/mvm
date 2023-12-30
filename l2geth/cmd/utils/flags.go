@@ -909,7 +909,7 @@ var (
 		EnvVar: "SEQSET_VALID_HEIGHT",
 	}
 
-	SeqsetConrtractFlag = cli.StringFlag{
+	SeqsetContractFlag = cli.StringFlag{
 		Name:   "seqset.contract",
 		Usage:  "seqset contract address ",
 		EnvVar: "SEQSET_CONTRACT",
@@ -925,6 +925,13 @@ var (
 		Name:   "seq.priv",
 		Usage:  "sequencer priv key",
 		EnvVar: "SEQ_PRIV",
+	}
+
+	SeqBridgeUrlFlag = cli.StringFlag{
+		Name:   "seq_bridge_url",
+		Usage:  "seq bridge url set to enable RPC only node role",
+		Value:  "",
+		EnvVar: "SEQ_BRIDGE_URL",
 	}
 )
 
@@ -1202,6 +1209,10 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 		val := ctx.GlobalFloat64(RollupFeeThresholdUpFlag.Name)
 		cfg.FeeThresholdUp = new(big.Float).SetFloat64(val)
 	}
+	if ctx.GlobalIsSet(L2UrlFlag.Name) {
+		// set L2Url (Metis peer setting) to SequencerClientHttp by default, it can be replaced by SequencerClientHttpFlag
+		cfg.SequencerClientHttp = ctx.GlobalString(L2UrlFlag.Name)
+	}
 	if ctx.GlobalIsSet(SequencerClientHttpFlag.Name) {
 		cfg.SequencerClientHttp = ctx.GlobalString(SequencerClientHttpFlag.Name)
 	}
@@ -1213,8 +1224,8 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	} else {
 		cfg.LocalL2ClientHttp = "http://localhost:8545"
 	}
-	if ctx.GlobalIsSet(SeqsetConrtractFlag.Name) {
-		contractAddress := ctx.GlobalString(SeqsetConrtractFlag.Name)
+	if ctx.GlobalIsSet(SeqsetContractFlag.Name) {
+		contractAddress := ctx.GlobalString(SeqsetContractFlag.Name)
 		cfg.SeqsetContract = common.HexToAddress(contractAddress)
 	}
 	if ctx.GlobalIsSet(SeqsetValidHeightFlag.Name) {
@@ -1226,6 +1237,9 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(SeqPrivFlag.Name) {
 		cfg.SeqPriv = ctx.GlobalString(SeqPrivFlag.Name)
+	}
+	if ctx.GlobalIsSet(SeqBridgeUrlFlag.Name) {
+		cfg.SeqBridgeUrl = ctx.GlobalString(SeqBridgeUrlFlag.Name)
 	}
 }
 
@@ -1414,7 +1428,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 
 	if ctx.GlobalBool(DeveloperFlag.Name) {
 		// --dev mode can't use p2p networking.
-		cfg.MaxPeers = 10
+		// cfg.MaxPeers = 10
 		//cfg.ListenAddr = ":0"
 		cfg.NoDiscovery = true
 		cfg.DiscoveryV5 = false

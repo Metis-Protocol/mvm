@@ -168,9 +168,10 @@ var (
 		utils.PosClientHttpFlag,
 		utils.LocalL2ClientHttpFlag,
 		utils.SeqsetValidHeightFlag,
-		utils.SeqsetConrtractFlag,
+		utils.SeqsetContractFlag,
 		utils.SeqAddressFlag,
 		utils.SeqPrivFlag,
+		utils.SeqBridgeUrlFlag,
 	}
 
 	rpcFlags = []cli.Flag{

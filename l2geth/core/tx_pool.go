@@ -555,15 +555,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Ensure the transaction adheres to nonce ordering
 	if rcfg.UsingOVM {
-		fromNonce := pool.currentState.GetNonce(from)
-		txNonce := tx.Nonce()
-		log.Info("UsingOVM validateTx", "pool nonce ", fromNonce, " from ", from.String(), " nonce ", txNonce)
-		if fromNonce > txNonce {
+		if pool.currentState.GetNonce(from) != tx.Nonce() {
 			return ErrNonceTooLow
 		}
 	} else {
 		if pool.currentState.GetNonce(from) > tx.Nonce() {
-			log.Info("validateTx", "pool nonce ", pool.currentState.GetNonce(from), " from ", from, " nonce ", tx.Nonce())
 			return ErrNonceTooLow
 		}
 	}
@@ -594,7 +590,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err error) {
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
-	log.Info("add ", "hash ", hash.String(), "Islocal", local)
 	if pool.all.Get(hash) != nil {
 		log.Trace("Discarding already known transaction", "hash", hash)
 		knownTxMeter.Mark(1)

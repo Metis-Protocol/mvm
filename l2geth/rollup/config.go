@@ -46,7 +46,8 @@ type Config struct {
 	FeeThresholdUp   *big.Float
 	// HTTP endpoint of the sequencer
 	SequencerClientHttp string
-	// seqencer address  and seqencer priv
-	SeqAddress string
-	SeqPriv    string
+	// sequencer address  and sequencer priv
+	SeqAddress   string
+	SeqPriv      string
+	SeqBridgeUrl string
 }

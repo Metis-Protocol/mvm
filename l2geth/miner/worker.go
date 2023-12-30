@@ -487,6 +487,7 @@ func (w *worker) mainLoop() {
 				}
 			}
 		case ev := <-w.rollupOtherTxCh:
+			// Read chainHeadCh which pushed by p2p block inserted
 			if len(ev.Txs) == 0 {
 				log.Warn("No transaction sent to miner from syncservice rollupOtherTxCh")
 				// if ev.ErrCh != nil {
@@ -647,6 +648,7 @@ func (w *worker) taskLoop() {
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
 				w.handleErrInTask(errors.New("Block sealing ignored"), true)
+				log.Error("Block sealing ignored", "sealHash", sealHash)
 				continue
 			}
 			// Interrupt previous sealing operation
@@ -655,6 +657,7 @@ func (w *worker) taskLoop() {
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				w.handleErrInTask(errors.New("Block sealing skiped"), true)
+				log.Error("Block sealing skiped", "sealHash", sealHash)
 				continue
 			}
 			w.pendingMu.Lock()
@@ -663,7 +666,7 @@ func (w *worker) taskLoop() {
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				w.handleErrInTask(err, true)
-				log.Warn("Block sealing failed", "err", err)
+				log.Error("Block sealing failed", "err", err)
 			}
 		case <-w.exitCh:
 			interrupt()
@@ -1001,7 +1004,11 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 		index := num.Uint64()
 		if *meta.Index < index {
 			log.Info("commitNewTx ", "get meta index ", *meta.Index, "parent.Number() ", index)
-			return nil
+			return fmt.Errorf("Failed to check meta index too small: %w, parent number: %w", *meta.Index, index)
+		}
+		// Check meta.Index again, it should be equal with index
+		if *meta.Index > index {
+			return fmt.Errorf("Failed to check meta index too large: %w, parent number: %w", *meta.Index, index)
 		}
 	}
 	// Fill in the index field in the tx meta if it is `nil`.
@@ -1161,15 +1168,6 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
-	log.Info("miner commit", "w.current.header hash", w.current.header.Hash(), "blockheight", w.current.header.Number.String())
-	for i, tx := range w.current.txs {
-		if tx.GetMeta() != nil && tx.GetMeta().Index != nil {
-			log.Info("miner commit w.current.txs ", "i", i, "tx index", *tx.GetMeta().Index)
-		} else {
-			log.Info("miner commit w.current.txs ", "i", i, "tx hash", tx.Hash())
-		}
-
-	}
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
 		return err
@@ -1247,6 +1245,7 @@ func (w *worker) handleErrInTask(err error, headFlag bool) {
 		w.eth.SyncService().PushTxApplyError(err)
 	}
 	if headFlag {
-		w.makeEmptyChainHeadEvent()
+		// w.makeEmptyChainHeadEvent()
+		log.Debug("handle err in work task", "header", headFlag)
 	}
 }
