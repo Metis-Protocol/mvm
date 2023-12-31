@@ -531,18 +531,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 
-	// rollup node should accept write msg
-	if pm.HasRPCModule("rollup") {
-		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
-			//return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
-			// should support NewBlockMsg
-			pm.peerSyncTime = time.Now().Unix()
-
-		}
-	} else {
-		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
-			pm.peerSyncTime = time.Now().Unix()
-		}
+	if msg.Code == TxMsg || msg.Code == BlockHeadersMsg || msg.Code == BlockBodiesMsg || msg.Code == ReceiptsMsg || msg.Code == NewBlockMsg {
+		pm.peerSyncTime = time.Now().Unix()
 	}
 
 	defer msg.Discard()
