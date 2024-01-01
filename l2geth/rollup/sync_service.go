@@ -1217,19 +1217,12 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// store current time for the last index time
 
-	metaIndex := uint64(0)
 	if tx.GetMeta().Index == nil {
 		if index == nil {
 			tx.SetIndex(0)
 		} else {
 			tx.SetIndex(*index + 1)
-			metaIndex = *index + 1
 		}
-	}
-	// Check meta index again
-	if fromLocal && metaIndex+1 != blockNumber {
-		log.Warn("correction tx meta index", "wrong", metaIndex, "right", blockNumber-1)
-		tx.SetIndex(blockNumber - 1)
 	}
 	// On restart, these values are repaired to handle
 	// the case where the index is updated but the
@@ -1244,6 +1237,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			s.SetLatestEnqueueIndex(queueIndex)
 		}
 	}
+	// backup sequencer perhaps have one time chainHeadCh<- if p2p download batch txs
+	if len(s.chainHeadCh) > 0 {
+		<-s.chainHeadCh
+	}
 	// The index was set above so it is safe to dereference
 	log.Debug("Applying transaction to tip", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex(), "origin", tx.QueueOrigin().String())
 	if !fromLocal {
@@ -1255,10 +1252,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			Txs: txs,
 		})
 
-		// backup sequencer perhaps have one time chainHeadCh<- if p2p download batch txs
-		if len(s.chainHeadCh) > 0 {
-			<-s.chainHeadCh
-		}
 		sender, _ := types.Sender(s.signer, tx)
 		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
@@ -1301,12 +1294,33 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.SetLatestVerifiedIndex(index)
 		return txApplyErr
 	case <-s.chainHeadCh:
+		// when error occured in work.go
+		isWorkErr := false
+		var errWork error
+		if len(errCh) > 0 {
+			errWork = <-errCh
+			log.Error("Got error waiting for transaction to be added to chain, but got chainHeadCh", "msg", errWork)
+			isWorkErr = true
+		}
+		if len(s.txApplyErrCh) > 0 {
+			errWork = <-s.txApplyErrCh
+			log.Error("Got error when added to chain, but got chainHeadCh", "err", errWork)
+			isWorkErr = true
+		}
+		if isWorkErr {
+			s.SetLatestL1Timestamp(ts)
+			s.SetLatestL1BlockNumber(bn)
+			s.SetLatestIndex(index)
+			s.SetLatestVerifiedIndex(index)
+			return errWork
+		}
 		// Update the cache when the transaction is from the owner
 		// of the gas price oracle
 		sender, _ := types.Sender(s.signer, tx)
 		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
 			if err := s.updateGasPriceOracleCache(nil); err != nil {
+				log.Error("chainHeadCh got applyTransactionToTip finish but update gasPriceOracleCache failed", "current latest", *s.GetLatestIndex(), "restore index", index)
 				s.SetLatestL1Timestamp(ts)
 				s.SetLatestL1BlockNumber(bn)
 				s.SetLatestIndex(index)

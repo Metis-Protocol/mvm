@@ -195,8 +195,13 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		if syncEnqueueIndex != nil {
 			latestEnqueueIndex = *syncEnqueueIndex
 		}
+		currentBN := blockchain.CurrentBlock().NumberU64()
 		for i := 0; i < len(blocks); i++ {
 			block = blocks[i]
+			if block.NumberU64() <= currentBN {
+				log.Error("not allow blocks nubmer lower than self to prevent reorg", "incoming number", block.NumberU64(), "self number", currentBN)
+				return errors.New("handler blocksBeforeInsert not allow blocks nubmer lower than self")
+			}
 			if block.Transactions().Len() == 0 {
 				continue
 			}
@@ -381,7 +386,7 @@ func (pm *ProtocolManager) startFetcherTicker() {
 				// restart peer connection
 				log.Info("Need reconnect peers", "seconds", ts-pm.peerSyncTime, "peers len", pm.peers.Len())
 
-				peerList := pm.peers.PeersWithoutTx(common.Hash{})
+				peerList := pm.peers.peers
 				for _, p := range peerList {
 					pm.removePeer(p.id)
 					pm.handle(p)
@@ -531,7 +536,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 
-	if msg.Code == TxMsg || msg.Code == BlockHeadersMsg || msg.Code == BlockBodiesMsg || msg.Code == ReceiptsMsg || msg.Code == NewBlockMsg {
+	if msg.Code != StatusMsg && msg.Code != GetNodeDataMsg && msg.Code != NodeDataMsg {
 		pm.peerSyncTime = time.Now().Unix()
 	}
 
