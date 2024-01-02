@@ -1586,7 +1586,11 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
+			// this chainHead will detect by tx_pool, then cause skip deep reorg when batch blocks inserted,
+			// at this time, p2p node stops download block bodies until restart,
+			// ignore to send this event
+			log.Debug("Ignore ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
+			// 	bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
 	// Start the parallel header verifier
