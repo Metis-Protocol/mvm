@@ -270,6 +270,34 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		if !service.verifier {
 			service.setSyncStatus(true)
 		}
+	} else if cfg.SeqBridgeUrl != "" {
+		// peer only
+		log.Info("Start sync service only peer", "bridge", cfg.SeqBridgeUrl)
+		// Initialize the latest L1 data here to make sure that
+		// it happens before the RPC endpoints open up
+		// Only do it if the sync service is enabled so that this
+		// can be ran without needing to have a configured RollupClient.
+		err := service.initializeLatestL1(cfg.CanonicalTransactionChainDeployHeight)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot initialize latest L1 data: %w", err)
+		}
+
+		// Log the OVMContext information on startup
+		bn := service.GetLatestL1BlockNumber()
+		ts := service.GetLatestL1Timestamp()
+		log.Info("Initialized Latest L1 Info", "blocknumber", bn, "timestamp", ts)
+
+		index := service.GetLatestIndex()
+		queueIndex := service.GetLatestEnqueueIndex()
+		verifiedIndex := service.GetLatestVerifiedIndex()
+		block := service.bc.CurrentBlock()
+		if block == nil {
+			block = types.NewBlock(&types.Header{}, nil, nil, nil)
+		}
+		header := block.Header()
+		log.Info("Initial Rollup State", "state", header.Root.Hex(), "index", stringify(index), "queue-index", stringify(queueIndex), "verified-index", stringify(verifiedIndex))
+
+		go service.HandleSyncFromOther()
 	}
 	return &service, nil
 }

@@ -1167,14 +1167,18 @@ func (pm *ProtocolManager) updateGasPrice(blocks types.Blocks) {
 }
 
 func (pm *ProtocolManager) updateTxQueue(blocks types.Blocks) {
+	log.Info("handle blocks inerted of fetcher or downloader", "len", len(blocks))
 	for _, block := range blocks {
 		for _, tx := range block.Transactions() {
 			index := tx.GetMeta().Index
 			if index == nil {
+				log.Info("handle blocks inerted of fetcher or downloader, nil index")
 				continue
 			}
 			log.Info("handle blocks inerted of fetcher or downloader", "tx index", *index)
-			pm.txQueues <- tx
+			if pm.txQueues != nil {
+				pm.txQueues <- tx
+			}
 		}
 	}
 }
