@@ -1489,6 +1489,10 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 	var (
 		block, prev *types.Block
 	)
+	// Filter blockNumber larger than current, to prevent reorg
+	filterIndex := 0
+	filterFound := false
+	currBlockNumber := bc.CurrentBlock().NumberU64()
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		block = chain[i]
@@ -1502,6 +1506,23 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 				prev.Hash().Bytes()[:4], i, block.NumberU64(), block.Hash().Bytes()[:4], block.ParentHash().Bytes()[:4])
 		}
 	}
+	for i := 0; i < len(chain); i++ {
+		block := chain[i]
+		// Cmp to latest index
+		if block.NumberU64() > currBlockNumber {
+			filterIndex = i
+			filterFound = true
+			break
+		}
+	}
+	if !filterFound {
+		log.Warn("Skip all block insert with current block number larger", "current", currBlockNumber, "len", len(chain))
+		return 0, nil
+	}
+	filterChain := make([]*types.Block, len(chain)-filterIndex)
+	copy(filterChain, chain[filterIndex:])
+	// filterChain := chain[filterIndex:]
+	log.Info("InsertChainWithFunc use filter chain", "filter index", filterIndex, "origin len", len(chain), "filter len", len(filterChain))
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
@@ -1521,7 +1542,7 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 	chn := make(chan int)
 	cherr := make(chan error)
 
-	go bc.insertChainWithFuncAndCh(chain, true, chn, cherr, func() {
+	go bc.insertChainWithFuncAndCh(filterChain, true, chn, cherr, func() {
 		bc.chainmu.Unlock()
 		bc.wg.Done()
 
@@ -1541,7 +1562,28 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 }
 
 func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
-	return bc.insertChainWithFunc(chain, verifySeals, nil)
+	// Filter blockNumber larger than current, to prevent reorg
+	filterIndex := 0
+	filterFound := false
+	currBlockNumber := bc.CurrentBlock().NumberU64()
+	for i := 0; i < len(chain); i++ {
+		block := chain[i]
+		// Cmp to latest index
+		if block.NumberU64() > currBlockNumber {
+			filterIndex = i
+			filterFound = true
+			break
+		}
+	}
+	if !filterFound {
+		log.Warn("Skip all block insert with current block number larger", "current", currBlockNumber, "len", len(chain))
+		return 0, nil
+	}
+	filterChain := make([]*types.Block, len(chain)-filterIndex)
+	copy(filterChain, chain[filterIndex:])
+	// filterChain := chain[filterIndex:]
+	log.Info("InsertChain use filter chain", "filter index", filterIndex, "origin len", len(chain), "filter len", len(filterChain))
+	return bc.insertChainWithFunc(filterChain, verifySeals, nil)
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1899,7 +1941,11 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
+			// this chainHead will detect by tx_pool, then cause skip deep reorg when batch blocks inserted,
+			// at this time, p2p node stops download block bodies until restart,
+			// ignore to send this event
+			log.Debug("Ignore ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
+			// bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
 	// Start the parallel header verifier
