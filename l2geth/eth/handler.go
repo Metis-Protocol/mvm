@@ -195,13 +195,8 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		if syncEnqueueIndex != nil {
 			latestEnqueueIndex = *syncEnqueueIndex
 		}
-		// currentBN := blockchain.CurrentBlock().NumberU64()
 		for i := 0; i < len(blocks); i++ {
 			block = blocks[i]
-			// if block.NumberU64() <= currentBN {
-			// 	log.Error("not allow blocks nubmer lower than self to prevent reorg", "incoming number", block.NumberU64(), "self number", currentBN)
-			// 	return errors.New("handler blocksBeforeInsert not allow blocks nubmer lower than self")
-			// }
 			if block.Transactions().Len() == 0 {
 				continue
 			}

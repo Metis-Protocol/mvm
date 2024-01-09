@@ -1489,10 +1489,6 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 	var (
 		block, prev *types.Block
 	)
-	// Filter blockNumber larger than current, to prevent reorg
-	filterIndex := 0
-	filterFound := false
-	currBlockNumber := bc.CurrentBlock().NumberU64()
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		block = chain[i]
@@ -1506,23 +1502,6 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 				prev.Hash().Bytes()[:4], i, block.NumberU64(), block.Hash().Bytes()[:4], block.ParentHash().Bytes()[:4])
 		}
 	}
-	for i := 0; i < len(chain); i++ {
-		block := chain[i]
-		// Cmp to latest index
-		if block.NumberU64() > currBlockNumber {
-			filterIndex = i
-			filterFound = true
-			break
-		}
-	}
-	if !filterFound {
-		log.Warn("Skip all block insert with current block number larger", "current", currBlockNumber, "len", len(chain))
-		return 0, nil
-	}
-	filterChain := make([]*types.Block, len(chain)-filterIndex)
-	copy(filterChain, chain[filterIndex:])
-	// filterChain := chain[filterIndex:]
-	log.Info("InsertChainWithFunc use filter chain", "filter index", filterIndex, "origin len", len(chain), "filter len", len(filterChain))
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
@@ -1542,7 +1521,7 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 	chn := make(chan int)
 	cherr := make(chan error)
 
-	go bc.insertChainWithFuncAndCh(filterChain, true, chn, cherr, func() {
+	go bc.insertChainWithFuncAndCh(chain, true, chn, cherr, func() {
 		bc.chainmu.Unlock()
 		bc.wg.Done()
 
@@ -1562,28 +1541,7 @@ func (bc *BlockChain) InsertChainWithFunc(chain types.Blocks, f interface{}) (in
 }
 
 func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
-	// Filter blockNumber larger than current, to prevent reorg
-	filterIndex := 0
-	filterFound := false
-	currBlockNumber := bc.CurrentBlock().NumberU64()
-	for i := 0; i < len(chain); i++ {
-		block := chain[i]
-		// Cmp to latest index
-		if block.NumberU64() > currBlockNumber {
-			filterIndex = i
-			filterFound = true
-			break
-		}
-	}
-	if !filterFound {
-		log.Warn("Skip all block insert with current block number larger", "current", currBlockNumber, "len", len(chain))
-		return 0, nil
-	}
-	filterChain := make([]*types.Block, len(chain)-filterIndex)
-	copy(filterChain, chain[filterIndex:])
-	// filterChain := chain[filterIndex:]
-	log.Info("InsertChain use filter chain", "filter index", filterIndex, "origin len", len(chain), "filter len", len(filterChain))
-	return bc.insertChainWithFunc(filterChain, verifySeals, nil)
+	return bc.insertChainWithFunc(chain, verifySeals, nil)
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -1628,11 +1586,8 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-			// this chainHead will detect by tx_pool, then cause skip deep reorg when batch blocks inserted,
-			// at this time, p2p node stops download block bodies until restart,
-			// ignore to send this event
-			log.Debug("Ignore ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
-			// 	bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
+			log.Debug("Send ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
+			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
 	// Start the parallel header verifier
@@ -1684,10 +1639,10 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		// head full block(new pivot point).
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
-			// NOTE 20210724 disable writeKnownBlock
-			// if err := bc.writeKnownBlock(block); err != nil {
-			// 	return it.index, err
-			// }
+			// NOTE 20240109 writeKnownBlock
+			if err := bc.writeKnownBlock(block); err != nil {
+				return it.index, err
+			}
 			lastCanon = block
 
 			block, err = it.next()
@@ -1760,10 +1715,10 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
-			// NOTE 20210724 disable writeKnownBlock
-			// if err := bc.writeKnownBlock(block); err != nil {
-			// 	return it.index, err
-			// }
+			// NOTE 20240109 writeKnownBlock
+			if err := bc.writeKnownBlock(block); err != nil {
+				return it.index, err
+			}
 			stats.processed++
 
 			// We can assume that logs are empty here, since the only way for consecutive
@@ -1941,11 +1896,8 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-			// this chainHead will detect by tx_pool, then cause skip deep reorg when batch blocks inserted,
-			// at this time, p2p node stops download block bodies until restart,
-			// ignore to send this event
-			log.Debug("Ignore ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
-			// bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
+			log.Debug("Send ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
+			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
 	// Start the parallel header verifier
@@ -1997,10 +1949,10 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 		// head full block(new pivot point).
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
-			// NOTE 20210724 disable writeKnownBlock
-			// if err := bc.writeKnownBlock(block); err != nil {
-			// 	return it.index, err
-			// }
+			// NOTE 20240109 writeKnownBlock
+			if err := bc.writeKnownBlock(block); err != nil {
+				return it.index, err
+			}
 			lastCanon = block
 
 			block, err = it.next()
@@ -2086,10 +2038,10 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
-			// NOTE 20210724 disable writeKnownBlock
-			// if err := bc.writeKnownBlock(block); err != nil {
-			// 	return it.index, err
-			// }
+			// NOTE 20240109 writeKnownBlock
+			if err := bc.writeKnownBlock(block); err != nil {
+				return it.index, err
+			}
 			stats.processed++
 
 			// We can assume that logs are empty here, since the only way for consecutive
