@@ -1640,9 +1640,9 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
 			// NOTE 20240109 writeKnownBlock
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
 			lastCanon = block
 
 			block, err = it.next()
@@ -1716,9 +1716,9 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 				"root", block.Root())
 
 			// NOTE 20240109 writeKnownBlock
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
 			stats.processed++
 
 			// We can assume that logs are empty here, since the only way for consecutive
@@ -1950,9 +1950,9 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
 			// NOTE 20240109 writeKnownBlock
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
 			lastCanon = block
 
 			block, err = it.next()
@@ -2039,9 +2039,9 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 				"root", block.Root())
 
 			// NOTE 20240109 writeKnownBlock
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
+			// if err := bc.writeKnownBlock(block); err != nil {
+			// 	return it.index, err
+			// }
 			stats.processed++
 
 			// We can assume that logs are empty here, since the only way for consecutive

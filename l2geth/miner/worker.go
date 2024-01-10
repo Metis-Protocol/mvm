@@ -570,6 +570,8 @@ func (w *worker) mainLoop() {
 				log.Error("Problem committing transaction", "msg", err)
 				if ev.ErrCh != nil {
 					ev.ErrCh <- err
+				} else {
+					w.handleErrInTask(err, false)
 				}
 			}
 
