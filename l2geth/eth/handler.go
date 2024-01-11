@@ -190,11 +190,11 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 			block *types.Block
 		)
 		rollupClient := manager.syncService.RollupClient()
-		syncEnqueueIndex := manager.syncService.GetLatestEnqueueIndex()
-		var latestEnqueueIndex uint64
-		if syncEnqueueIndex != nil {
-			latestEnqueueIndex = *syncEnqueueIndex
-		}
+		// syncEnqueueIndex := manager.syncService.GetLatestEnqueueIndex()
+		// var latestEnqueueIndex uint64
+		// if syncEnqueueIndex != nil {
+		// 	latestEnqueueIndex = *syncEnqueueIndex
+		// }
 		for i := 0; i < len(blocks); i++ {
 			block = blocks[i]
 			if block.Transactions().Len() == 0 {
@@ -210,14 +210,15 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					if queueIndex == nil {
 						return errors.New("handler blocksBeforeInsert invalid queue")
 					}
-					if syncEnqueueIndex != nil && *queueIndex <= latestEnqueueIndex {
-						// queueIndex should >= 0
-						errInfo := fmt.Sprintf("handler blocksBeforeInsert queue index replay, latest enqueue index %v, queue index %v", latestEnqueueIndex, *queueIndex)
-						log.Error(errInfo)
-						return errors.New(errInfo)
-					}
-					syncEnqueueIndex = queueIndex
-					latestEnqueueIndex = *queueIndex
+					// Not check this index, always get known blocks
+					// if syncEnqueueIndex != nil && *queueIndex <= latestEnqueueIndex {
+					// 	// queueIndex should >= 0
+					// 	errInfo := fmt.Sprintf("handler blocksBeforeInsert queue index replay, latest enqueue index %v, queue index %v", latestEnqueueIndex, *queueIndex)
+					// 	log.Error(errInfo)
+					// 	return errors.New(errInfo)
+					// }
+					// syncEnqueueIndex = queueIndex
+					// latestEnqueueIndex = *queueIndex
 					// check args with dtl l1 enqueue
 					txEnqueue, err := rollupClient.GetEnqueue(*queueIndex)
 					if err != nil {
