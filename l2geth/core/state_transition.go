@@ -46,8 +46,10 @@ The state transitioning model does all the necessary work to work out a valid ne
 3) Create a new state object if the recipient is \0*32
 4) Value transfer
 == If contract creation ==
+
 	4a) Attempt to run transaction data
 	4b) If valid, use result as code for the new state object
+
 == end ==
 5) Run Script section
 6) Derive new state root
@@ -133,7 +135,7 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 			// Compute the L1 fee before the state transition
 			// so it only has to be read from state one time.
 			l1FeeInL2, _ = fees.CalculateL1MsgFeeInL2(msg, evm.StateDB, nil, msg.CheckNonce() == false)
-			log.Debug("Current L1FeeInL2", "fee", l1FeeInL2)
+			// log.Debug("Current L1FeeInL2", "fee", l1FeeInL2)
 		}
 	}
 
@@ -202,13 +204,13 @@ func (st *StateTransition) buyGas() error {
 
 	st.gas += st.msg.Gas()
 	st.initialGas = st.msg.Gas()
-	log.Debug("buygas", "gas", st.gas, "initialGas", st.initialGas)
+	// log.Debug("buygas", "gas", st.gas, "initialGas", st.initialGas)
 	st.state.SubBalance(st.msg.From(), mgval)
 	return nil
 }
 
 func (st *StateTransition) preCheck() error {
-	log.Debug("preCheck", "checknonce", st.msg.CheckNonce(), "gas", st.msg.Gas())
+	// log.Debug("preCheck", "checknonce", st.msg.CheckNonce(), "gas", st.msg.Gas())
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
 		if rcfg.UsingOVM {
@@ -289,7 +291,7 @@ func (st *StateTransition) TransitionDbWithBlockNumber(blockNumber uint64) (ret 
 		if rcfg.ChainID == 1088 && (blockNumber == 3247675 || blockNumber == 3247681) {
 			_ = st.useGas(100000)
 		}
-		log.Debug("getting in vm", "gas", st.gas, "value", st.value, "sender", msg.From(), "gasprice", st.gasPrice)
+		// log.Debug("getting in vm", "gas", st.gas, "value", st.value, "sender", msg.From(), "gasprice", st.gasPrice)
 		if contractCreation {
 			ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 		} else {

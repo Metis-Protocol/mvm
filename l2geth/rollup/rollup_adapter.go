@@ -258,12 +258,12 @@ func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) 
 }
 
 func (s *SeqAdapter) SetPreRespan(oldAddress common.Address, newAddress common.Address, number uint64) error {
-	s.preRespan = &PreRespan{
-		PreSigner:        oldAddress,
-		NewSigner:        newAddress,
-		RespanStartBlock: number,
-	}
-	log.Info("set pre respan", "preSigner", oldAddress.Hex(), "newSigner", newAddress.Hex(), "startBlock", number)
+	// s.preRespan = &PreRespan{
+	// 	PreSigner:        oldAddress,
+	// 	NewSigner:        newAddress,
+	// 	RespanStartBlock: number,
+	// }
+	log.Info("set pre respan, log", "preSigner", oldAddress.Hex(), "newSigner", newAddress.Hex(), "startBlock", number)
 	return nil
 }
 

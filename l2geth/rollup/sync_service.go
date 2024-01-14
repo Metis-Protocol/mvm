@@ -1393,6 +1393,11 @@ func (s *SyncService) applyBatchedTransaction(tx *types.Transaction) error {
 	return nil
 }
 
+// VerifyFee for api_backend
+func (s *SyncService) VerifyFee(tx *types.Transaction) error {
+	return s.verifyFee(tx)
+}
+
 // verifyFee will verify that a valid fee is being paid.
 func (s *SyncService) verifyFee(tx *types.Transaction) error {
 
