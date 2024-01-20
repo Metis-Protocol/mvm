@@ -1274,7 +1274,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	s.SetLatestIndexTime(time.Now().Unix())
 	s.SetLatestVerifiedIndex(tx.GetMeta().Index)
 	if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
-		s.SetLatestEnqueueIndex(queueIndex)
+		latestEnqueue := s.GetLatestEnqueueIndex()
+		if latestEnqueue == nil || *latestEnqueue < *queueIndex {
+			s.SetLatestEnqueueIndex(queueIndex)
+		}
 	}
 	// The index was set above so it is safe to dereference
 	log.Debug("Applying transaction to tip", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex(), "origin", tx.QueueOrigin().String())
@@ -1698,11 +1701,16 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 		}
 		if err := s.applyTransaction(tx, true); err != nil {
 			// retry when enqueue error
-			log.Info("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
+			log.Error("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
 			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
-				restoreIndex := *queueIndex - 1
-				s.SetLatestEnqueueIndex(&restoreIndex)
-				log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
+				if *queueIndex > 0 {
+					restoreIndex := *queueIndex - 1
+					s.SetLatestEnqueueIndex(&restoreIndex)
+					log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
+				} else {
+					// should re-deploy
+					log.Error("syncQueueTransactionRange failed at zero index")
+				}
 			}
 			return fmt.Errorf("Cannot apply transaction: %w", err)
 		}
