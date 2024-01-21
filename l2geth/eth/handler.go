@@ -190,11 +190,11 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 			block *types.Block
 		)
 		rollupClient := manager.syncService.RollupClient()
-		syncEnqueueIndex := manager.syncService.GetLatestEnqueueIndex()
-		var latestEnqueueIndex uint64
-		if syncEnqueueIndex != nil {
-			latestEnqueueIndex = *syncEnqueueIndex
-		}
+		// syncEnqueueIndex := manager.syncService.GetLatestEnqueueIndex()
+		// var latestEnqueueIndex uint64
+		// if syncEnqueueIndex != nil {
+		// 	latestEnqueueIndex = *syncEnqueueIndex
+		// }
 		for i := 0; i < len(blocks); i++ {
 			block = blocks[i]
 			if block.Transactions().Len() == 0 {
@@ -210,14 +210,15 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					if queueIndex == nil {
 						return errors.New("handler blocksBeforeInsert invalid queue")
 					}
-					if syncEnqueueIndex != nil && *queueIndex <= latestEnqueueIndex {
-						// queueIndex should >= 0
-						errInfo := fmt.Sprintf("handler blocksBeforeInsert queue index replay, latest enqueue index %v, queue index %v", latestEnqueueIndex, *queueIndex)
-						log.Error(errInfo)
-						return errors.New(errInfo)
-					}
-					syncEnqueueIndex = queueIndex
-					latestEnqueueIndex = *queueIndex
+					// Not check this index, always get known blocks
+					// if syncEnqueueIndex != nil && *queueIndex <= latestEnqueueIndex {
+					// 	// queueIndex should >= 0
+					// 	errInfo := fmt.Sprintf("handler blocksBeforeInsert queue index replay, latest enqueue index %v, queue index %v", latestEnqueueIndex, *queueIndex)
+					// 	log.Error(errInfo)
+					// 	return errors.New(errInfo)
+					// }
+					// syncEnqueueIndex = queueIndex
+					// latestEnqueueIndex = *queueIndex
 					// check args with dtl l1 enqueue
 					txEnqueue, err := rollupClient.GetEnqueue(*queueIndex)
 					if err != nil {
@@ -242,7 +243,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					log.Error("handler blocksBeforeInsert RecoverSeqAddress err", err)
 					return err
 				}
-				log.Debug(fmt.Sprintf("handler blocksBeforeInsert tx seq %v", recoverSeq))
+				log.Debug(fmt.Sprintf("handler blocksBeforeInsert tx seq %v", recoverSeq), "number", blockNumber)
 				// check prevent sequencer signer and height of PoS
 				shouldPrevent := seqAdapter.IsPreRespanSequencer(recoverSeq, blockNumber)
 				if shouldPrevent {
@@ -381,7 +382,7 @@ func (pm *ProtocolManager) startFetcherTicker() {
 				// restart peer connection
 				log.Info("Need reconnect peers", "seconds", ts-pm.peerSyncTime, "peers len", pm.peers.Len())
 
-				peerList := pm.peers.PeersWithoutTx(common.Hash{})
+				peerList := pm.peers.peers
 				for _, p := range peerList {
 					pm.removePeer(p.id)
 					pm.handle(p)
@@ -531,18 +532,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 
-	// rollup node should accept write msg
-	if pm.HasRPCModule("rollup") {
-		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
-			//return errResp(ErrInvalidMsgCode, "%v in rollup node", msg.Code)
-			// should support NewBlockMsg
-			pm.peerSyncTime = time.Now().Unix()
-
-		}
-	} else {
-		if msg.Code != GetBlockHeadersMsg && msg.Code != GetBlockBodiesMsg && msg.Code != GetNodeDataMsg && msg.Code != GetReceiptsMsg {
-			pm.peerSyncTime = time.Now().Unix()
-		}
+	if msg.Code != StatusMsg && msg.Code != GetNodeDataMsg && msg.Code != NodeDataMsg {
+		pm.peerSyncTime = time.Now().Unix()
 	}
 
 	defer msg.Discard()
@@ -1172,14 +1163,18 @@ func (pm *ProtocolManager) updateGasPrice(blocks types.Blocks) {
 }
 
 func (pm *ProtocolManager) updateTxQueue(blocks types.Blocks) {
+	log.Info("handle blocks inerted of fetcher or downloader", "len", len(blocks))
 	for _, block := range blocks {
 		for _, tx := range block.Transactions() {
 			index := tx.GetMeta().Index
 			if index == nil {
+				log.Info("handle blocks inerted of fetcher or downloader, nil index")
 				continue
 			}
 			log.Info("handle blocks inerted of fetcher or downloader", "tx index", *index)
-			pm.txQueues <- tx
+			if pm.txQueues != nil {
+				pm.txQueues <- tx
+			}
 		}
 	}
 }

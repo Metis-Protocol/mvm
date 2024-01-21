@@ -119,6 +119,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     const leafs = []
     let rootFromCalldata = ''
     let fromStorage = false
+    const sequencerTxIndex = []
     for (let i = 0; i < numContexts; i++) {
       const contextPointer = 47 + 16 * i
       const context = parseSequencerBatchContext(calldata, contextPointer)
@@ -202,36 +203,10 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
             )
           )
         )
+        // push to update sequencer sign
+        sequencerTxIndex.push(transactionIndex)
         nextTxPointer += 3 + sequencerTransaction.length
         transactionIndex++
-      }
-
-      // TODO restore sequencer sign
-      if (nextTxPointer < calldata.length) {
-        for (let j = 0; j < context.numSequencedTransactions; j++) {
-          const sequencerSign = parseSequencerBatchTransaction(
-            calldata,
-            nextTxPointer
-          )
-          const decodedSign = remove0x(toHexString(sequencerSign))
-          // sign length is 64 * 2 + 2, or '000000'
-          if (decodedSign && decodedSign === '000000') {
-            transactionEntries[j].seqSign = '0x0,0x0,0x0'
-          } else if (!decodedSign || decodedSign.length < 130) {
-            transactionEntries[j].seqSign = ''
-          } else {
-            const seqR = '0x' + removeLeadingZeros(decodedSign.substring(0, 64))
-            const seqS = '0x' + removeLeadingZeros(decodedSign.substring(64, 128))
-            let seqV = decodedSign.substring(128)
-            if (seqV.length > 0) {
-              seqV = '0x' + removeLeadingZeros(seqV)
-            } else {
-              seqV = '0x0'
-            }
-            transactionEntries[j].seqSign = `${seqR},${seqS},${seqV}`
-          }
-          nextTxPointer += 3 + sequencerSign.length
-        }
       }
 
       for (let j = 0; j < context.numSubsequentQueueTransactions; j++) {
@@ -272,6 +247,50 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
 
         enqueuedCount++
         transactionIndex++
+      }
+    }
+
+    // restore sequencer sign
+    // in update period, perhaps some start tx has no sequencer sign (only one batch like this)
+    if (nextTxPointer < calldata.length) {
+      const cachedSignList = []
+      for (let j = 0; j < sequencerTxIndex.length; j++) {
+        const sequencerSign = parseSequencerBatchTransaction(
+          calldata,
+          nextTxPointer
+        )
+        const decodedSign = remove0x(toHexString(sequencerSign))
+        // sign length is 64 * 2 + 2, or '000000'
+        if (decodedSign && decodedSign === '000000') {
+          // transactionEntries[j].seqSign = '0x0,0x0,0x0'
+          cachedSignList.push('0x0,0x0,0x0')
+        } else if (!decodedSign || decodedSign.length < 130) {
+          // transactionEntries[j].seqSign = ''
+          cachedSignList.push('')
+        } else {
+          const seqR = '0x' + removeLeadingZeros(decodedSign.substring(0, 64))
+          const seqS = '0x' + removeLeadingZeros(decodedSign.substring(64, 128))
+          let seqV = decodedSign.substring(128)
+          if (seqV.length > 0) {
+            seqV = '0x' + removeLeadingZeros(seqV)
+          } else {
+            seqV = '0x0'
+          }
+          // transactionEntries[j].seqSign = `${seqR},${seqS},${seqV}`
+          cachedSignList.push(`${seqR},${seqS},${seqV}`)
+        }
+        nextTxPointer += 3 + sequencerSign.length
+        if (nextTxPointer >= calldata.length) {
+          break
+        }
+      }
+      const startIndex = sequencerTxIndex.length - cachedSignList.length
+      // fill empty seqSign first
+      for (let j = 0; j < startIndex; j++) {
+        transactionEntries[sequencerTxIndex[j]].seqSign = ''
+      }
+      for (let j = startIndex; j < sequencerTxIndex.length; j++) {
+        transactionEntries[sequencerTxIndex[j]].seqSign = cachedSignList[j - startIndex]
       }
     }
 

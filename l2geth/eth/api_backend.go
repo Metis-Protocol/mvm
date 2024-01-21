@@ -568,6 +568,11 @@ func (b *EthAPIBackend) validateTx(ctx context.Context, tx *types.Transaction) e
 	if tx.Gas() < intrGas {
 		return core.ErrIntrinsicGas
 	}
+
+	err = b.eth.syncService.VerifyFee(tx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

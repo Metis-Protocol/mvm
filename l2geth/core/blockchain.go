@@ -1586,6 +1586,7 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
+			log.Debug("Send ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
@@ -1638,7 +1639,7 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 		// head full block(new pivot point).
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
-			// NOTE 20210724 disable writeKnownBlock
+			// NOTE 20240109 writeKnownBlock
 			// if err := bc.writeKnownBlock(block); err != nil {
 			// 	return it.index, err
 			// }
@@ -1714,7 +1715,7 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
-			// NOTE 20210724 disable writeKnownBlock
+			// NOTE 20240109 writeKnownBlock
 			// if err := bc.writeKnownBlock(block); err != nil {
 			// 	return it.index, err
 			// }
@@ -1895,6 +1896,7 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 		}
 
 		if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
+			log.Debug("Send ChainHeadEvent by lastCanon", "hash", lastCanon.Hash())
 			bc.chainHeadFeed.Send(ChainHeadEvent{lastCanon})
 		}
 	}()
@@ -1947,7 +1949,7 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 		// head full block(new pivot point).
 		for block != nil && err == ErrKnownBlock {
 			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
-			// NOTE 20210724 disable writeKnownBlock
+			// NOTE 20240109 writeKnownBlock
 			// if err := bc.writeKnownBlock(block); err != nil {
 			// 	return it.index, err
 			// }
@@ -2036,7 +2038,7 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
-			// NOTE 20210724 disable writeKnownBlock
+			// NOTE 20240109 writeKnownBlock
 			// if err := bc.writeKnownBlock(block); err != nil {
 			// 	return it.index, err
 			// }

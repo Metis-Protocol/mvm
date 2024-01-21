@@ -270,6 +270,34 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		if !service.verifier {
 			service.setSyncStatus(true)
 		}
+	} else if cfg.SeqBridgeUrl != "" {
+		// peer only
+		log.Info("Start sync service only peer", "bridge", cfg.SeqBridgeUrl)
+		// Initialize the latest L1 data here to make sure that
+		// it happens before the RPC endpoints open up
+		// Only do it if the sync service is enabled so that this
+		// can be ran without needing to have a configured RollupClient.
+		err := service.initializeLatestL1(cfg.CanonicalTransactionChainDeployHeight)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot initialize latest L1 data: %w", err)
+		}
+
+		// Log the OVMContext information on startup
+		bn := service.GetLatestL1BlockNumber()
+		ts := service.GetLatestL1Timestamp()
+		log.Info("Initialized Latest L1 Info", "blocknumber", bn, "timestamp", ts)
+
+		index := service.GetLatestIndex()
+		queueIndex := service.GetLatestEnqueueIndex()
+		verifiedIndex := service.GetLatestVerifiedIndex()
+		block := service.bc.CurrentBlock()
+		if block == nil {
+			block = types.NewBlock(&types.Header{}, nil, nil, nil)
+		}
+		header := block.Header()
+		log.Info("Initial Rollup State", "state", header.Root.Hex(), "index", stringify(index), "queue-index", stringify(queueIndex), "verified-index", stringify(verifiedIndex))
+
+		go service.HandleSyncFromOther()
 	}
 	return &service, nil
 }
@@ -1130,9 +1158,15 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 
 		// Check if it has txApplyErr, perhaps LatestIndex is not right
 		// compare index and current block number
-		if len(s.txApplyErrCh) > 0 {
-			applyErr := <-s.txApplyErrCh
-			log.Error("Found txApplyErr when applyTransactionToTip", "err", applyErr)
+		if len(s.txApplyErrCh) > 0 || len(s.chainHeadCh) > 0 {
+			if len(s.txApplyErrCh) > 0 {
+				applyErr := <-s.txApplyErrCh
+				log.Error("Found txApplyErr when applyTransactionToTip", "err", applyErr)
+			}
+			// backup sequencer perhaps have one time chainHeadCh<- if p2p download batch txs
+			if len(s.chainHeadCh) > 0 {
+				<-s.chainHeadCh
+			}
 			if !s.verifier {
 				parent := s.bc.CurrentBlock()
 				parentNumber := parent.Number().Uint64()
@@ -1160,6 +1194,11 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 					log.Warn("The sync index is incorrect with txApplyErr", "expect", expectMetaIndex, "parent", parentNumber)
 				}
 			}
+		}
+	} else {
+		// backup sequencer perhaps have one time chainHeadCh<- if p2p download batch txs
+		if len(s.chainHeadCh) > 0 {
+			<-s.chainHeadCh
 		}
 	}
 
@@ -1194,8 +1233,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		// This should never happen
 		log.Error("No tx timestamp found when running as verifier", "hash", tx.Hash().Hex())
 	} else if tx.L1Timestamp() < ts {
-		// This should never happen, but sometimes does
-		log.Error("Timestamp monotonicity violation", "hash", tx.Hash().Hex(), "latest", ts, "tx", tx.L1Timestamp())
+		if fromLocal {
+			// This should never happen, but sometimes does
+			log.Error("Timestamp monotonicity violation", "hash", tx.Hash().Hex(), "latest", ts, "tx", tx.L1Timestamp())
+		}
 	}
 
 	l1BlockNumber := tx.L1BlockNumber()
@@ -1207,8 +1248,10 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	} else if l1BlockNumber.Uint64() < bn {
 		// l1BlockNumber < latest l1BlockNumber
 		// indicates an error
-		log.Error("Blocknumber monotonicity violation", "hash", tx.Hash().Hex(),
-			"new", l1BlockNumber.Uint64(), "old", bn)
+		if fromLocal {
+			log.Error("Blocknumber monotonicity violation", "hash", tx.Hash().Hex(),
+				"new", l1BlockNumber.Uint64(), "old", bn)
+		}
 	}
 
 	// Store the latest timestamp value
@@ -1217,19 +1260,12 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// store current time for the last index time
 
-	metaIndex := uint64(0)
 	if tx.GetMeta().Index == nil {
 		if index == nil {
 			tx.SetIndex(0)
 		} else {
 			tx.SetIndex(*index + 1)
-			metaIndex = *index + 1
 		}
-	}
-	// Check meta index again
-	if fromLocal && metaIndex+1 != blockNumber {
-		log.Warn("correction tx meta index", "wrong", metaIndex, "right", blockNumber-1)
-		tx.SetIndex(blockNumber - 1)
 	}
 	// On restart, these values are repaired to handle
 	// the case where the index is updated but the
@@ -1238,9 +1274,8 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	s.SetLatestIndexTime(time.Now().Unix())
 	s.SetLatestVerifiedIndex(tx.GetMeta().Index)
 	if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
-		lastIndex := s.GetLatestEnqueueIndex()
-		if lastIndex == nil || *lastIndex < *queueIndex {
-			log.Info("applyTransactionToTip transaction SetLatestEnqueueIndex", "queueIndex", *queueIndex)
+		latestEnqueue := s.GetLatestEnqueueIndex()
+		if latestEnqueue == nil || *latestEnqueue < *queueIndex {
 			s.SetLatestEnqueueIndex(queueIndex)
 		}
 	}
@@ -1255,10 +1290,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			Txs: txs,
 		})
 
-		// backup sequencer perhaps have one time chainHeadCh<- if p2p download batch txs
-		if len(s.chainHeadCh) > 0 {
-			<-s.chainHeadCh
-		}
 		sender, _ := types.Sender(s.signer, tx)
 		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
@@ -1277,22 +1308,22 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	// mpc status 4: default txFeed
 	txs := types.Transactions{tx}
-	errCh := make(chan error, 1)
+	// errCh := make(chan error, 1)
 	// send to handle the new tx
 	s.txFeed.Send(core.NewTxsEvent{
 		Txs:   txs,
-		ErrCh: errCh,
+		ErrCh: nil,
 	})
 	// Block until the transaction has been added to the chain
 	log.Trace("Waiting for transaction to be added to chain", "hash", tx.Hash().Hex())
 	select {
-	case err := <-errCh:
-		log.Error("Got error waiting for transaction to be added to chain", "msg", err)
-		s.SetLatestL1Timestamp(ts)
-		s.SetLatestL1BlockNumber(bn)
-		s.SetLatestIndex(index)
-		s.SetLatestVerifiedIndex(index)
-		return err
+	// case err := <-errCh:
+	// 	log.Error("Got error waiting for transaction to be added to chain", "msg", err)
+	// 	s.SetLatestL1Timestamp(ts)
+	// 	s.SetLatestL1BlockNumber(bn)
+	// 	s.SetLatestIndex(index)
+	// 	s.SetLatestVerifiedIndex(index)
+	// 	return err
 	case txApplyErr := <-s.txApplyErrCh:
 		log.Error("Got error when added to chain", "err", txApplyErr)
 		s.SetLatestL1Timestamp(ts)
@@ -1301,12 +1332,33 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.SetLatestVerifiedIndex(index)
 		return txApplyErr
 	case <-s.chainHeadCh:
+		// when error occured in work.go
+		// isWorkErr := false
+		// var errWork error
+		// if len(errCh) > 0 {
+		// 	errWork = <-errCh
+		// 	log.Error("Got error waiting for transaction to be added to chain, but got chainHeadCh", "msg", errWork)
+		// 	isWorkErr = true
+		// }
+		// if len(s.txApplyErrCh) > 0 {
+		// 	errWork = <-s.txApplyErrCh
+		// 	log.Error("Got error when added to chain, but got chainHeadCh", "err", errWork)
+		// 	isWorkErr = true
+		// }
+		// if isWorkErr {
+		// 	s.SetLatestL1Timestamp(ts)
+		// 	s.SetLatestL1BlockNumber(bn)
+		// 	s.SetLatestIndex(index)
+		// 	s.SetLatestVerifiedIndex(index)
+		// 	return errWork
+		// }
 		// Update the cache when the transaction is from the owner
 		// of the gas price oracle
 		sender, _ := types.Sender(s.signer, tx)
 		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
 			if err := s.updateGasPriceOracleCache(nil); err != nil {
+				log.Error("chainHeadCh got applyTransactionToTip finish but update gasPriceOracleCache failed", "current latest", *s.GetLatestIndex(), "restore index", index)
 				s.SetLatestL1Timestamp(ts)
 				s.SetLatestL1BlockNumber(bn)
 				s.SetLatestIndex(index)
@@ -1338,6 +1390,11 @@ func (s *SyncService) applyBatchedTransaction(tx *types.Transaction) error {
 	}
 	// s.SetLatestVerifiedIndex(index)
 	return nil
+}
+
+// VerifyFee for api_backend
+func (s *SyncService) VerifyFee(tx *types.Transaction) error {
+	return s.verifyFee(tx)
 }
 
 // verifyFee will verify that a valid fee is being paid.
@@ -1644,11 +1701,16 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 		}
 		if err := s.applyTransaction(tx, true); err != nil {
 			// retry when enqueue error
-			log.Info("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
+			log.Error("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
 			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
-				restoreIndex := *queueIndex - 1
-				s.SetLatestEnqueueIndex(&restoreIndex)
-				log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
+				if *queueIndex > 0 {
+					restoreIndex := *queueIndex - 1
+					s.SetLatestEnqueueIndex(&restoreIndex)
+					log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
+				} else {
+					// should re-deploy
+					log.Error("syncQueueTransactionRange failed at zero index")
+				}
 			}
 			return fmt.Errorf("Cannot apply transaction: %w", err)
 		}
