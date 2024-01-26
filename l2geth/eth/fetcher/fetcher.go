@@ -681,7 +681,7 @@ func (f *Fetcher) insert(peer string, block *types.Block) {
 			return
 		}
 		// Run the actual import and log any issues
-		if _, err := f.insertChain(types.Blocks{block}, f.EnsureQueueInsert); err != nil {
+		if _, err := f.insertChain(types.Blocks{block}, nil); err != nil {
 			log.Debug("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 			return
 		}
@@ -749,37 +749,4 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 		}
 		delete(f.queued, hash)
 	}
-}
-
-// need to save block when save delayed
-func (f *Fetcher) EnsureQueueInsert() {
-	// Note 20210724
-	loopMutex.Lock()
-	height := f.chainHeight()
-	// queueCount := f.queue.Size()
-	for !f.queue.Empty() {
-		op := f.queue.PopItem().(*inject)
-		hash := op.block.Hash()
-		if f.queueChangeHook != nil {
-			f.queueChangeHook(hash, false)
-		}
-		// If too high up the chain or phase, continue later
-		number := op.block.NumberU64()
-		if number > height+1 {
-			// Note 20210724
-			f.queue.Push(op, -int64(number))
-			if f.queueChangeHook != nil {
-				f.queueChangeHook(hash, true)
-			}
-			break
-		}
-		// Otherwise if fresh and still unknown, try and import
-		if number+maxUncleDist < height || f.getBlock(hash) != nil {
-			f.forgetBlock(hash)
-			continue
-		}
-		f.insert(op.origin, op.block)
-	}
-	// Note 20210724
-	loopMutex.Unlock()
 }

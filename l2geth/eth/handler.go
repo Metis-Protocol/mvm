@@ -373,10 +373,6 @@ func (pm *ProtocolManager) startFetcherTicker() {
 	for {
 		select {
 		case <-pm.tickerFetcherSync.C:
-			if pm.fetcher != nil {
-				pm.fetcher.EnsureQueueInsert()
-			}
-
 			ts := time.Now().Unix()
 			if rcfg.PeerHealthCheckSeconds > 0 && pm.peerSyncTime > 0 && ts-pm.peerSyncTime > rcfg.PeerHealthCheckSeconds {
 				// restart peer connection
