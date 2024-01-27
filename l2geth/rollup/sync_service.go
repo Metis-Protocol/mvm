@@ -1100,6 +1100,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	} else {
 		blockNumber = uint64(1)
 	}
+	isRespan := false
 	expectSeq, err := s.GetTxSequencer(tx, blockNumber)
 	if err != nil {
 		log.Error("GetTxSequencer err ", err)
@@ -1119,6 +1120,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 				log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
 				return err
 			}
+			isRespan = s.RollupAdapter().IsRespanCall(tx)
 		}
 		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
 			// when block number >= seqValidHeight && !QueueOriginL1ToL2
@@ -1279,6 +1281,9 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			s.SetLatestEnqueueIndex(queueIndex)
 		}
 	}
+
+	sender, _ := types.Sender(s.signer, tx)
+	owner := s.GasPriceOracleOwnerAddress()
 	// The index was set above so it is safe to dereference
 	log.Debug("Applying transaction to tip", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex(), "origin", tx.QueueOrigin().String())
 	if !fromLocal {
@@ -1290,8 +1295,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 			Txs: txs,
 		})
 
-		sender, _ := types.Sender(s.signer, tx)
-		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
 			log.Info("sync from other node owner equals")
 			if err := s.updateGasPriceOracleCache(nil); err != nil {
@@ -1306,9 +1309,13 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		log.Info("sync from other node applyTransactionToTip finish", "current latest", *s.GetLatestIndex())
 		return nil
 	}
+	if !(isRespan || (owner != nil && sender == *owner)) {
+		// send to txpool
+		return s.txpool.AddLocal(tx)
+	}
+	// respan or gasOracle, mine 1 tx to a block
 	// mpc status 4: default txFeed
 	txs := types.Transactions{tx}
-	// errCh := make(chan error, 1)
 	// send to handle the new tx
 	s.txFeed.Send(core.NewTxsEvent{
 		Txs:   txs,
@@ -1317,13 +1324,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	// Block until the transaction has been added to the chain
 	log.Trace("Waiting for transaction to be added to chain", "hash", tx.Hash().Hex())
 	select {
-	// case err := <-errCh:
-	// 	log.Error("Got error waiting for transaction to be added to chain", "msg", err)
-	// 	s.SetLatestL1Timestamp(ts)
-	// 	s.SetLatestL1BlockNumber(bn)
-	// 	s.SetLatestIndex(index)
-	// 	s.SetLatestVerifiedIndex(index)
-	// 	return err
 	case txApplyErr := <-s.txApplyErrCh:
 		log.Error("Got error when added to chain", "err", txApplyErr)
 		s.SetLatestL1Timestamp(ts)
@@ -1332,30 +1332,8 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		s.SetLatestVerifiedIndex(index)
 		return txApplyErr
 	case <-s.chainHeadCh:
-		// when error occured in work.go
-		// isWorkErr := false
-		// var errWork error
-		// if len(errCh) > 0 {
-		// 	errWork = <-errCh
-		// 	log.Error("Got error waiting for transaction to be added to chain, but got chainHeadCh", "msg", errWork)
-		// 	isWorkErr = true
-		// }
-		// if len(s.txApplyErrCh) > 0 {
-		// 	errWork = <-s.txApplyErrCh
-		// 	log.Error("Got error when added to chain, but got chainHeadCh", "err", errWork)
-		// 	isWorkErr = true
-		// }
-		// if isWorkErr {
-		// 	s.SetLatestL1Timestamp(ts)
-		// 	s.SetLatestL1BlockNumber(bn)
-		// 	s.SetLatestIndex(index)
-		// 	s.SetLatestVerifiedIndex(index)
-		// 	return errWork
-		// }
 		// Update the cache when the transaction is from the owner
 		// of the gas price oracle
-		sender, _ := types.Sender(s.signer, tx)
-		owner := s.GasPriceOracleOwnerAddress()
 		if owner != nil && sender == *owner {
 			if err := s.updateGasPriceOracleCache(nil); err != nil {
 				log.Error("chainHeadCh got applyTransactionToTip finish but update gasPriceOracleCache failed", "current latest", *s.GetLatestIndex(), "restore index", index)

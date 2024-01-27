@@ -41,6 +41,7 @@ type RollupAdapter interface {
 	CheckPosLayerSynced() (bool, error)
 	ParseUpdateSeqData(data []byte) (bool, common.Address, *big.Int, *big.Int)
 	IsSeqSetContractCall(tx *types.Transaction) (bool, []byte)
+	IsRespanCall(tx *types.Transaction) bool
 	SetPreRespan(oldAddress common.Address, newAddress common.Address, number uint64) error
 	IsPreRespanSequencer(seqAddress string, number uint64) bool
 	IsNotNextRespanSequencer(seqAddress string, number uint64) bool
@@ -255,6 +256,18 @@ func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) 
 		return true, tx.Data()
 	}
 	return false, nil
+}
+
+func (s *SeqAdapter) IsRespanCall(tx *types.Transaction) bool {
+	if tx == nil {
+		return false
+	}
+	seqOper, data := s.IsSeqSetContractCall(tx)
+	if !seqOper {
+		return false
+	}
+	isRespan, _, _, _ := s.ParseUpdateSeqData(data)
+	return isRespan
 }
 
 func (s *SeqAdapter) SetPreRespan(oldAddress common.Address, newAddress common.Address, number uint64) error {
