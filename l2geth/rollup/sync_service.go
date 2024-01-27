@@ -97,11 +97,11 @@ type SyncService struct {
 	SeqAddress        string
 	seqPriv           string
 
-	syncQueueFromOthers chan *types.Transaction
+	syncQueueFromOthers chan *types.Block
 }
 
 // NewSyncService returns an initialized sync service
-func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database, syncQueueFromOthers chan *types.Transaction) (*SyncService, error) {
+func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database, syncQueueFromOthers chan *types.Block) (*SyncService, error) {
 	if bc == nil {
 		return nil, errors.New("Must pass BlockChain to SyncService")
 	}
@@ -416,10 +416,10 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			log.Info("initializeLatestL1", "blockNum", blockNum)
 		}
 		txs := block.Transactions()
-		if len(txs) != 1 {
-			log.Error("Unexpected number of transactions in block", "count", len(txs))
-			panic("Cannot recover OVM Context")
-		}
+		// if len(txs) != 1 {
+		// 	log.Error("Unexpected number of transactions in block", "count", len(txs))
+		// 	panic("Cannot recover OVM Context")
+		// }
 		tx := txs[0]
 		s.SetLatestL1Timestamp(tx.L1Timestamp())
 		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
@@ -457,22 +457,28 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 				queueIndex = nil
 				break
 			}
-			txs := block.Transactions()
+			// txs := block.Transactions()
 			// This should never happen
-			if len(txs) != 1 {
-				log.Warn("Found block with unexpected number of txs", "count", len(txs), "height", num)
-				break
-			}
-			tx := txs[0]
-			qi := tx.GetMeta().QueueIndex
-			// When the queue index is set
-			if tx.QueueOrigin() == types.QueueOriginL1ToL2 && qi != nil {
-				if *qi == *queueIndex {
-					log.Info("Found correct staring queue index", "queue-index", *qi)
-				} else {
-					log.Info("Found incorrect staring queue index, fixing", "old", *queueIndex, "new", *qi)
-					queueIndex = qi
+			// if len(txs) != 1 {
+			// 	log.Warn("Found block with unexpected number of txs", "count", len(txs), "height", num)
+			// 	break
+			// }
+			foundQueue := false
+			for _, tx := range block.Transactions() {
+				// tx := txs[0]
+				qi := tx.GetMeta().QueueIndex
+				// When the queue index is set
+				if tx.QueueOrigin() == types.QueueOriginL1ToL2 && qi != nil {
+					if *qi == *queueIndex {
+						log.Info("Found correct staring queue index", "queue-index", *qi)
+					} else {
+						log.Info("Found incorrect staring queue index, fixing", "old", *queueIndex, "new", *qi)
+						queueIndex = qi
+					}
+					foundQueue = true
 				}
+			}
+			if foundQueue {
 				break
 			}
 			block = s.bc.GetBlockByNumber(num - 1)
@@ -521,18 +527,20 @@ func (s *SyncService) HandleSyncFromOther() {
 	}
 	for {
 		select {
-		case tx := <-s.syncQueueFromOthers:
+		case block := <-s.syncQueueFromOthers:
 			// unactive sequencers update local tx pool from active sequencer
 			if !s.verifier {
-				log.Debug("Handle SyncFromOther ", "tx", tx.Hash())
-				err := s.applyTransaction(tx, false)
-				if err != nil {
-					log.Error("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
+				blockNumber := block.NumberU64()
+				for index, tx := range block.Transactions() {
+					log.Debug("Handle SyncFromOther ", "tx", tx.Hash(), "index", index, "block", blockNumber)
+					err := s.applyTransaction(tx, false)
+					if err != nil {
+						log.Error("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
+					}
 				}
 			}
 		}
 	}
-
 }
 
 // VerifierLoop is the main loop for Verifier mode
@@ -1060,6 +1068,164 @@ func (s *SyncService) GetTxSequencer(tx *types.Transaction, expectIndex uint64) 
 	return s.seqAdapter.GetTxSequencer(tx, expectIndex)
 }
 
+func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bool) error {
+	seqModel := !s.verifier && s.backend == BackendL1
+	mpcEnabled := s.seqAdapter.GetSeqValidHeight() > 0
+	var expectSeq common.Address
+	blockNumber := s.bc.CurrentBlock().NumberU64()
+	if fromLocal {
+		blockNumber = blockNumber + 1
+	}
+	expectSeq, err := s.GetTxSequencer(tx, blockNumber)
+	if err != nil {
+		log.Error("GetTxSequencer err ", err)
+		return err
+	}
+	isRespan := false
+	if fromLocal {
+		if seqModel && mpcEnabled && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
+			// mpc status 1. when in mpc sequencer model, enqueue or other rollup L1 tx is not acceptable
+			err = errors.New("current sequencer incorrect")
+			log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "expectSeq", expectSeq.String(), "selfSeq", s.SeqAddress)
+			return err
+		}
+		if seqModel && mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+			// mpc status 2. add sequencer signature to tx in sequencer model, QueueOriginL1ToL2 always give 0 to sign
+			err = s.addSeqSignature(tx)
+			if err != nil {
+				log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
+				return err
+			}
+			isRespan = s.RollupAdapter().IsRespanCall(tx)
+		}
+		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
+			// when block number >= seqValidHeight && !QueueOriginL1ToL2
+			if seqModel {
+				// check pre-respan first
+				if s.seqAdapter.IsNotNextRespanSequencer(s.SeqAddress, blockNumber) {
+					err = errors.New("pre-respan to other sequencer")
+					log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "blockNumber", blockNumber, "selfSeq", s.SeqAddress)
+					return err
+				}
+				// mpc status 2. add sequencer signature to tx in sequencer model
+				err = s.addSeqSignature(tx)
+				if err != nil {
+					log.Error("addSeqSignature err QueueOriginSequencer", "err", err)
+					return err
+				}
+			} else {
+				// mpc status 3. check sequencer signature in verifier model or BackendL2
+				signature := tx.GetSeqSign()
+				if signature == nil {
+					errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
+					log.Info(errInfo)
+					return errors.New(errInfo)
+				}
+				recoverSeq, err := s.recoverSeqAddress(tx)
+				if err != nil {
+					log.Error("recoverSeqAddress err ", err)
+					return err
+				}
+				if !strings.EqualFold(expectSeq.String(), recoverSeq) {
+					errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
+					log.Error(errInfo)
+					return errors.New(errInfo)
+				}
+			}
+		}
+
+		if len(s.txApplyErrCh) > 0 {
+			if len(s.txApplyErrCh) > 0 {
+				applyErr := <-s.txApplyErrCh
+				log.Error("Found txApplyErr when applyTransactionToPool", "err", applyErr)
+			}
+		}
+
+		// should set L1BlockNumber and L1Timestamp, but miner will set all txs of a block to first item
+		// should set LatestIndex
+		ts := s.GetLatestL1Timestamp()
+		bn := s.GetLatestL1BlockNumber()
+		if tx.L1Timestamp() == 0 {
+			tx.SetL1Timestamp(ts)
+		}
+		l1BlockNumber := tx.L1BlockNumber()
+		// Set the L1 blocknumber
+		if l1BlockNumber == nil {
+			tx.SetL1BlockNumber(bn)
+		}
+		if tx.GetMeta().Index == nil {
+			tx.SetIndex(blockNumber - 1)
+		}
+	}
+	s.SetLatestIndex(tx.GetMeta().Index)
+	s.SetLatestIndexTime(time.Now().Unix())
+	s.SetLatestVerifiedIndex(tx.GetMeta().Index)
+	if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
+		latestEnqueue := s.GetLatestEnqueueIndex()
+		if latestEnqueue == nil || *latestEnqueue < *queueIndex {
+			s.SetLatestEnqueueIndex(queueIndex)
+		}
+	}
+
+	// TODO should add a outer listen to updated LatestIndex
+	if len(s.chainHeadCh) > 0 {
+		<-s.chainHeadCh
+	}
+
+	sender, _ := types.Sender(s.signer, tx)
+	owner := s.GasPriceOracleOwnerAddress()
+	// The index was set above so it is safe to dereference
+	log.Debug("Applying transaction to pool", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex(), "origin", tx.QueueOrigin().String())
+	if !fromLocal {
+		// mpc status 5
+		log.Info("sync from other node", "index", *tx.GetMeta().Index, "hash", tx.Hash().Hex())
+
+		txs := types.Transactions{tx}
+		s.txOtherFeed.Send(core.NewTxsEvent{
+			Txs: txs,
+		})
+
+		if owner != nil && sender == *owner {
+			log.Info("sync from other node owner equals")
+			if err := s.updateGasPriceOracleCache(nil); err != nil {
+				return err
+			}
+		}
+		log.Info("sync from other node applyTransactionToPool finish", "current latest", *s.GetLatestIndex())
+		return nil
+	}
+	if !(isRespan || (owner != nil && sender == *owner)) {
+		// send to txpool
+		return s.txpool.AddLocal(tx)
+	}
+	// respan or gasOracle, mine 1 tx to a block
+	// mpc status 4: default txFeed
+	txs := types.Transactions{tx}
+	// send to handle the new tx
+	s.txFeed.Send(core.NewTxsEvent{
+		Txs:   txs,
+		ErrCh: nil,
+	})
+	// Block until the transaction has been added to the chain
+	log.Trace("Waiting for transaction to be added to chain", "hash", tx.Hash().Hex())
+	select {
+	case txApplyErr := <-s.txApplyErrCh:
+		log.Error("Got error when added to chain", "err", txApplyErr)
+		return txApplyErr
+	case <-s.chainHeadCh:
+		// Update the cache when the transaction is from the owner
+		// of the gas price oracle
+		if owner != nil && sender == *owner {
+			if err := s.updateGasPriceOracleCache(nil); err != nil {
+				log.Error("chainHeadCh got applyTransactionToPool finish but update gasPriceOracleCache failed", "current latest", *s.GetLatestIndex())
+				return err
+			}
+		}
+		log.Info("chainHeadCh got applyTransactionToPool finish", "current latest", *s.GetLatestIndex())
+		return nil
+	}
+}
+
 // applyTransactionToTip will do sanity checks on the transaction before
 // applying it to the tip. It blocks until the transaction has been included in
 // the chain. It is assumed that validation around the index has already
@@ -1077,6 +1243,13 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		if tx.L1Timestamp() == 0 {
 			return fmt.Errorf("Queue origin L1 to L2 transaction without a timestamp: %s", tx.Hash().Hex())
 		}
+	}
+	currentBN := s.bc.CurrentBlock().NumberU64()
+	if fromLocal {
+		currentBN = currentBN + 1
+	}
+	if rcfg.DeSeqBlock > 0 && currentBN >= rcfg.DeSeqBlock {
+		return s.applyTransactionToPool(tx, fromLocal)
 	}
 	// If there is no L1 timestamp assigned to the transaction, then assign a
 	// timestamp to it. The property that L1 to L2 transactions have the same
@@ -1100,7 +1273,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	} else {
 		blockNumber = uint64(1)
 	}
-	isRespan := false
 	expectSeq, err := s.GetTxSequencer(tx, blockNumber)
 	if err != nil {
 		log.Error("GetTxSequencer err ", err)
@@ -1120,7 +1292,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 				log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
 				return err
 			}
-			isRespan = s.RollupAdapter().IsRespanCall(tx)
 		}
 		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
 			// when block number >= seqValidHeight && !QueueOriginL1ToL2
@@ -1308,10 +1479,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		}
 		log.Info("sync from other node applyTransactionToTip finish", "current latest", *s.GetLatestIndex())
 		return nil
-	}
-	if !(isRespan || (owner != nil && sender == *owner)) {
-		// send to txpool
-		return s.txpool.AddLocal(tx)
 	}
 	// respan or gasOracle, mine 1 tx to a block
 	// mpc status 4: default txFeed

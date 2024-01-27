@@ -129,7 +129,10 @@ func IntrinsicGas(data []byte, contractCreation, isHomestead bool, isEIP2028 boo
 // NewStateTransition initialises and returns a new state transition object.
 func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
 
-	var l1FeeInL2 uint64
+	var (
+		l1FeeInL2 uint64
+		l1Fee     *big.Int
+	)
 
 	if rcfg.UsingOVM {
 		if msg.QueueOrigin() == types.QueueOriginSequencer {
@@ -197,7 +200,7 @@ func (st *StateTransition) buyGas() error {
 			// during consensus. The user gets some free gas
 			// in this case.
 			mgval = st.state.GetBalance(st.msg.From())
-			if st.evm.Context.BlockNumber >= rcfg.DESEQBLOCK {
+			if rcfg.DeSeqBlock > 0 && st.evm.Context.BlockNumber.Uint64() >= rcfg.DeSeqBlock {
 				if st.msg.QueueOrigin() == types.QueueOriginSequencer {
 					mgval = mgval.Add(mgval, st.l1Fee)
 					if st.msg.CheckNonce() {
@@ -287,7 +290,7 @@ func (st *StateTransition) TransitionDbWithBlockNumber(blockNumber uint64) (ret 
 
 	// take the l1fee from the gas pool first. it is important to show user the actual cost when estimate
 	// it is also important to take it out before the vm call so that the state wont be changed
-	if blockNumber < rcfg.DESEQBLOCK {
+	if rcfg.DeSeqBlock == 0 || blockNumber < rcfg.DeSeqBlock {
 		vmerr = st.useGas(st.l1FeeInL2)
 
 		if vmerr != nil {
@@ -336,7 +339,7 @@ func (st *StateTransition) TransitionDbWithBlockNumber(blockNumber uint64) (ret 
 
 	st.refundGas()
 
-	if st.evm.Context.BlockNumber < rcfg.DESEQBLOCK {
+	if rcfg.DeSeqBlock == 0 || st.evm.Context.BlockNumber.Uint64() < rcfg.DeSeqBlock {
 		st.state.AddBalance(evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 	} else {
 		if rcfg.UsingOVM {

@@ -113,13 +113,13 @@ type ProtocolManager struct {
 	gasInitialized                 bool
 	signer                         types.Signer
 
-	txQueues    chan *types.Transaction
+	txQueues    chan *types.Block
 	syncService *rollup.SyncService
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Transaction, syncService *rollup.SyncService) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, nodeHTTPModules []string, txQueues chan *types.Block, syncService *rollup.SyncService) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:                      networkID,
@@ -1161,16 +1161,17 @@ func (pm *ProtocolManager) updateGasPrice(blocks types.Blocks) {
 func (pm *ProtocolManager) updateTxQueue(blocks types.Blocks) {
 	log.Info("handle blocks inerted of fetcher or downloader", "len", len(blocks))
 	for _, block := range blocks {
-		for _, tx := range block.Transactions() {
-			index := tx.GetMeta().Index
-			if index == nil {
-				log.Info("handle blocks inerted of fetcher or downloader, nil index")
-				continue
-			}
-			log.Info("handle blocks inerted of fetcher or downloader", "tx index", *index)
-			if pm.txQueues != nil {
-				pm.txQueues <- tx
-			}
-		}
+		pm.txQueues <- block
+		// for _, tx := range block.Transactions() {
+		// 	index := tx.GetMeta().Index
+		// 	if index == nil {
+		// 		log.Info("handle blocks inerted of fetcher or downloader, nil index")
+		// 		continue
+		// 	}
+		// 	log.Info("handle blocks inerted of fetcher or downloader", "tx index", *index)
+		// 	if pm.txQueues != nil {
+		// 		pm.txQueues <- tx
+		// 	}
+		// }
 	}
 }

@@ -213,7 +213,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
 	// chan size 128 set to downloader.MaxBlockFetch
-	syncQueueFromOthers := make(chan *types.Transaction, 128)
+	syncQueueFromOthers := make(chan *types.Block, 128)
 	eth.syncService, err = rollup.NewSyncService(context.Background(), config.Rollup, eth.txPool, eth.blockchain, eth.chainDb, syncQueueFromOthers)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot initialize syncservice: %w", err)

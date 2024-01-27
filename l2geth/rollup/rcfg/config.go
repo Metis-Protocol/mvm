@@ -14,7 +14,7 @@ var (
 	UsingOVM               bool
 	PeerHealthCheckSeconds int64
 	ChainID                uint64
-	DESEQBLOCK             uint64
+	DeSeqBlock             uint64
 	SeqValidHeight         uint64
 )
 
@@ -51,13 +51,13 @@ func init() {
 
 	deseqHeight := os.Getenv("DESEQBLOCK")
 	if deseqHeight == "" {
-		deseqHeight = ^uint64(0)
+		DeSeqBlock = ^uint64(0)
 	} else {
 		parsed, err := strconv.ParseUint(deseqHeight, 0, 64)
 		if err != nil {
 			panic(err)
 		}
-		DESEQBLOCK = parsed
+		DeSeqBlock = parsed
 	}
 
 	peerHealthCheck := os.Getenv("PEER_HEALTH_CHECK")
