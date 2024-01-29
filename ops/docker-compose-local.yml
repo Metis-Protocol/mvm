@@ -9,6 +9,9 @@ services:
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.monorepo
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
 
   # this is a helper service used because there's no official hardhat image
   l1_chain:
@@ -16,6 +19,9 @@ services:
     build:
       context: ./docker/hardhat
       dockerfile: Dockerfile
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     ports:
       # expose the service to the host for integration testing
       - ${L1CHAIN_HTTP_PORT:-9545}:8545
@@ -28,6 +34,9 @@ services:
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.deployer
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     entrypoint: ./deployer.sh
     environment:
       FRAUD_PROOF_WINDOW_SECONDS: 0
@@ -72,6 +81,9 @@ services:
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.data-transport-layer
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     # override with the dtl script and the env vars required for it
     entrypoint: ./dtl.sh
     env_file:
@@ -160,6 +172,9 @@ services:
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     # override with the geth script and the env vars required for it
     entrypoint: sh ./geth.sh
     env_file:
@@ -180,7 +195,7 @@ services:
       SEQ_ADDRESS: "0x1267397fb5BF6f6Dcc3d18d673616D512dbcd8F0"
       SEQ_PRIV: "ed3f195449409dc1d22f0119da7678200710a447ff75baa06bfc42829d02d28c"
       # aws or docker, set EXTERNAL_IP to inner ip
-      # EXTERNAL_IP: 
+      # EXTERNAL_IP:
       # boot node to discover p2p fastly
       # BOOTNODES:
     ports:
@@ -221,7 +236,7 @@ services:
       SEQ_ADDRESS: "0xC213298C9e90e1AE7b4B97C95A7BE1B811E7c933"
       SEQ_PRIV: "621cdbc7f440e3d0980f4f620da8136b7b495396138c37b6bda8040de8b1ef6d"
       # aws or docker, set EXTERNAL_IP to inner ip
-      # EXTERNAL_IP: 
+      # EXTERNAL_IP:
       # boot node to discover p2p fastly
       # BOOTNODES:
     ports:
@@ -231,7 +246,7 @@ services:
     restart: on-failure
     volumes:
       - /tmp/mvm/l2gethB:/root/.ethereum
-  
+
   l2gethB-rpc:
     depends_on:
       - l1_chain
@@ -260,9 +275,9 @@ services:
       SEQSET_VALID_HEIGHT: 35
       SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
       # seq bridge url set to enable RPC only node role
-      SEQ_BRIDGE_URL: http://l2gethB:8545 
+      SEQ_BRIDGE_URL: http://l2gethB:8545
       # aws or docker, set EXTERNAL_IP to inner ip
-      # EXTERNAL_IP: 
+      # EXTERNAL_IP:
       # boot node to discover p2p fastly
       # BOOTNODES:
     ports:
@@ -324,6 +339,9 @@ services:
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.message-relayer
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     entrypoint: ./relayer.sh
     environment:
       L1_NODE_WEB3_URL: http://l1_chain:8545
@@ -350,6 +368,9 @@ services:
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.batch-submitter
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     entrypoint: ./batches.sh
     env_file:
       - ./envs/batches.env
