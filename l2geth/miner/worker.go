@@ -390,11 +390,18 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		*/
 
 		case <-timer.C:
+			resubmit := w.chainConfig.Clique == nil || w.chainConfig.Clique.Period > 0
+			if rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock {
+				resubmit = true
+			}
+			log.Debug("Special info in worker: timer.C", "resubmit", resubmit)
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
-			if w.isRunning() && (w.chainConfig.Clique == nil || w.chainConfig.Clique.Period > 0) {
+			if w.isRunning() && resubmit {
+				log.Debug("Special info in worker: timer.C 1")
 				// Short circuit if no new transaction arrives.
 				if atomic.LoadInt32(&w.newTxs) == 0 {
+					log.Debug("Special info in worker: timer.C 2")
 					timer.Reset(recommit)
 					continue
 				}
@@ -402,6 +409,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			}
 
 		case interval := <-w.resubmitIntervalCh:
+			log.Debug("Special info in worker: resubmitIntervalCh", "minRecommitInterval", minRecommitInterval, "interval", interval)
 			// Adjust resubmit interval explicitly by user.
 			if interval < minRecommitInterval {
 				log.Warn("Sanitizing miner recommit interval", "provided", interval, "updated", minRecommitInterval)
@@ -411,6 +419,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			minRecommit, recommit = interval, interval
 
 			if w.resubmitHook != nil {
+				log.Debug("Special info in worker: resubmitIntervalCh hook")
 				w.resubmitHook(minRecommit, recommit)
 			}
 
@@ -584,8 +593,10 @@ func (w *worker) mainLoop() {
 			if !w.isRunning() && w.current != nil {
 				// If block is already full, abort
 				if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
+					log.Debug("Special info in worker", "isfull", true)
 					continue
 				}
+				log.Debug("Special info in worker", "isfull", false)
 				w.mu.RLock()
 				coinbase := w.coinbase
 				w.mu.RUnlock()
@@ -606,7 +617,12 @@ func (w *worker) mainLoop() {
 			} else {
 				// If clique is running in dev mode(period is 0), disable
 				// advance sealing here.
-				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
+				deSeqModel := false
+				if rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock {
+					deSeqModel = true
+				}
+				log.Debug("Special info in worker", "working else", true, "deSeqMode", deSeqModel)
+				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 && !deSeqModel {
 					w.commitNewWork(nil, time.Now().Unix())
 				}
 			}
@@ -830,7 +846,10 @@ func (w *worker) updateSnapshot() {
 func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address) ([]*types.Log, error) {
 	// Make sure there's only one tx per block
 	if w.current != nil && len(w.current.txs) > 0 {
-		return nil, core.ErrGasLimitReached
+		// after DeSeqBlock, allow multiple tx in a pool
+		if rcfg.UsingOVM && !(rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock) {
+			return nil, core.ErrGasLimitReached
+		}
 	}
 	snap := w.current.state.Snapshot()
 
@@ -1179,8 +1198,10 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 	// transaction. This check is done here just in case any of our
 	// higher-evel checks failed to catch empty blocks passed to commit.
 	txs := block.Transactions()
-	if len(txs) != 1 {
-		return fmt.Errorf("Block created with %d transactions rather than 1 at %d", len(txs), block.NumberU64())
+	if rcfg.UsingOVM && !(rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock) {
+		if len(txs) != 1 {
+			return fmt.Errorf("Block created with %d transactions rather than 1 at %d", len(txs), block.NumberU64())
+		}
 	}
 
 	if w.isRunning() {

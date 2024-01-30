@@ -1194,7 +1194,9 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 		log.Info("sync from other node applyTransactionToPool finish", "current latest", *s.GetLatestIndex())
 		return nil
 	}
+	log.Debug("Special info", "isRespan", isRespan, "sender", sender.Hex())
 	if !(isRespan || (owner != nil && sender == *owner)) {
+		log.Debug("Use txpool")
 		// send to txpool
 		return s.txpool.AddLocal(tx)
 	}

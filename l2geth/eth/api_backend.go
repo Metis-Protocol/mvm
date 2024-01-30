@@ -551,8 +551,20 @@ func (b *EthAPIBackend) validateTx(ctx context.Context, tx *types.Transaction) e
 	if err != nil {
 		return core.ErrInvalidSender
 	}
-	if state.GetNonce(from) != tx.Nonce() {
-		return core.ErrNonceTooLow
+	if rcfg.UsingOVM {
+		if rcfg.DeSeqBlock > 0 && header.Number.Uint64() >= rcfg.DeSeqBlock {
+			if state.GetNonce(from) > tx.Nonce() {
+				return core.ErrNonceTooLow
+			}
+		} else {
+			if state.GetNonce(from) != tx.Nonce() {
+				return core.ErrNonceTooLow
+			}
+		}
+	} else {
+		if state.GetNonce(from) > tx.Nonce() {
+			return core.ErrNonceTooLow
+		}
 	}
 	if state.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return core.ErrInsufficientFunds

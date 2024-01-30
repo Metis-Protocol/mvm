@@ -555,8 +555,14 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Ensure the transaction adheres to nonce ordering
 	if rcfg.UsingOVM {
-		if pool.currentState.GetNonce(from) != tx.Nonce() {
-			return ErrNonceTooLow
+		if rcfg.DeSeqBlock > 0 && pool.chain.CurrentBlock().NumberU64() >= rcfg.DeSeqBlock {
+			if pool.currentState.GetNonce(from) > tx.Nonce() {
+				return ErrNonceTooLow
+			}
+		} else {
+			if pool.currentState.GetNonce(from) != tx.Nonce() {
+				return ErrNonceTooLow
+			}
 		}
 	} else {
 		if pool.currentState.GetNonce(from) > tx.Nonce() {
@@ -1084,14 +1090,15 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 
 	// Notify subsystems for newly added transactions
 	if len(events) > 0 {
-		// var txs []*types.Transaction
-		// for _, set := range events {
-		// 	txs = append(txs, set.Flatten()...)
-		// }
-		// pool.txFeed.Send(NewTxsEvent{Txs: txs})
+		// TODO 20240130 when p2p occur this by reorg, should prevent this
+		var txs []*types.Transaction
+		for _, set := range events {
+			txs = append(txs, set.Flatten()...)
+		}
+		pool.txFeed.Send(NewTxsEvent{Txs: txs})
 
 		// NOTE 20240110 try fix p2p sync New block issue
-		log.Warn("Ignored txStored events", "txs", len(events))
+		// log.Warn("Ignored txStored events", "txs", len(events))
 	}
 }
 
