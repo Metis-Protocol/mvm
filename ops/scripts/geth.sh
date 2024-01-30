@@ -62,6 +62,7 @@ exec geth \
   --unlock $BLOCK_SIGNER_ADDRESS \
   --mine \
   --miner.etherbase $BLOCK_SIGNER_ADDRESS \
+  --miner.recommit 2s\
   --maxpeers 50 \
   --nat=$NAT_SET \
   --port ${PORT} \

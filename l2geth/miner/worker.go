@@ -379,11 +379,12 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			commit(commitInterruptNewHead)
 
+		// TODO check this should be removed
 		// Remove this code for the OVM implementation. It is responsible for
 		// cleaning up memory with the call to `clearPending`, so be sure to
 		// call that in the new hot code path
 		/*
-			case <-w.chainHeadCh:
+			case head := <-w.chainHeadCh:
 				clearPending(head.Block.NumberU64())
 				timestamp = time.Now().Unix()
 				commit(commitInterruptNewHead)
@@ -405,6 +406,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					timer.Reset(recommit)
 					continue
 				}
+				timestamp = time.Now().Unix()
 				commit(commitInterruptResubmit)
 			}
 
@@ -1072,6 +1074,8 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+
+	log.Debug("Special info in worker: commitNewWork", "timestamp", timestamp)
 
 	tstart := time.Now()
 	parent := w.chain.CurrentBlock()
