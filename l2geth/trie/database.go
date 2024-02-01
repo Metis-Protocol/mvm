@@ -183,7 +183,7 @@ func (n *cachedNode) obj(hash common.Hash) node {
 
 // forChilds invokes the callback for  all the tracked children of this node,
 // both the implicit ones  from inside the node as well as the explicit ones
-//from outside the node.
+// from outside the node.
 func (n *cachedNode) forChilds(onChild func(hash common.Hash)) {
 	for child := range n.children {
 		onChild(child)

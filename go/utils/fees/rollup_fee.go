@@ -32,7 +32,9 @@ var BigTenThousand = new(big.Int).SetUint64(tenThousand)
 // EncodeTxGasLimit computes the `tx.gasLimit` based on the L1/L2 gas prices and
 // the L2 gas limit. The L2 gas limit is encoded inside of the lower order bits
 // of the number like so: [          | l2GasLimit ]
-//                        [      tx.gaslimit      ]
+//
+//	[      tx.gaslimit      ]
+//
 // The lower order bits must be large enough to fit the L2 gas limit, so 10**8
 // is chosen. If higher order bits collide with any bits from the L2 gas limit,
 // the L2 gas limit will not be able to be decoded.
