@@ -1,0 +1,67 @@
+# The compose file is only for building images
+
+version: '3.8'
+
+services:
+  l1_chain:
+    image: metisdao/hardhat:latest
+    build:
+      context: ./ops/docker/hardhat
+      dockerfile: Dockerfile
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
+
+  deployer:
+    image: metisdao/deployer:${METIS_DEPLOYER_VERSION:-latest}
+    build:
+      context: .
+      target: deployer
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
+
+  dtl:
+    image: metisdao/data-transport-layer:${METIS_DTL_VERSION:-latest}
+    build:
+      context: .
+      target: data-transport-layer
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
+
+  relayer:
+    image: metisdao/message-relayer:${METIS_RELAYER_VERSION:-latest}
+    build:
+      context: .
+      target: message-relayer
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
+
+  batch_submitter:
+    image: metisdao/batch-submitter:${METIS_SUBMITTER_VERSION:-latest}
+    build:
+      context: .
+      target: batch-submitter
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
+
+  l2geth:
+    image: metisdao/l2geth:${METIS_L2GETH_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: ./ops/docker/Dockerfile.geth
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
+
+  gas-oracle:
+    image: metisdao/gas-oracle:${METIS_GAS_ORACLE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: ./ops/docker/Dockerfile.gas-oracle
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm64'
