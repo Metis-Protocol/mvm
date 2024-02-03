@@ -51,7 +51,7 @@ COPY packages/contracts/tasks ./tasks
 COPY packages/contracts/test/helpers/constants.ts ./test/helpers/constants.ts
 COPY packages/contracts/scripts ./scripts
 
-COPY ./ops/scripts/deployer.sh .
+COPY --chmod=775 ./ops/scripts/deployer.sh .
 ENTRYPOINT yarn run deploy
 
 
@@ -82,7 +82,7 @@ COPY --from=builder /optimism/packages/data-transport-layer/dist ./dist
 COPY --from=builder /optimism/packages/data-transport-layer/package.json .
 COPY --from=builder /optimism/packages/data-transport-layer/node_modules ./node_modules
 COPY --chmod=775 ./ops/scripts/dtl.sh .
-RUN mkdir -p /data/db
+VOLUME [ "/data" ]
 ENTRYPOINT ["./dtl.sh"]
 
 FROM node:16-alpine as message-relayer
@@ -141,5 +141,5 @@ COPY --from=builder /optimism/packages/batch-submitter/package.json ./
 COPY --from=builder /optimism/packages/batch-submitter/dist ./dist
 COPY --from=builder /optimism/packages/batch-submitter/exec ./exec
 COPY --from=builder /optimism/packages/batch-submitter/node_modules ./node_modules
-COPY  --chmod=775 ./ops/scripts/batches.sh .
+COPY --chmod=775 ./ops/scripts/batches.sh .
 ENTRYPOINT ["./batches.sh"]
