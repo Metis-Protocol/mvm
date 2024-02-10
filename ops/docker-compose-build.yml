@@ -8,9 +8,11 @@ services:
     build:
       context: ../ops/docker/hardhat
       dockerfile: Dockerfile
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker
 
   deployer:
     image: metisdao/deployer:${METIS_DEPLOYER_VERSION:-latest}
@@ -18,9 +20,11 @@ services:
       context: ..
       target: deployer
       dockerfile: ./ops/docker/Dockerfile
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker
 
   dtl:
     image: metisdao/data-transport-layer:${METIS_DTL_VERSION:-latest}
@@ -28,9 +32,11 @@ services:
       context: ..
       dockerfile: ./ops/docker/Dockerfile
       target: data-transport-layer
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker
 
   relayer:
     image: metisdao/message-relayer:${METIS_RELAYER_VERSION:-latest}
@@ -38,9 +44,11 @@ services:
       context: ..
       dockerfile: ./ops/docker/Dockerfile
       target: message-relayer
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker
 
   batch_submitter:
     image: metisdao/batch-submitter:${METIS_SUBMITTER_VERSION:-latest}
@@ -48,24 +56,30 @@ services:
       context: ..
       dockerfile: ./ops/docker/Dockerfile
       target: batch-submitter
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker
 
   l2geth:
     image: metisdao/l2geth:${METIS_L2GETH_VERSION:-latest}
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker
 
   gas-oracle:
     image: metisdao/gas-oracle:${METIS_GAS_ORACLE_VERSION:-latest}
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.gas-oracle
-      platforms:
-        - 'linux/amd64'
-        - 'linux/arm64'
+      x-bake:
+        platforms:
+          - 'linux/amd64'
+          - 'linux/arm64'
+        output: type=docker

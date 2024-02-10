@@ -555,7 +555,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Ensure the transaction adheres to nonce ordering
 	if rcfg.UsingOVM {
-		if rcfg.DeSeqBlock > 0 && pool.chain.CurrentBlock().NumberU64() >= rcfg.DeSeqBlock {
+		if rcfg.DeSeqBlock > 0 && pool.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
 			if pool.currentState.GetNonce(from) > tx.Nonce() {
 				return ErrNonceTooLow
 			}
@@ -804,6 +804,10 @@ func (pool *TxPool) addTxs(txs []*types.Transaction, local, sync bool) []error {
 		errs = make([]error, len(txs))
 		news = make([]*types.Transaction, 0, len(txs))
 	)
+	// Disable remote txs from p2p
+	if !local {
+		return errs
+	}
 	for i, tx := range txs {
 		// If the transaction is known, pre-set the error slot
 		if pool.all.Get(tx.Hash()) != nil {

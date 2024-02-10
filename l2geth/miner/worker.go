@@ -392,17 +392,15 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 
 		case <-timer.C:
 			resubmit := w.chainConfig.Clique == nil || w.chainConfig.Clique.Period > 0
-			if rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock {
+			if rcfg.DeSeqBlock > 0 && w.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
 				resubmit = true
 			}
-			log.Debug("Special info in worker: timer.C", "resubmit", resubmit)
+			log.Debug("Special info in worker: newWorkLoop timer.C", "resubmit", resubmit, "cmp to DeSeqBlock", w.chain.CurrentBlock().NumberU64()+1)
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
 			if w.isRunning() && resubmit {
-				log.Debug("Special info in worker: timer.C 1")
 				// Short circuit if no new transaction arrives.
 				if atomic.LoadInt32(&w.newTxs) == 0 {
-					log.Debug("Special info in worker: timer.C 2")
 					timer.Reset(recommit)
 					continue
 				}
@@ -620,10 +618,10 @@ func (w *worker) mainLoop() {
 				// If clique is running in dev mode(period is 0), disable
 				// advance sealing here.
 				deSeqModel := false
-				if rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock {
+				if rcfg.DeSeqBlock > 0 && w.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
 					deSeqModel = true
 				}
-				log.Debug("Special info in worker", "working else", true, "deSeqMode", deSeqModel)
+				log.Debug("Special info in worker", "working else", true, "deSeqMode", deSeqModel, "cmp to DeSeqBlock", w.chain.CurrentBlock().NumberU64()+1)
 				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 && !deSeqModel {
 					w.commitNewWork(nil, time.Now().Unix())
 				}
@@ -848,7 +846,8 @@ func (w *worker) updateSnapshot() {
 func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address) ([]*types.Log, error) {
 	// Make sure there's only one tx per block
 	if w.current != nil && len(w.current.txs) > 0 {
-		// after DeSeqBlock, allow multiple tx in a pool
+		// after DeSeqBlock, allow multiple tx in a pool, header number with new block
+		log.Debug("Special info in worker: commitTransaction", "cmp to DeSeqBlock", w.current.header.Number.Uint64())
 		if rcfg.UsingOVM && !(rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock) {
 			return nil, core.ErrGasLimitReached
 		}
@@ -885,6 +884,16 @@ func (w *worker) commitTransactionsWithError(txs *types.TransactionsByPriceAndNo
 
 	var coalescedLogs []*types.Log
 
+	parent := w.chain.CurrentBlock()
+	pn := parent.Number().Uint64()
+	l1TS := uint64(0)
+	l1BN := uint64(0)
+	deSeqModel := false
+	log.Debug("Special info in worker: commitTransactionsWithError", "cmp to DeSeqBlock", pn+1)
+	if rcfg.DeSeqBlock > 0 && pn+1 >= rcfg.DeSeqBlock {
+		deSeqModel = true
+	}
+
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
 		// (1) new head block event arrival, the interrupt signal is 1
@@ -919,6 +928,18 @@ func (w *worker) commitTransactionsWithError(txs *types.TransactionsByPriceAndNo
 		tx := txs.Peek()
 		if tx == nil {
 			break
+		}
+
+		// setIndex, l1Timestamp, l1BlockNumber
+		if deSeqModel {
+			tx.SetIndex(pn)
+			if l1BN == 0 {
+				l1BN = tx.L1BlockNumber().Uint64()
+				l1TS = tx.L1Timestamp()
+			} else {
+				tx.SetL1BlockNumber(l1BN)
+				tx.SetL1Timestamp(l1TS)
+			}
 		}
 
 		// Error may be ignored here. The error has already been checked
@@ -1202,6 +1223,8 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 	// transaction. This check is done here just in case any of our
 	// higher-evel checks failed to catch empty blocks passed to commit.
 	txs := block.Transactions()
+	// New block, DeSeqBlock compare not plus 1
+	log.Debug("Special info in worker: commit", "cmp to DeSeqBlock", w.current.header.Number.Uint64())
 	if rcfg.UsingOVM && !(rcfg.DeSeqBlock > 0 && w.current.header.Number.Uint64() >= rcfg.DeSeqBlock) {
 		if len(txs) != 1 {
 			return fmt.Errorf("Block created with %d transactions rather than 1 at %d", len(txs), block.NumberU64())
