@@ -662,8 +662,7 @@ func (s *SyncService) syncTransactionsToTip() error {
 // waitingSequencerTip skips sync from L1 queue and batch when backup sequencer node startup
 // until sync the same height from main sequencer node p2p, syncQueueToTip loop works
 func (s *SyncService) waitingSequencerTip() (bool, error) {
-	seqModel := !s.verifier && s.backend == BackendL1
-	mpcEnabled := s.seqAdapter.GetSeqValidHeight() > 0
+	seqModel, mpcEnabled := s.GetSeqAndMpcStatus()
 	if !seqModel || !mpcEnabled || s.startSeqHeight == 0 {
 		return false, nil
 	}
@@ -677,7 +676,7 @@ func (s *SyncService) waitingSequencerTip() (bool, error) {
 	} else {
 		blockNumber = uint64(1)
 	}
-	if blockNumber <= s.startSeqHeight {
+	if !s.IsAboveStartHeight(blockNumber) {
 		return true, nil
 	}
 	expectSeq, err := s.GetTxSequencer(nil, blockNumber)
@@ -1068,9 +1067,22 @@ func (s *SyncService) GetTxSequencer(tx *types.Transaction, expectIndex uint64) 
 	return s.seqAdapter.GetTxSequencer(tx, expectIndex)
 }
 
-func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bool) error {
+func (s *SyncService) GetSeqAndMpcStatus() (bool, bool) {
 	seqModel := !s.verifier && s.backend == BackendL1
 	mpcEnabled := s.seqAdapter.GetSeqValidHeight() > 0
+	return seqModel, mpcEnabled
+}
+
+func (s *SyncService) IsSelfSeqAddress(expectSeq common.Address) bool {
+	return strings.EqualFold(expectSeq.String(), s.SeqAddress)
+}
+
+func (s *SyncService) IsAboveStartHeight(num uint64) bool {
+	return num > s.startSeqHeight
+}
+
+func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bool) error {
+	seqModel, mpcEnabled := s.GetSeqAndMpcStatus()
 	var expectSeq common.Address
 	blockNumber := s.bc.CurrentBlock().NumberU64()
 	if fromLocal {
@@ -1261,8 +1273,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	ts := s.GetLatestL1Timestamp()
 	bn := s.GetLatestL1BlockNumber()
 
-	seqModel := !s.verifier && s.backend == BackendL1
-	mpcEnabled := s.seqAdapter.GetSeqValidHeight() > 0
+	seqModel, mpcEnabled := s.GetSeqAndMpcStatus()
 
 	// check is current address is sequencer
 	var expectSeq common.Address

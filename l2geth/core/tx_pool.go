@@ -1094,15 +1094,13 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 
 	// Notify subsystems for newly added transactions
 	if len(events) > 0 {
-		// TODO 20240130 when p2p occur this by reorg, should prevent this
+		// when p2p cause this by reorg, should prevent this
+		// prevent in worker newWorkLoop
 		var txs []*types.Transaction
 		for _, set := range events {
 			txs = append(txs, set.Flatten()...)
 		}
 		pool.txFeed.Send(NewTxsEvent{Txs: txs})
-
-		// NOTE 20240110 try fix p2p sync New block issue
-		// log.Warn("Ignored txStored events", "txs", len(events))
 	}
 }
 

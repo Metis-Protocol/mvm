@@ -392,10 +392,15 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 
 		case <-timer.C:
 			resubmit := w.chainConfig.Clique == nil || w.chainConfig.Clique.Period > 0
-			if rcfg.DeSeqBlock > 0 && w.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
+			nextBN := w.chain.CurrentBlock().NumberU64() + 1
+			if rcfg.DeSeqBlock > 0 && nextBN >= rcfg.DeSeqBlock {
 				resubmit = true
 			}
 			log.Debug("Special info in worker: newWorkLoop timer.C", "resubmit", resubmit, "cmp to DeSeqBlock", w.chain.CurrentBlock().NumberU64()+1)
+			seqModel, mpcEnabled := w.eth.SyncService().GetSeqAndMpcStatus()
+			if !seqModel {
+				continue
+			}
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
 			if w.isRunning() && resubmit {
@@ -403,6 +408,25 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				if atomic.LoadInt32(&w.newTxs) == 0 {
 					timer.Reset(recommit)
 					continue
+				}
+				if mpcEnabled {
+					// if is current sequencer or not
+					expectSeq, err := w.eth.SyncService().GetTxSequencer(nil, nextBN)
+					if err != nil {
+						log.Warn("GetTxSequencer error in worker timer", "err", err)
+						continue
+					}
+					if !w.eth.SyncService().IsSelfSeqAddress(expectSeq) {
+						log.Warn("Current sequencer incorrect in worker timer, clear pending", "current sequencer", expectSeq.String())
+						clearPending(w.chain.CurrentBlock().NumberU64())
+						continue
+					}
+					// check startup sync height of L2 RPC
+					if !w.eth.SyncService().IsAboveStartHeight(nextBN) {
+						log.Warn("Block number below sync start height in worker timer, clear pending", "block number", nextBN)
+						clearPending(w.chain.CurrentBlock().NumberU64())
+						continue
+					}
 				}
 				timestamp = time.Now().Unix()
 				commit(commitInterruptResubmit)
