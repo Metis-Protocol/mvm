@@ -63,19 +63,27 @@ interface RequiredEnvVars {
   SAFE_MINIMUM_ETHER_BALANCE: number
   // A boolean to clear the pending transactions in the mempool
   // on start up.
-  CLEAR_PENDING_TXS: boolean,
+  CLEAR_PENDING_TXS: boolean
 
   // distributed storage options
-  MINIO_ENABLED: boolean,
-  MINIO_BUCKET: string,
-  MINIO_ENDPOINT: string,
-  MINIO_PORT: number,
-  MINIO_USE_SSL:boolean,
-  MINIO_ACCESS_KEY: string,
-  MINIO_SECRET_KEY: string,
+  MINIO_ENABLED: boolean
+  MINIO_BUCKET: string
+  MINIO_ENDPOINT: string
+  MINIO_PORT: number
+  MINIO_USE_SSL: boolean
+  MINIO_ACCESS_KEY: string
+  MINIO_SECRET_KEY: string
 
   // mpc options
-  MPC_URL: string,
+  MPC_URL: string
+
+  // inbox update options
+  // An EOA address which batch data sent to
+  BATCH_INBOX_ADDRESS: string
+  // The start batch index of batch inbox model, number as string input
+  BATCH_INBOX_START_INDEX: string
+  // Batch tx submit result storage path
+  BATCH_INBOX_STORAGE_PATH: string
 }
 
 /* Optional Env Vars
@@ -353,43 +361,23 @@ export const run = async () => {
       env.CLEAR_PENDING_TXS === 'true'
     ),
 
-    MINIO_ACCESS_KEY: config.str(
-      'minio-access-key',
-      env.MINIO_ACCESS_KEY
-    ),
-    MINIO_BUCKET: config.str(
-      'minio-bucket',
-      env.MINIO_BUCKET
-    ),
-    MINIO_ENABLED: config.bool(
-      'minio-enabled',
-      env.MINIO_ENABLED === 'true'
-    ),
-    MINIO_ENDPOINT: config.str(
-      'minio-endpoint',
-      env.MINIO_ENDPOINT
-    ),
-    MINIO_PORT: config.uint(
-      'minio-port',
-      parseInt(env.MINIO_PORT, 10)
-    ),
-    MINIO_SECRET_KEY: config.str(
-      'minio-secret-key',
-      env.MINIO_SECRET_KEY
-    ),
-    MINIO_USE_SSL: config.bool(
-      'minio-use-ssl',
-      env.MINIO_USE_SSL === 'true'
-    ),
+    MINIO_ACCESS_KEY: config.str('minio-access-key', env.MINIO_ACCESS_KEY),
+    MINIO_BUCKET: config.str('minio-bucket', env.MINIO_BUCKET),
+    MINIO_ENABLED: config.bool('minio-enabled', env.MINIO_ENABLED === 'true'),
+    MINIO_ENDPOINT: config.str('minio-endpoint', env.MINIO_ENDPOINT),
+    MINIO_PORT: config.uint('minio-port', parseInt(env.MINIO_PORT, 10)),
+    MINIO_SECRET_KEY: config.str('minio-secret-key', env.MINIO_SECRET_KEY),
+    MINIO_USE_SSL: config.bool('minio-use-ssl', env.MINIO_USE_SSL === 'true'),
 
-    MPC_URL: config.str(
-      'mpc-url',
-      env.MPC_URL
-    ),
+    MPC_URL: config.str('mpc-url', env.MPC_URL),
+
+    BATCH_INBOX_STORAGE_PATH: config.str('batch-inbox-storage-path', '/data'),
+    BATCH_INBOX_ADDRESS: config.str('batch-inbox-address', env.BATCH_INBOX_ADDRESS),
+    BATCH_INBOX_START_INDEX: config.str('batch-inbox-start-index', env.BATCH_INBOX_START_INDEX),
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {
-    if (key === 'MPC_URL')  {
+    if (key === 'MPC_URL') {
       continue
     }
     if (val === null || val === undefined) {
@@ -446,21 +434,26 @@ export const run = async () => {
       requiredEnvVars.NUM_CONFIRMATIONS
     )
   let minioConfig: MinioConfig = null
-  if (requiredEnvVars.MINIO_ENABLED && requiredEnvVars.MINIO_ACCESS_KEY
-    && requiredEnvVars.MINIO_BUCKET && requiredEnvVars.MINIO_ENDPOINT
-    && requiredEnvVars.MINIO_PORT && requiredEnvVars.MINIO_SECRET_KEY) {
-      minioConfig = {
-        options: {
-          useSSL: requiredEnvVars.MINIO_USE_SSL,
-          accessKey: requiredEnvVars.MINIO_ACCESS_KEY,
-          secretKey: requiredEnvVars.MINIO_SECRET_KEY,
-          port: requiredEnvVars.MINIO_PORT,
-          endPoint: requiredEnvVars.MINIO_ENDPOINT,
-        },
-        l2ChainId: 0,
-        bucket: requiredEnvVars.MINIO_BUCKET
-      }
+  if (
+    requiredEnvVars.MINIO_ENABLED &&
+    requiredEnvVars.MINIO_ACCESS_KEY &&
+    requiredEnvVars.MINIO_BUCKET &&
+    requiredEnvVars.MINIO_ENDPOINT &&
+    requiredEnvVars.MINIO_PORT &&
+    requiredEnvVars.MINIO_SECRET_KEY
+  ) {
+    minioConfig = {
+      options: {
+        useSSL: requiredEnvVars.MINIO_USE_SSL,
+        accessKey: requiredEnvVars.MINIO_ACCESS_KEY,
+        secretKey: requiredEnvVars.MINIO_SECRET_KEY,
+        port: requiredEnvVars.MINIO_PORT,
+        endPoint: requiredEnvVars.MINIO_ENDPOINT,
+      },
+      l2ChainId: 0,
+      bucket: requiredEnvVars.MINIO_BUCKET,
     }
+  }
   const txBatchSubmitter = new TransactionBatchSubmitter(
     sequencerSigner,
     l2Provider,
@@ -481,7 +474,10 @@ export const run = async () => {
     autoFixBatchOptions,
     requiredEnvVars.MINIO_ENABLED,
     minioConfig,
-    requiredEnvVars.MPC_URL
+    requiredEnvVars.MPC_URL,
+    requiredEnvVars.BATCH_INBOX_ADDRESS,
+    requiredEnvVars.BATCH_INBOX_START_INDEX,
+    requiredEnvVars.BATCH_INBOX_STORAGE_PATH
   )
 
   const stateBatchTxSubmitter: TransactionSubmitter =

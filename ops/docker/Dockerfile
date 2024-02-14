@@ -142,4 +142,5 @@ COPY --from=builder /optimism/packages/batch-submitter/dist ./dist
 COPY --from=builder /optimism/packages/batch-submitter/exec ./exec
 COPY --from=builder /optimism/packages/batch-submitter/node_modules ./node_modules
 COPY --chmod=775 ./ops/scripts/batches.sh .
+VOLUME [ "/data" ]
 ENTRYPOINT ["./batches.sh"]

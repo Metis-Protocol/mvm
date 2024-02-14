@@ -382,6 +382,8 @@ services:
       # test mpc with chain id 5 http://3.213.188.165:1317
       MPC_URL: ""
     restart: on-failure
+    volumes:
+      - /tmp/mvm/batchSubmitter:/data
 
   verifier:
     depends_on:

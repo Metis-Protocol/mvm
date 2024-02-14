@@ -1,8 +1,12 @@
 /* External Imports */
 import { Promise as bPromise } from 'bluebird'
-import { Signer, ethers, Contract, providers } from 'ethers'
+import { Signer, ethers, Contract, providers, BigNumber } from 'ethers'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
-import { getContractInterface, getContractFactory,getContractInterface as getNewContractInterface } from '@metis.io/contracts'
+import {
+  getContractInterface,
+  getContractFactory,
+  getContractInterface as getNewContractInterface,
+} from '@metis.io/contracts'
 
 import {
   L2Block,
@@ -17,6 +21,8 @@ import {
   toHexString,
 } from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
+import { hrtime } from 'process'
+import { randomUUID } from 'crypto'
 
 /* Internal Imports */
 import {
@@ -28,8 +34,7 @@ import {
 
 import { BlockRange, BatchSubmitter } from '.'
 import { TransactionSubmitter, MpcClient } from '../utils'
-import { hrtime } from 'process'
-import { randomUUID } from 'crypto'
+import { InboxStorage, InboxRecordInfo } from '../storage'
 
 export interface AutoFixBatchOptions {
   fixDoublePlayedDeposits: boolean
@@ -50,6 +55,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private minioConfig: MinioConfig
   private encodeSequencerBatchOptions?: EncodeSequencerBatchOptions
   private mpcUrl: string
+  private inboxStorage: InboxStorage
+  private inboxAddress: string
+  private inboxStartIndex: string
 
   constructor(
     signer: Signer,
@@ -75,7 +83,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     }, // TODO: Remove this
     useMinio: boolean,
     minioConfig: MinioConfig,
-    mpcUrl: string
+    mpcUrl: string,
+    batchInboxAddress: string,
+    batchInboxStartIndex: string,
+    batchInboxStoragePath: string
   ) {
     super(
       signer,
@@ -101,9 +112,13 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.minioConfig = minioConfig
     this.mpcUrl = mpcUrl
 
+    this.inboxAddress = batchInboxAddress
+    this.inboxStartIndex = batchInboxStartIndex
+    this.inboxStorage = new InboxStorage(batchInboxStoragePath, logger)
+
     this.logger.info('Batch validation options', {
       autoFixBatchOptions,
-      validateBatch
+      validateBatch,
     })
   }
 
@@ -124,10 +139,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     const ctcAddress = addrs.ctcAddress
     const mvmCtcAddress = addrs.mvmCtcAddress
 
-    if (mvmCtcAddress == ethers.constants.AddressZero) {
-      this.logger.error(
-        'MVM_CanonicalTransaction contract load failed'
-      )
+    if (mvmCtcAddress === ethers.constants.AddressZero) {
+      this.logger.error('MVM_CanonicalTransaction contract load failed')
       process.exit(1)
     }
 
@@ -194,11 +207,49 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.logger.info(
       'Getting batch start and end for transaction batch submitter...'
     )
-    const startBlock =
-      (await this.chainContract.getTotalElementsByChainId(this.l2ChainId)).toNumber() +
-      this.blockOffset
+
+    let startBlock =
+      (
+        await this.chainContract.getTotalElementsByChainId(this.l2ChainId)
+      ).toNumber() + this.blockOffset
     this.logger.info('Retrieved start block number from CTC', {
       startBlock,
+    })
+
+    const batchIndexStart = BigNumber.from(this.inboxStartIndex).toNumber()
+    const batchIndexCtcNext = (await this.chainContract.getTotalBatchesByChainId(this.l2ChainId)).toNumber() + 1
+    const localInboxRecord = await this.inboxStorage.getLatestConfirmedTx()
+    const useBatchInbox = this.inboxAddress && this.inboxAddress.length === 42 && this.inboxAddress.startsWith('0x') && batchIndexStart <= batchIndexCtcNext
+    let batchIndexNext = batchIndexCtcNext
+    if (localInboxRecord) {
+      const localBatchIndex = BigNumber.from(localInboxRecord.batchIndex).toNumber()
+      if (localBatchIndex >= batchIndexNext) {
+        batchIndexNext = localBatchIndex + 1
+
+        // read total elements
+        const inboxTx = await this.signer.provider.getTransaction(localInboxRecord.txHash)
+        if (inboxTx.blockNumber && inboxTx.blockNumber > 0 && inboxTx.data && inboxTx.data !== '0x' && inboxTx.data.length > 142) {
+          // set start block from raw data
+          // 0x[2: DA type] [2: compress type] [64: batch index] [64: L2 start] [8: total blocks]
+          //  > 142 ( 2 + 2 + 2 + 64 + 64 + 8 )
+          const inboxTxStartBlock = BigNumber.from('0x' + inboxTx.data.substring(70, 134)).toNumber()
+          const inboxTxTotal = BigNumber.from('0x' + inboxTx.data.substring(134, 8)).toNumber()
+          startBlock = inboxTxStartBlock + inboxTxTotal + 1
+
+          this.logger.info('Retrieved start block number from BatchInbox tx', {
+            inboxTxStartBlock,
+            inboxTxTotal,
+            startBlock,
+            txHash: localInboxRecord.txHash,
+          })
+        }
+      }
+    }
+    this.logger.info('Retrieved batch index info', {
+      configStartIndex: batchIndexStart,
+      ctcIndexNext: batchIndexCtcNext,
+      useBatchInbox,
+      localInboxRecord,
     })
 
     const endBlock =
@@ -209,7 +260,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.logger.info('Retrieved end block number from L2 sequencer', {
       startBlock,
       endBlock,
-      l2chainId:this.l2ChainId
+      l2chainId: this.l2ChainId,
     })
 
     if (startBlock >= endBlock) {
@@ -247,9 +298,14 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       return
     }
 
-    const params = await this._generateSequencerBatchParams(startBlock, endBlock)
+    const params = await this._generateSequencerBatchParams(
+      startBlock,
+      endBlock
+    )
     if (!params) {
-      throw new Error(`Cannot create sequencer batch with params start ${startBlock} and end ${endBlock}`)
+      throw new Error(
+        `Cannot create sequencer batch with params start ${startBlock} and end ${endBlock}`
+      )
     }
 
     const [batchParams, wasBatchTruncated] = params
@@ -292,7 +348,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
 
       this.encodeSequencerBatchOptions = {
         useMinio: this.useMinio,
-        minioClient: this.minioConfig ? new MinioClient(this.minioConfig) : null
+        minioClient: this.minioConfig
+          ? new MinioClient(this.minioConfig)
+          : null,
       }
     }
   }
@@ -310,15 +368,17 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     //     this.encodeSequencerBatchOptions
     //   )
     // unsigned tx
-    const tx = this.useMinio ? await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
+    const tx = this.useMinio
+      ? await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
         batchParams,
         this.encodeSequencerBatchOptions
-      ) : await this.chainContract.customPopulateTransaction.appendSequencerBatch(
+      )
+      : await this.chainContract.customPopulateTransaction.appendSequencerBatch(
         batchParams,
         this.encodeSequencerBatchOptions
       )
 
-    this.logger.info('submitter with mpc', {url: this.mpcUrl})
+    this.logger.info('submitter with mpc', { url: this.mpcUrl })
     // MPC enabled: prepare nonce, gasPrice
     if (this.mpcUrl) {
       const mpcClient = new MpcClient(this.mpcUrl)
@@ -335,7 +395,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       })
       tx.value = ethers.utils.parseEther('0')
       // mpc model can't use ynatm, set more gas price?
-      let gasPrice = await this.signer.provider.getGasPrice()
+      const gasPrice = await this.signer.provider.getGasPrice()
       // TODO
       // gasPrice.add()
       tx.gasPrice = gasPrice
@@ -350,11 +410,11 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       })
       const signId = randomUUID()
       const postData = {
-        "sign_id": signId,
-        "mpc_id": mpcInfo.mpc_id,
-        "sign_type": "0",
-        "sign_data": serializedTransaction,
-        "sign_msg": ""
+        sign_id: signId,
+        mpc_id: mpcInfo.mpc_id,
+        sign_type: '0',
+        sign_data: serializedTransaction,
+        sign_msg: '',
       }
       const signResp = await mpcClient.proposeMpcSign(postData)
       if (!signResp) {
@@ -373,14 +433,17 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
           this._makeHooks('appendSequencerBatch')
         )
       }
-      return this._submitAndLogTx(submitSignedTransaction, 'Submitted batch with MPC!')
-    }
-    else {
-      tx.gasLimit = await this.signer.provider.estimateGas({ //estimate gas
-          to: tx.to,
-          from: await this.signer.getAddress(), //mpc address
-          data: tx.data,
-        })
+      return this._submitAndLogTx(
+        submitSignedTransaction,
+        'Submitted batch with MPC!'
+      )
+    } else {
+      tx.gasLimit = await this.signer.provider.estimateGas({
+        //estimate gas
+        to: tx.to,
+        from: await this.signer.getAddress(), //mpc address
+        data: tx.data,
+      })
     }
 
     const submitTransaction = (): Promise<TransactionReceipt> => {
@@ -461,7 +524,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
    */
   protected async _validateBatch(batch: Batch): Promise<boolean> {
     // Verify all of the queue elements are what we expect
-    let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
+    let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(
+      this.l2ChainId
+    )
     for (const ele of batch) {
       this.logger.info('Verifying batch element', { ele })
       if (!ele.isSequencerTx) {
@@ -513,7 +578,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
 
     let isEqual = true
     const [queueEleHash, timestamp, blockNumber] =
-      await this.chainContract.getQueueElementByChainId(this.l2ChainId,queueIndex)
+      await this.chainContract.getQueueElementByChainId(
+        this.l2ChainId,
+        queueIndex
+      )
 
     // TODO: Verify queue element hash equality. The queue element hash can be computed with:
     // keccak256( abi.encode( msg.sender, _target, _gasLimit, _data))
@@ -547,7 +615,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
    */
   private async _fixBatch(batch: Batch): Promise<Batch> {
     const fixDoublePlayedDeposits = async (b: Batch): Promise<Batch> => {
-      let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
+      let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(
+        this.l2ChainId
+      )
       const fixedBatch: Batch = []
       for (const ele of b) {
         if (!ele.isSequencerTx) {
@@ -577,8 +647,12 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       for (const ele of b) {
         // Look for skipped deposits
         while (true) {
-          const pendingQueueElements = await this.chainContract.getNumPendingQueueElementsByChainId(this.l2ChainId)
-          const nextRemoteQueueElements = await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
+          const pendingQueueElements =
+            await this.chainContract.getNumPendingQueueElementsByChainId(
+              this.l2ChainId
+            )
+          const nextRemoteQueueElements =
+            await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
           const totalQueueElements =
             pendingQueueElements + nextRemoteQueueElements
           // No more queue elements so we clearly haven't skipped anything
@@ -586,7 +660,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
             break
           }
           const [queueEleHash, timestamp, blockNumber] =
-            await this.chainContract.getQueueElementByChainId(this.l2ChainId,nextQueueIndex)
+            await this.chainContract.getQueueElementByChainId(
+              this.l2ChainId,
+              nextQueueIndex
+            )
 
           if (timestamp < ele.timestamp || blockNumber < ele.blockNumber) {
             this.logger.warn('Fixing skipped deposit', {
@@ -633,20 +710,29 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       })
 
       // The latest allowed timestamp/blockNumber is the next queue element!
-      let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
+      let nextQueueIndex = await this.chainContract.getNextQueueIndexByChainId(
+        this.l2ChainId
+      )
       let latestTimestamp: number
       let latestBlockNumber: number
 
       // updateLatestTimestampAndBlockNumber is a helper which updates
       // the latest timestamp and block number based on the pending queue elements.
       const updateLatestTimestampAndBlockNumber = async () => {
-        const pendingQueueElements = await this.chainContract.getNumPendingQueueElementsByChainId(this.l2ChainId)
-        const nextRemoteQueueElements = await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
+        const pendingQueueElements =
+          await this.chainContract.getNumPendingQueueElementsByChainId(
+            this.l2ChainId
+          )
+        const nextRemoteQueueElements =
+          await this.chainContract.getNextQueueIndexByChainId(this.l2ChainId)
         const totalQueueElements =
           pendingQueueElements + nextRemoteQueueElements
         if (nextQueueIndex < totalQueueElements) {
           const [queueEleHash, queueTimestamp, queueBlockNumber] =
-            await this.chainContract.getQueueElementByChainId(this.l2ChainId,nextQueueIndex)
+            await this.chainContract.getQueueElementByChainId(
+              this.l2ChainId,
+              nextQueueIndex
+            )
           latestTimestamp = queueTimestamp
           latestBlockNumber = queueBlockNumber
         } else {
@@ -767,7 +853,10 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     queueElement: BatchElement
   ): Promise<BatchElement> {
     const [queueEleHash, timestamp, blockNumber] =
-      await this.chainContract.getQueueElementByChainId(this.l2ChainId,queueIndex)
+      await this.chainContract.getQueueElementByChainId(
+        this.l2ChainId,
+        queueIndex
+      )
 
     if (
       timestamp > queueElement.timestamp &&
@@ -834,14 +923,15 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
           sequenced: [],
           queued: [],
         })
-      }
-      else if (block.isSequencerTx !== lastBlockIsSequencerTx) {
+      } else if (block.isSequencerTx !== lastBlockIsSequencerTx) {
         groupedBlocks.push({
           sequenced: [],
           queued: [],
         })
-      }
-      else if (block.timestamp !== lastTimestamp || block.blockNumber !== lastBlockNumber){
+      } else if (
+        block.timestamp !== lastTimestamp ||
+        block.blockNumber !== lastBlockNumber
+      ) {
         groupedBlocks.push({
           sequenced: [],
           queued: [],
@@ -864,10 +954,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
           'Attempted to generate batch context with 0 queued and 0 sequenced txs!'
         )
       }
-      this.logger.warn('Fetched L2 block',
-      {
-        seqLen:groupedBlock.sequenced.length,
-        queLen:groupedBlock.queued.length
+      this.logger.warn('Fetched L2 block', {
+        seqLen: groupedBlock.sequenced.length,
+        queLen: groupedBlock.queued.length,
       })
       contexts.push({
         numSequencedTransactions: groupedBlock.sequenced.length,
@@ -980,12 +1069,11 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private padZerosToLeft(inputString: string): string {
     const targetLength = 64
     if (inputString.length >= targetLength) {
-        return inputString
+      return inputString
     }
 
     const zerosToPad = targetLength - inputString.length
     const paddedString = '0'.repeat(zerosToPad) + inputString
     return paddedString
-}
-
+  }
 }
