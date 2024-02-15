@@ -20,5 +20,4 @@ describe('Fees', () => {
       ones.should.eq(test.ones)
     }
   })
-
 })

@@ -4,11 +4,7 @@ import { expect } from '../../../setup'
 import { ethers } from 'hardhat'
 import { Signer, ContractFactory, Contract, BigNumber } from 'ethers'
 import { smockit, MockContract } from '@eth-optimism/smock'
-import {
-  remove0x,
-  toHexString,
-  applyL1ToL2Alias,
-} from '@metis.io/core-utils'
+import { remove0x, toHexString, applyL1ToL2Alias } from '@metis.io/core-utils'
 
 /* Internal Imports */
 import {

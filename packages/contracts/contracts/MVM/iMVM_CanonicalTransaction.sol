@@ -45,7 +45,7 @@ interface iMVM_CanonicalTransaction {
         bool _sequencer
     );
 
-    event AppendBatchElement (
+    event AppendBatchElement(
         uint256 _chainId,
         uint256 _batchIndex,
         uint40 _shouldStartAtElement,
@@ -129,7 +129,10 @@ interface iMVM_CanonicalTransaction {
     /**
      * Gets the verifier stake cost of ETH by batch index.
      */
-    function getStakeCostByBatch(uint256 _chainId, uint256 _batchIndex) external view returns (uint256);
+    function getStakeCostByBatch(uint256 _chainId, uint256 _batchIndex)
+        external
+        view
+        returns (uint256);
 
     /**
      * Sets batch transaction data slice size per submit.
@@ -176,7 +179,7 @@ interface iMVM_CanonicalTransaction {
      */
     function getStakeSeqSeconds() external view returns (uint256);
 
-    function isWhiteListed(address _verifier) external view returns(bool);
+    function isWhiteListed(address _verifier) external view returns (bool);
 
     // add the verifier to the whitelist
     function setWhiteList(address _verifier, bool _allowed) external;
@@ -196,8 +199,16 @@ interface iMVM_CanonicalTransaction {
      * @param _batchIndex batch index of CTC.
      * @param _blockNumber slice index.
      * @param _data tx data hex.
-    */
-    function setBatchTxDataForStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data, uint256 _leafIndex, uint256 _totalLeaves, bytes32[] memory _proof) external;
+     */
+    function setBatchTxDataForStake(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber,
+        bytes memory _data,
+        uint256 _leafIndex,
+        uint256 _totalLeaves,
+        bytes32[] memory _proof
+    ) external;
 
     /**
      * Sets batch tx data for verifier.
@@ -205,8 +216,13 @@ interface iMVM_CanonicalTransaction {
      * @param _batchIndex batch index of CTC.
      * @param _blockNumber slice index.
      * @param _data tx data hex.
-    */
-    function setBatchTxDataForVerifier(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data) external;
+     */
+    function setBatchTxDataForVerifier(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber,
+        bytes memory _data
+    ) external;
 
     /**
      * Gets batch tx data.
@@ -215,27 +231,48 @@ interface iMVM_CanonicalTransaction {
      * @param _blockNumber block number.
      * @return txData
      * @return verified
-    */
-    function getBatchTxData(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external view returns (bytes memory txData, bool verified);
+     */
+    function getBatchTxData(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber
+    ) external view returns (bytes memory txData, bool verified);
 
-    function checkBatchTxHash(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bytes memory _data) external view returns (bytes32 txHash, bool verified);
+    function checkBatchTxHash(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber,
+        bytes memory _data
+    ) external view returns (bytes32 txHash, bool verified);
 
-    function setBatchTxDataVerified(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber, bool _verified) external;
+    function setBatchTxDataVerified(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber,
+        bool _verified
+    ) external;
 
     /**
      * Stake by verifier.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
      * @param _blockNumber block number.
-    */
-    function verifierStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external payable;
+     */
+    function verifierStake(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber
+    ) external payable;
 
     /**
      * Withdraw stake by verifier.
      * @param _chainId chain id.
      * @param _batchIndex batch index of CTC.
      * @param _blockNumber block number.
-    */
-    function withdrawStake(uint256 _chainId, uint256 _batchIndex, uint256 _blockNumber) external;
-
+     */
+    function withdrawStake(
+        uint256 _chainId,
+        uint256 _batchIndex,
+        uint256 _blockNumber
+    ) external;
 }

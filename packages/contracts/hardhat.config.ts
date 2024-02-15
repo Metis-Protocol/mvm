@@ -55,7 +55,7 @@ const config: HardhatUserConfig = {
       chainId: 666,
       url: 'https://dev.metis.io/?owner=666',
       accounts: [privateKey],
-    }
+    },
   },
   mocha: {
     timeout: 50000,
@@ -76,7 +76,6 @@ const config: HardhatUserConfig = {
       },
     ],
     settings: {
-
       metadata: {
         bytecodeHash: 'none',
       },

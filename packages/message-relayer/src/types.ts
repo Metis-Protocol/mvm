@@ -1,5 +1,5 @@
 import { BigNumber } from 'ethers'
-import { Document } from "mongoose"
+import { Document } from 'mongoose'
 
 export interface StateRootBatchHeader {
   batchIndex: BigNumber

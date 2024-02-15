@@ -18,7 +18,7 @@ import { IChainStorageContainer } from "./IChainStorageContainer.sol";
  * writing them to the 'CTC:batches' instance of the Chain Storage Container.
  * The CTC only allows Proxy__OVM_L1CrossDomainMessenger address to 'enqueue' an L2 transaction, which will require that the
  * Sequencer will eventually append it to the rollup state.
- * The manager can add, delete and update the transactions data, update queue data, 
+ * The manager can add, delete and update the transactions data, update queue data,
  * when a fraud proof accepted in challege.
  *
  * Runtime target: EVM
@@ -41,7 +41,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
     // See comments in enqueue() for further detail.
     uint256 public enqueueL2GasPrepaid;
     //default l2 chain id
-    uint256 constant public DEFAULT_CHAINID = 1088;
+    uint256 public constant DEFAULT_CHAINID = 1088;
 
     // Encoding-related (all in bytes)
     uint256 internal constant BATCH_CONTEXT_SIZE = 16;
@@ -60,8 +60,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * Queue State *
      ***************/
 
-    mapping(uint256=>uint40) private _nextQueueIndex; // index of the first queue element not yet included
-    mapping(uint256=>Lib_OVMCodec.QueueElement[]) private queueElements;
+    mapping(uint256 => uint40) private _nextQueueIndex; // index of the first queue element not yet included
+    mapping(uint256 => Lib_OVMCodec.QueueElement[]) private queueElements;
 
     /***************
      * Constructor *
@@ -72,8 +72,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         uint256 _maxTransactionGasLimit,
         uint256 _l2GasDiscountDivisor,
         uint256 _enqueueGasCost
-    ) Lib_AddressResolver(_libAddressManager)
-    {
+    ) Lib_AddressResolver(_libAddressManager) {
         maxTransactionGasLimit = _maxTransactionGasLimit;
         l2GasDiscountDivisor = _l2GasDiscountDivisor;
         enqueueGasCost = _enqueueGasCost;
@@ -288,7 +287,9 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             // curContext.numSubsequentQueueTransactions > 0 which means that we've processed at
             // least one queue element. We increment nextQueueIndex after processing each queue
             // element, so the index of the last element we processed is nextQueueIndex - 1.
-            Lib_OVMCodec.QueueElement memory lastElement = queueElements[DEFAULT_CHAINID][nextQueueIndex - 1];
+            Lib_OVMCodec.QueueElement memory lastElement = queueElements[DEFAULT_CHAINID][
+                nextQueueIndex - 1
+            ];
 
             blockTimestamp = lastElement.timestamp;
             blockNumber = lastElement.blockNumber;
@@ -417,7 +418,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         // }
 
         // return extraData;
-        return _makeBatchExtraDataByChainId(_totalElements, _nextQueueIdx, _timestamp, _blockNumber);
+        return
+            _makeBatchExtraDataByChainId(_totalElements, _nextQueueIdx, _timestamp, _blockNumber);
     }
 
     /**
@@ -465,7 +467,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
 
         batchesRef.push(batchHeaderHash, latestBatchContext);
     }
-    
+
     //added chain id for public function
 
     /**
@@ -473,14 +475,12 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * @return _totalElements Total submitted elements.
      */
     function getTotalElementsByChainId(uint256 _chainId)
-        override
         public
         view
-        returns (
-            uint256 _totalElements
-        )
+        override
+        returns (uint256 _totalElements)
     {
-        (uint40 totalElements,,,) = _getBatchExtraDataByChainId(_chainId);
+        (uint40 totalElements, , , ) = _getBatchExtraDataByChainId(_chainId);
         return uint256(totalElements);
     }
 
@@ -489,12 +489,10 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * @return _totalBatches Total submitted batches.
      */
     function getTotalBatchesByChainId(uint256 _chainId)
-        override
         external
         view
-        returns (
-            uint256 _totalBatches
-        )
+        override
+        returns (uint256 _totalBatches)
     {
         return batches().lengthByChainId(_chainId);
     }
@@ -503,15 +501,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * Returns the index of the next element to be enqueued.
      * @return Index for the next queue element.
      */
-    function getNextQueueIndexByChainId(uint256 _chainId)
-        override
-        external
-        view
-        returns (
-            uint40
-        )
-    {
-        (,uint40 nextQueueIndex,,) = _getBatchExtraDataByChainId(_chainId);
+    function getNextQueueIndexByChainId(uint256 _chainId) external view override returns (uint40) {
+        (, uint40 nextQueueIndex, , ) = _getBatchExtraDataByChainId(_chainId);
         return nextQueueIndex;
     }
 
@@ -519,15 +510,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * Returns the timestamp of the last transaction.
      * @return Timestamp for the last transaction.
      */
-    function getLastTimestampByChainId(uint256 _chainId)
-        override
-        external
-        view
-        returns (
-            uint40
-        )
-    {
-        (,,uint40 lastTimestamp,) = _getBatchExtraDataByChainId(_chainId);
+    function getLastTimestampByChainId(uint256 _chainId) external view override returns (uint40) {
+        (, , uint40 lastTimestamp, ) = _getBatchExtraDataByChainId(_chainId);
         return lastTimestamp;
     }
 
@@ -535,15 +519,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * Returns the blocknumber of the last transaction.
      * @return Blocknumber for the last transaction.
      */
-    function getLastBlockNumberByChainId(uint256 _chainId)
-        override
-        external
-        view
-        returns (
-            uint40
-        )
-    {
-        (,,,uint40 lastBlockNumber) = _getBatchExtraDataByChainId(_chainId);
+    function getLastBlockNumberByChainId(uint256 _chainId) external view override returns (uint40) {
+        (, , , uint40 lastBlockNumber) = _getBatchExtraDataByChainId(_chainId);
         return lastBlockNumber;
     }
 
@@ -552,16 +529,11 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * @param _index Index of the queue element to access.
      * @return _element Queue element at the given index.
      */
-    function getQueueElementByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        override
+    function getQueueElementByChainId(uint256 _chainId, uint256 _index)
         external
         view
-        returns (
-            Lib_OVMCodec.QueueElement memory _element
-        )
+        override
+        returns (Lib_OVMCodec.QueueElement memory _element)
     {
         return queueElements[_chainId][_index];
     }
@@ -570,34 +542,21 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * Get the number of queue elements which have not yet been included.
      * @return Number of pending queue elements.
      */
-    function getNumPendingQueueElementsByChainId(
-        uint256 _chainId
-        )
-        override
+    function getNumPendingQueueElementsByChainId(uint256 _chainId)
         external
         view
-        returns (
-            uint40
-        )
+        override
+        returns (uint40)
     {
         return uint40(queueElements[_chainId].length) - _nextQueueIndex[_chainId];
     }
 
-   /**
+    /**
      * Retrieves the length of the queue, including
      * both pending and canonical transactions.
      * @return Length of the queue.
      */
-    function getQueueLengthByChainId(
-        uint256 _chainId
-        )
-        override
-        external
-        view
-        returns (
-            uint40
-        )
-    {
+    function getQueueLengthByChainId(uint256 _chainId) external view override returns (uint40) {
         return uint40(queueElements[_chainId].length);
     }
 
@@ -612,13 +571,12 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         address _target,
         uint256 _gasLimit,
         bytes memory _data
-    )
-        override
-        public
-    {
-        require(msg.sender == resolve("Proxy__OVM_L1CrossDomainMessenger"),
-                "only the cross domain messenger can enqueue");
-                
+    ) public override {
+        require(
+            msg.sender == resolve("Proxy__OVM_L1CrossDomainMessenger"),
+            "only the cross domain messenger can enqueue"
+        );
+
         require(
             _data.length <= MAX_ROLLUP_TX_SIZE,
             "Transaction data size exceeds maximum for rollup transaction."
@@ -629,11 +587,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             "Transaction gas limit exceeds maximum for rollup transaction."
         );
 
-        require(
-            _gasLimit >= MIN_ROLLUP_TX_GAS,
-            "Transaction gas limit too low to enqueue."
-        );
-        
+        require(_gasLimit >= MIN_ROLLUP_TX_GAS, "Transaction gas limit too low to enqueue.");
+
         // Transactions submitted to the queue lack a method for paying gas fees to the Sequencer.
         // So we need to prevent spam attacks by ensuring that the cost of enqueueing a transaction
         // from L1 to L2 is not underpriced. For transaction with a high L2 gas limit, we do this by
@@ -659,7 +614,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
                 i++;
             }
         }
-        
+
         // Apply an aliasing unless msg.sender == tx.origin. This prevents an attack in which a
         // contract on L1 has the same address as a contract on L2 but doesn't have the same code.
         // We can safely ignore this for EOAs because they're guaranteed to have the same "code"
@@ -672,15 +627,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             sender = AddressAliasHelper.applyL1ToL2Alias(msg.sender);
         }
 
-        bytes32 transactionHash = keccak256(
-            abi.encode(
-                sender,
-                _target,
-                _gasLimit,
-                _data
-            )
-        );
-        
+        bytes32 transactionHash = keccak256(abi.encode(sender, _target, _gasLimit, _data));
+
         queueElements[_chainId].push(
             Lib_OVMCodec.QueueElement({
                 transactionHash: transactionHash,
@@ -700,7 +648,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             block.timestamp
         );
     }
-    
+
     /**
      * Allows the sequencer to append a batch of transactions.
      * @dev This function uses a custom encoding scheme for efficiency reasons.
@@ -709,51 +657,39 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * .param _contexts Array of batch contexts.
      * .param _transactionDataFields Array of raw transaction data.
      */
-    function appendSequencerBatchByChainId()
-        override
-        external
-    {
+    function appendSequencerBatchByChainId() external override {
         uint256 _chainId;
         uint40 shouldStartAtElement;
         uint24 totalElementsToAppend;
         uint24 numContexts;
         assembly {
-            _chainId              := calldataload(4)
-            shouldStartAtElement  := shr(216, calldataload(36))
+            _chainId := calldataload(4)
+            shouldStartAtElement := shr(216, calldataload(36))
             totalElementsToAppend := shr(232, calldataload(41))
-            numContexts           := shr(232, calldataload(44))
+            numContexts := shr(232, calldataload(44))
         }
 
         require(
             shouldStartAtElement == getTotalElementsByChainId(_chainId),
             "Actual batch start index does not match expected start index."
         );
-        
+
         require(
-            msg.sender == resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Sequencer"))),
+            msg.sender ==
+                resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId), "_MVM_Sequencer"))),
             "Function can only be called by the Sequencer."
         );
 
-        require(
-            numContexts > 0,
-            "Must provide at least one batch context."
-        );
+        require(numContexts > 0, "Must provide at least one batch context.");
 
-        require(
-            totalElementsToAppend > 0,
-            "Must append at least one element."
-        );
-
+        require(totalElementsToAppend > 0, "Must append at least one element.");
 
         uint40 nextTransactionPtr = uint40(
             BATCH_CONTEXT_START_POS + BATCH_CONTEXT_SIZE * numContexts
         );
 
-        require(
-            msg.data.length >= nextTransactionPtr,
-            "Not enough BatchContexts provided."
-        );
-        
+        require(msg.data.length >= nextTransactionPtr, "Not enough BatchContexts provided.");
+
         // Cache the _nextQueueIndex storage variable to a temporary stack variable.
         // This is safe as long as nothing reads or writes to the storage variable
         // until it is updated by the temp variable.
@@ -764,14 +700,14 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
 
         BatchContext memory curContext;
         for (uint32 i = 0; i < numContexts; i++) {
-            BatchContext memory nextContext = _getBatchContextByChainId(0,i);
+            BatchContext memory nextContext = _getBatchContextByChainId(0, i);
 
             // Now we can update our current context.
             curContext = nextContext;
-	        // Process sequencer transactions first.
-	        numSequencerTransactions += uint32(curContext.numSequencedTransactions);
-	        
-	        // Now process any subsequent queue transactions.
+            // Process sequencer transactions first.
+            numSequencerTransactions += uint32(curContext.numSequencedTransactions);
+
+            // Now process any subsequent queue transactions.
             nextQueueIndex += uint40(curContext.numSubsequentQueueTransactions);
         }
 
@@ -795,7 +731,9 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             // curContext.numSubsequentQueueTransactions > 0 which means that we've processed at
             // least one queue element. We increment nextQueueIndex after processing each queue
             // element, so the index of the last element we processed is nextQueueIndex - 1.
-            Lib_OVMCodec.QueueElement memory lastElement = queueElements[_chainId][nextQueueIndex - 1];
+            Lib_OVMCodec.QueueElement memory lastElement = queueElements[_chainId][
+                nextQueueIndex - 1
+            ];
 
             blockTimestamp = lastElement.timestamp;
             blockNumber = lastElement.blockNumber;
@@ -803,7 +741,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
 
         // Cache the previous blockhash to ensure all transaction data can be retrieved efficiently.
         _appendBatchByChainId(
-    	    _chainId,
+            _chainId,
             blockhash(block.number - 1),
             totalElementsToAppend,
             numQueuedTransactions,
@@ -817,11 +755,10 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             numQueuedTransactions,
             getTotalElementsByChainId(_chainId)
         );
-        
+
         // Update the _nextQueueIndex storage variable.
         _nextQueueIndex[_chainId] = nextQueueIndex;
     }
-
 
     /**********************
      * Internal Functions *
@@ -832,15 +769,10 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * @param _index The index of the BatchContext
      * @return The BatchContext at the specified index.
      */
-    function _getBatchContextByChainId(
-        uint256 _ptrStart,
-        uint256 _index
-    )
+    function _getBatchContextByChainId(uint256 _ptrStart, uint256 _index)
         internal
         pure
-        returns (
-            BatchContext memory
-        )
+        returns (BatchContext memory)
     {
         uint256 contextPtr = _ptrStart + 32 + 15 + _index * BATCH_CONTEXT_SIZE;
         uint256 numSequencedTransactions;
@@ -849,18 +781,19 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         uint256 ctxBlockNumber;
 
         assembly {
-            numSequencedTransactions       := shr(232, calldataload(contextPtr))
+            numSequencedTransactions := shr(232, calldataload(contextPtr))
             numSubsequentQueueTransactions := shr(232, calldataload(add(contextPtr, 3)))
-            ctxTimestamp                   := shr(216, calldataload(add(contextPtr, 6)))
-            ctxBlockNumber                 := shr(216, calldataload(add(contextPtr, 11)))
+            ctxTimestamp := shr(216, calldataload(add(contextPtr, 6)))
+            ctxBlockNumber := shr(216, calldataload(add(contextPtr, 11)))
         }
 
-        return BatchContext({
-            numSequencedTransactions: numSequencedTransactions,
-            numSubsequentQueueTransactions: numSubsequentQueueTransactions,
-            timestamp: ctxTimestamp,
-            blockNumber: ctxBlockNumber
-        });
+        return
+            BatchContext({
+                numSequencedTransactions: numSequencedTransactions,
+                numSubsequentQueueTransactions: numSubsequentQueueTransactions,
+                timestamp: ctxTimestamp,
+                blockNumber: ctxBlockNumber
+            });
     }
 
     /**
@@ -868,9 +801,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
      * @return Total number of elements submitted.
      * @return Index of the next queue element.
      */
-    function _getBatchExtraDataByChainId(
-        uint256 _chainId
-        )
+    function _getBatchExtraDataByChainId(uint256 _chainId)
         internal
         view
         returns (
@@ -887,19 +818,26 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         uint40 lastTimestamp;
         uint40 lastBlockNumber;
         assembly {
-            extraData       :=  shr(40, extraData)
-            totalElements   :=  and(extraData, 0x000000000000000000000000000000000000000000000000000000FFFFFFFFFF)
-            nextQueueIndex  :=  shr(40, and(extraData, 0x00000000000000000000000000000000000000000000FFFFFFFFFF0000000000))
-            lastTimestamp   :=  shr(80, and(extraData, 0x0000000000000000000000000000000000FFFFFFFFFF00000000000000000000))
-            lastBlockNumber :=  shr(120, and(extraData, 0x000000000000000000000000FFFFFFFFFF000000000000000000000000000000))
+            extraData := shr(40, extraData)
+            totalElements := and(
+                extraData,
+                0x000000000000000000000000000000000000000000000000000000FFFFFFFFFF
+            )
+            nextQueueIndex := shr(
+                40,
+                and(extraData, 0x00000000000000000000000000000000000000000000FFFFFFFFFF0000000000)
+            )
+            lastTimestamp := shr(
+                80,
+                and(extraData, 0x0000000000000000000000000000000000FFFFFFFFFF00000000000000000000)
+            )
+            lastBlockNumber := shr(
+                120,
+                and(extraData, 0x000000000000000000000000FFFFFFFFFF000000000000000000000000000000)
+            )
         }
 
-        return (
-            totalElements,
-            nextQueueIndex,
-            lastTimestamp,
-            lastBlockNumber
-        );
+        return (totalElements, nextQueueIndex, lastTimestamp, lastBlockNumber);
     }
 
     /**
@@ -915,13 +853,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         uint40 _nextQueueIdx,
         uint40 _timestamp,
         uint40 _blockNumber
-    )
-        internal
-        pure
-        returns (
-            bytes27
-        )
-    {
+    ) internal pure returns (bytes27) {
         bytes27 extraData;
         assembly {
             extraData := _totalElements
@@ -949,10 +881,8 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         uint256 _numQueuedTransactions,
         uint40 _timestamp,
         uint40 _blockNumber
-    )
-        internal
-    {
-	    IChainStorageContainer batchesRef = batches();
+    ) internal {
+        IChainStorageContainer batchesRef = batches();
         (uint40 totalElements, uint40 nextQueueIndex, , ) = _getBatchExtraDataByChainId(_chainId);
 
         Lib_OVMCodec.ChainBatchHeader memory header = Lib_OVMCodec.ChainBatchHeader({
@@ -980,7 +910,7 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
             _blockNumber
         );
 
-        batchesRef.pushByChainId(_chainId,batchHeaderHash, latestBatchContext);
+        batchesRef.pushByChainId(_chainId, batchHeaderHash, latestBatchContext);
     }
 
     modifier onlyManager() {
@@ -991,62 +921,43 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         _;
     }
 
-    function pushQueueByChainId(
-        uint256 _chainId,
-        Lib_OVMCodec.QueueElement calldata _object
-    )
-        override
+    function pushQueueByChainId(uint256 _chainId, Lib_OVMCodec.QueueElement calldata _object)
         external
+        override
         onlyManager
     {
         queueElements[_chainId].push(_object);
-        emit QueuePushed(msg.sender,_chainId,_object);
+        emit QueuePushed(msg.sender, _chainId, _object);
     }
 
     function setQueueByChainId(
         uint256 _chainId,
         uint256 _index,
         Lib_OVMCodec.QueueElement calldata _object
-    )
-        override
-        external
-        onlyManager
-    {
+    ) external override onlyManager {
         queueElements[_chainId][_index] = _object;
-        emit QueueSetted(msg.sender,_chainId,_index,_object);
+        emit QueueSetted(msg.sender, _chainId, _index, _object);
     }
 
-    function setBatchGlobalMetadataByChainId(
-        uint256 _chainId,
-        bytes27 _globalMetadata
-    )
-        override
+    function setBatchGlobalMetadataByChainId(uint256 _chainId, bytes27 _globalMetadata)
         external
+        override
         onlyManager
     {
-        batches().setGlobalMetadataByChainId(_chainId,_globalMetadata);
-        emit BatchesGlobalMetadataSet(msg.sender,_chainId,_globalMetadata);
+        batches().setGlobalMetadataByChainId(_chainId, _globalMetadata);
+        emit BatchesGlobalMetadataSet(msg.sender, _chainId, _globalMetadata);
     }
 
     function getBatchGlobalMetadataByChainId(uint256 _chainId)
-        override
         external
         view
-        returns (
-            bytes27
-        )
+        override
+        returns (bytes27)
     {
         return batches().getGlobalMetadataByChainId(_chainId);
     }
 
-    function lengthBatchByChainId(uint256 _chainId)
-        override
-        external
-        view
-        returns (
-            uint256
-        )
-    {
+    function lengthBatchByChainId(uint256 _chainId) external view override returns (uint256) {
         return batches().lengthByChainId(_chainId);
     }
 
@@ -1054,56 +965,35 @@ contract CanonicalTransactionChain is ICanonicalTransactionChain, Lib_AddressRes
         uint256 _chainId,
         bytes32 _object,
         bytes27 _globalMetadata
-    )
-        override
-        external
-        onlyManager
-    {
-        batches().pushByChainId(_chainId,_object,_globalMetadata);
-        emit BatchPushed(msg.sender,_chainId,_object,_globalMetadata);
+    ) external override onlyManager {
+        batches().pushByChainId(_chainId, _object, _globalMetadata);
+        emit BatchPushed(msg.sender, _chainId, _object, _globalMetadata);
     }
 
     function setBatchByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes32 _object
-    )
-        override
-        external
-        onlyManager
-    {
-        batches().setByChainId(_chainId,_index,_object);
-        emit BatchSetted(msg.sender,_chainId,_index,_object);
+    ) external override onlyManager {
+        batches().setByChainId(_chainId, _index, _object);
+        emit BatchSetted(msg.sender, _chainId, _index, _object);
     }
 
-    function getBatchByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        override
+    function getBatchByChainId(uint256 _chainId, uint256 _index)
         external
         view
-        returns (
-            bytes32
-        )
+        override
+        returns (bytes32)
     {
-        return batches().getByChainId(_chainId,_index);
+        return batches().getByChainId(_chainId, _index);
     }
 
     function deleteBatchElementsAfterInclusiveByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes27 _globalMetadata
-    )
-        override
-        external
-        onlyManager
-    {
-        batches().deleteElementsAfterInclusiveByChainId(
-            _chainId,
-            _index,
-            _globalMetadata
-        );
-        emit BatchElementDeleted(msg.sender,_chainId,_index,_globalMetadata);
+    ) external override onlyManager {
+        batches().deleteElementsAfterInclusiveByChainId(_chainId, _index, _globalMetadata);
+        emit BatchElementDeleted(msg.sender, _chainId, _index, _globalMetadata);
     }
 }

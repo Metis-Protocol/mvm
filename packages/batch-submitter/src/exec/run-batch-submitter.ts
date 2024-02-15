@@ -372,8 +372,14 @@ export const run = async () => {
     MPC_URL: config.str('mpc-url', env.MPC_URL),
 
     BATCH_INBOX_STORAGE_PATH: config.str('batch-inbox-storage-path', '/data'),
-    BATCH_INBOX_ADDRESS: config.str('batch-inbox-address', env.BATCH_INBOX_ADDRESS),
-    BATCH_INBOX_START_INDEX: config.str('batch-inbox-start-index', env.BATCH_INBOX_START_INDEX),
+    BATCH_INBOX_ADDRESS: config.str(
+      'batch-inbox-address',
+      env.BATCH_INBOX_ADDRESS
+    ),
+    BATCH_INBOX_START_INDEX: config.str(
+      'batch-inbox-start-index',
+      env.BATCH_INBOX_START_INDEX
+    ),
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {

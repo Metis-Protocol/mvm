@@ -28,7 +28,7 @@ interface IL1ERC20Bridge {
     );
 
     event ERC20ChainID(uint256 _chainid);
-    
+
     /********************
      * Public Functions *
      ********************/
@@ -76,7 +76,7 @@ interface IL1ERC20Bridge {
         uint32 _l2Gas,
         bytes calldata _data
     ) external;
-    
+
     /**
      * @dev deposit an amount of the ERC20 to the caller's balance on L2.
      * @param _chainid chainid
@@ -88,15 +88,14 @@ interface IL1ERC20Bridge {
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
      */
-    function depositERC20ByChainId (
+    function depositERC20ByChainId(
         uint256 _chainid,
         address _l1Token,
         address _l2Token,
-        uint _amount,
+        uint256 _amount,
         uint32 _l2Gas,
         bytes calldata _data
-    )
-        external payable;
+    ) external payable;
 
     /**
      * @dev deposit an amount of ERC20 to a recipient's balance on L2.
@@ -110,16 +109,16 @@ interface IL1ERC20Bridge {
      *        solely as a convenience for external contracts. Aside from enforcing a maximum
      *        length, these contracts provide no guarantees about its content.
      */
-    function depositERC20ToByChainId (
+    function depositERC20ToByChainId(
         uint256 _chainid,
         address _l1Token,
         address _l2Token,
         address _to,
-        uint _amount,
+        uint256 _amount,
         uint32 _l2Gas,
         bytes calldata _data
-    )
-        external payable;
+    ) external payable;
+
     /*************************
      * Cross-chain Functions *
      *************************/
@@ -146,7 +145,7 @@ interface IL1ERC20Bridge {
         uint256 _amount,
         bytes calldata _data
     ) external;
-    
+
     /**
      * @dev Complete a withdrawal from L2 to L1, and credit funds to the recipient's balance of the
      * L1 ERC20 token.
@@ -161,17 +160,17 @@ interface IL1ERC20Bridge {
      * @param _data Data provided by the sender on L2. This data is provided
      *   solely as a convenience for external contracts. Aside from enforcing a maximum
      *   length, these contracts provide no guarantees about its content.
-     */    
-     function finalizeERC20WithdrawalByChainId (
+     */
+    function finalizeERC20WithdrawalByChainId(
         uint256 _chainid,
         address _l1Token,
         address _l2Token,
         address _from,
         address _to,
-        uint _amount,
+        uint256 _amount,
         bytes calldata _data
-    )
-        external;
+    ) external;
+
     /**
      * @dev Complete a withdrawal from L2 to L1, and credit funds to the recipient's balance of the
      * L1 ERC20 token.
@@ -184,13 +183,12 @@ interface IL1ERC20Bridge {
      * @param _data Data provided by the sender on L2. This data is provided
      *   solely as a convenience for external contracts. Aside from enforcing a maximum
      *   length, these contracts provide no guarantees about its content.
-     */    
-    function finalizeMetisWithdrawalByChainId (
+     */
+    function finalizeMetisWithdrawalByChainId(
         uint256 _chainid,
         address _from,
         address _to,
-        uint _amount,
+        uint256 _amount,
         bytes calldata _data
-    )
-        external;
+    ) external;
 }

@@ -7,15 +7,12 @@ import hre from 'hardhat'
 
 const network = process.env.CONTRACTS_TARGET_NETWORK
 
-
 const main = async () => {
-
   // Stuff below this line is currently required for CI to work properly. We probably want to
   // update our CI so this is no longer necessary. But I'm adding it for backwards compat so we can
   // get the hardhat-deploy stuff merged. Woot.
   const nicknames = {
     Lib_AddressManager: 'AddressManager',
-
   }
 
   const contracts: any = dirtree(

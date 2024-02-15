@@ -15,7 +15,6 @@ import { L2StandardERC20 } from "../standards/L2StandardERC20.sol";
  * Runtime target: OVM
  */
 contract MVM_Coinbase is L2StandardERC20 {
-
     /***************
      * Constructor *
      ***************/

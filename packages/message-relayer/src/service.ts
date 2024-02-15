@@ -13,8 +13,8 @@ import {
   predeploys,
 } from '@metis.io/contracts'
 import { StateRootBatchHeader, SentMessage, SentMessageProof } from './types'
-import mongoose from "mongoose"
-import ChainStore from "./store/chain-store"
+import mongoose from 'mongoose'
+import ChainStore from './store/chain-store'
 
 interface MessageRelayerOptions {
   // Providers for interacting with L1 and L2.
@@ -55,16 +55,16 @@ interface MessageRelayerOptions {
   metrics?: Metrics
 
   // user chain store flag.
-  useChainStore?: boolean,
+  useChainStore?: boolean
 
   // user chain store mongo database url.
-  storeDbUrl?: string,
+  storeDbUrl?: string
 
   relayNumber?: number
 }
 
 const optionSettings = {
-  l2ChainId:{default:420},
+  l2ChainId: { default: 420 },
   relayGasLimit: { default: 4_000_000 },
   fromL2TransactionIndex: { default: 0 },
   pollingInterval: { default: 5000 },
@@ -72,8 +72,8 @@ const optionSettings = {
   l1StartOffset: { default: 0 },
   getLogsInterval: { default: 2000 },
   useChainStore: { default: false },
-  storeDbUrl: { default: "" },
-  relayNumber: { default: 100 }
+  storeDbUrl: { default: '' },
+  relayNumber: { default: 100 },
 }
 
 export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
@@ -103,7 +103,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
       getLogsInterval: this.options.getLogsInterval,
       useChainStore: this.options.useChainStore,
       storeDbUrl: this.options.storeDbUrl,
-      relayNumber: this.options.relayNumber
+      relayNumber: this.options.relayNumber,
     })
     // Need to improve this, sorry.
     this.state = {} as any
@@ -163,18 +163,23 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     this.state.lastQueriedL1Block = this.options.l1StartOffset
     this.state.eventCache = []
 
-    if(this.options.useChainStore && this.options.storeDbUrl) {
+    if (this.options.useChainStore && this.options.storeDbUrl) {
       await mongoose.connect(this.options.storeDbUrl, {
         useNewUrlParser: true,
         useCreateIndex: true,
         useUnifiedTopology: true,
         useFindAndModify: false,
       })
-      const chainStore = await ChainStore.findOne({'chainId': this.options.l2ChainId})
-      if(chainStore && chainStore.lastFinalizedTxHeight > 0) {
-        this.logger.info('Find lastFinalizedTxHeight in chain store, use it as default', {
-          'lastFinalizedTxHeight': chainStore.lastFinalizedTxHeight
-        })
+      const chainStore = await ChainStore.findOne({
+        chainId: this.options.l2ChainId,
+      })
+      if (chainStore && chainStore.lastFinalizedTxHeight > 0) {
+        this.logger.info(
+          'Find lastFinalizedTxHeight in chain store, use it as default',
+          {
+            lastFinalizedTxHeight: chainStore.lastFinalizedTxHeight,
+          }
+        )
         this.options.fromL2TransactionIndex = chainStore.lastFinalizedTxHeight
       }
     }
@@ -201,14 +206,18 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
 
           continue
         }
-        if(this.options.useChainStore && this.options.storeDbUrl) {
+        if (this.options.useChainStore && this.options.storeDbUrl) {
           this.logger.info('Save lastFinalizedTxHeight to store', {
             useChainStore: this.options.useChainStore,
             chainId: this.options.l2ChainId,
-            nextUnfinalizedTxHeight: this.state.nextUnfinalizedTxHeight
+            nextUnfinalizedTxHeight: this.state.nextUnfinalizedTxHeight,
           })
           try {
-            await ChainStore.findOneAndUpdate({'chainId': this.options.l2ChainId}, {'lastFinalizedTxHeight': this.state.nextUnfinalizedTxHeight}, {upsert: true})
+            await ChainStore.findOneAndUpdate(
+              { chainId: this.options.l2ChainId },
+              { lastFinalizedTxHeight: this.state.nextUnfinalizedTxHeight },
+              { upsert: true }
+            )
           } catch (err) {
             this.logger.error('Save lastFinalizedTxHeight to store error', {
               message: err.toString(),
@@ -351,7 +360,7 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
       const filteredEvents = events.filter((event) => {
         if (event != undefined) {
           return event.args._chainId.toNumber() == this.options.l2ChainId
-        }else{
+        } else {
           return false
         }
       })
@@ -376,12 +385,11 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
       event.transactionHash
     )
 
-    const txData =
-      this.state.StateCommitmentChain.interface.decodeFunctionData(
-        'appendStateBatchByChainId',
-        transaction.data
-      )
-    const stateRoots = txData[1]//param in appendStateBatchByChainId is: chainId,batch,_extraData
+    const txData = this.state.StateCommitmentChain.interface.decodeFunctionData(
+      'appendStateBatchByChainId',
+      transaction.data
+    )
+    const stateRoots = txData[1] //param in appendStateBatchByChainId is: chainId,batch,_extraData
     return {
       batch: {
         batchIndex: event.args._batchIndex,
@@ -562,12 +570,14 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         stack: err.stack,
         code: err.code,
       })
-      await sleep(180*1000)
-      
+      await sleep(180 * 1000)
+
       // retry once
       try {
-        this.logger.info('Dry-run retry, checking to make sure proof would succeed...')
-  
+        this.logger.info(
+          'Dry-run retry, checking to make sure proof would succeed...'
+        )
+
         await this.state.L1CrossDomainMessenger.connect(
           this.options.l1Wallet
         ).callStatic.relayMessageViaChainId(
@@ -581,8 +591,10 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
             gasLimit: this.options.relayGasLimit,
           }
         )
-  
-        this.logger.info('Proof should succeed when retry. Submitting for real this time...')
+
+        this.logger.info(
+          'Proof should succeed when retry. Submitting for real this time...'
+        )
       } catch (err2) {
         this.logger.error('Proof would fail, skipping', {
           message: err2.toString(),
@@ -627,8 +639,8 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         stack: err.stack,
         code: err.code,
       })
-      await sleep(180*1000)
-      
+      await sleep(180 * 1000)
+
       // retry once
       const result2 = await this.state.L1CrossDomainMessenger.connect(
         this.options.l1Wallet
@@ -643,14 +655,14 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           gasLimit: this.options.relayGasLimit,
         }
       )
-  
+
       this.logger.info('Relay message transaction of retry sent', {
         transactionHash: result2,
       })
-  
+
       try {
         const receipt2 = await result2.wait()
-  
+
         this.logger.info('Relay message included in block', {
           transactionHash: receipt2.transactionHash,
           blockNumber: receipt2.blockNumber,

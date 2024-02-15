@@ -27,13 +27,12 @@ const deployFn: DeployFunction = async (hre) => {
   const stakeBaseCost = '100000000000000000'
   const stakeUnitCost = '1000000000'
 
-
   const Lib_AddressManager = await getDeployedContract(
     hre,
     'Lib_AddressManager'
   )
 
-// Set up a reference to the proxy as if it were the L1StandardBridge contract.
+  // Set up a reference to the proxy as if it were the L1StandardBridge contract.
   const contract = await getDeployedContract(
     hre,
     'Proxy__MVM_CanonicalTransaction',
@@ -93,9 +92,7 @@ const deployFn: DeployFunction = async (hre) => {
     )
   })
 
-  console.log(
-    `Setting txDataSliceSize to ${txDataSliceSize}...`
-  )
+  console.log(`Setting txDataSliceSize to ${txDataSliceSize}...`)
   // Set Slot 2 to the txDataSliceSize
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x01', 32),
@@ -104,12 +101,10 @@ const deployFn: DeployFunction = async (hre) => {
 
   console.log(`Confirming that txDataSliceSize was correctly set...`)
   await waitUntilTrue(async () => {
-    return await contract.txDataSliceSize() == txDataSliceSize
+    return (await contract.txDataSliceSize()) == txDataSliceSize
   })
 
-  console.log(
-    `Setting stakeSeqSeconds to ${stakeSeqSeconds}...`
-  )
+  console.log(`Setting stakeSeqSeconds to ${stakeSeqSeconds}...`)
   // Set Slot 3 to the stakeSeqSeconds
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x02', 32),
@@ -118,40 +113,39 @@ const deployFn: DeployFunction = async (hre) => {
 
   console.log(`Confirming that stakeSeqSeconds was correctly set...`)
   await waitUntilTrue(async () => {
-    return await contract.stakeSeqSeconds() == stakeSeqSeconds
+    return (await contract.stakeSeqSeconds()) == stakeSeqSeconds
   })
 
-  console.log(
-    `Setting stakeBaseCost to ${stakeBaseCost}...`
-  )
+  console.log(`Setting stakeBaseCost to ${stakeBaseCost}...`)
   // Set Slot 4 to the stakeBaseCost
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x03', 32),
-    hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(hre.ethers.BigNumber.from(stakeBaseCost).toBigInt()), 32)
+    hre.ethers.utils.hexZeroPad(
+      hre.ethers.utils.hexValue(
+        hre.ethers.BigNumber.from(stakeBaseCost).toBigInt()
+      ),
+      32
+    )
   )
 
   console.log(`Confirming that stakeBaseCost was correctly set...`)
   await waitUntilTrue(async () => {
-    return await contract.stakeBaseCost() == stakeBaseCost
+    return (await contract.stakeBaseCost()) == stakeBaseCost
   })
 
-  console.log(
-    `Setting txDataSliceCount to ${txDataSliceCount}...`
-  )
+  console.log(`Setting txDataSliceCount to ${txDataSliceCount}...`)
   // Set Slot 5 to the txDataSliceCount
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x04', 32),
     hre.ethers.utils.hexZeroPad(hre.ethers.utils.hexValue(txDataSliceCount), 32)
   )
-  
+
   console.log(`Confirming that txDataSliceCount was correctly set...`)
   await waitUntilTrue(async () => {
-    return await contract.txDataSliceCount() == txDataSliceCount
+    return (await contract.txDataSliceCount()) == txDataSliceCount
   })
 
-  console.log(
-    `Setting txBatchSize to ${txBatchSize}...`
-  )
+  console.log(`Setting txBatchSize to ${txBatchSize}...`)
   // Set Slot 6 to the txBatchSize
   await proxy.setStorage(
     hre.ethers.utils.hexZeroPad('0x05', 32),
@@ -160,17 +154,21 @@ const deployFn: DeployFunction = async (hre) => {
 
   console.log(`Confirming that txBatchSize was correctly set...`)
   await waitUntilTrue(async () => {
-    return await contract.txBatchSize() == txBatchSize
+    return (await contract.txBatchSize()) == txBatchSize
   })
-  
+
   console.log(
     `Setting WhiteList ${(hre as any).deployConfig.mvmMetisManager}...`
   )
   await contract.setWhiteList((hre as any).deployConfig.mvmMetisManager, true)
-  
+
   console.log(`Confirming that whitelist setting...`)
   await waitUntilTrue(async () => {
-    return await contract.isWhiteListed((hre as any).deployConfig.mvmMetisManager) == true
+    return (
+      (await contract.isWhiteListed(
+        (hre as any).deployConfig.mvmMetisManager
+      )) == true
+    )
   })
 
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
@@ -193,7 +191,7 @@ const deployFn: DeployFunction = async (hre) => {
     name: (hre as any).deployConfig.l2chainid + '_MVM_CanonicalTransaction',
     address: contract.address,
   })
-  
+
   await registerAddress({
     hre,
     name: 'METIS_MANAGER',
@@ -228,6 +226,11 @@ const deployFn: DeployFunction = async (hre) => {
   */
 }
 
-deployFn.tags = ['MVM_CanonicalTransaction', 'upgrade6', 'storage', 'andromeda-predeploy']
+deployFn.tags = [
+  'MVM_CanonicalTransaction',
+  'upgrade6',
+  'storage',
+  'andromeda-predeploy',
+]
 
 export default deployFn

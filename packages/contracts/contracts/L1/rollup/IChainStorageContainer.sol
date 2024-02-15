@@ -50,14 +50,13 @@ interface IChainStorageContainer {
      * metadata (it's an optimization).
      * @param _index position.
      * @param _object A 32 byte value to insert into the container.
-     */  
+     */
     function setByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes32 _object
-    )
-        external;
-        
+    ) external;
+
     /**
      * Retrieves an object from the container.
      * @param _index Index of the particular object to access.
@@ -86,50 +85,28 @@ interface IChainStorageContainer {
      * @param _chainId identity for the l2 chain.
      * @param _globalMetadata New global metadata to set.
      */
-    function setGlobalMetadataByChainId(
-        uint256 _chainId,
-        bytes27 _globalMetadata
-    )
-        external;
+    function setGlobalMetadataByChainId(uint256 _chainId, bytes27 _globalMetadata) external;
 
     /**
      * Retrieves the container's global metadata field.
      * @param _chainId identity for the l2 chain.
      * @return Container global metadata field.
      */
-    function getGlobalMetadataByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            bytes27
-        );
+    function getGlobalMetadataByChainId(uint256 _chainId) external view returns (bytes27);
 
     /**
      * Retrieves the number of objects stored in the container.
      * @param _chainId identity for the l2 chain.
      * @return Number of objects in the container.
      */
-    function lengthByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            uint256
-        );
+    function lengthByChainId(uint256 _chainId) external view returns (uint256);
 
     /**
      * Pushes an object into the container.
      * @param _chainId identity for the l2 chain.
      * @param _object A 32 byte value to insert into the container.
      */
-    function pushByChainId(
-        uint256 _chainId,
-        bytes32 _object
-    )
-        external;
+    function pushByChainId(uint256 _chainId, bytes32 _object) external;
 
     /**
      * Pushes an object into the container. Function allows setting the global metadata since
@@ -143,8 +120,7 @@ interface IChainStorageContainer {
         uint256 _chainId,
         bytes32 _object,
         bytes27 _globalMetadata
-    )
-        external;
+    ) external;
 
     /**
      * Retrieves an object from the container.
@@ -152,27 +128,15 @@ interface IChainStorageContainer {
      * @param _index Index of the particular object to access.
      * @return 32 byte object value.
      */
-    function getByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        external
-        view
-        returns (
-            bytes32
-        );
+    function getByChainId(uint256 _chainId, uint256 _index) external view returns (bytes32);
 
     /**
      * Removes all objects after and including a given index.
      * @param _chainId identity for the l2 chain.
      * @param _index Object index to delete from.
      */
-    function deleteElementsAfterInclusiveByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        external;
-        
+    function deleteElementsAfterInclusiveByChainId(uint256 _chainId, uint256 _index) external;
+
     /**
      * Removes all objects after and including a given index. Also allows setting the global
      * metadata field.
@@ -184,7 +148,5 @@ interface IChainStorageContainer {
         uint256 _chainId,
         uint256 _index,
         bytes27 _globalMetadata
-    )
-        external;
-        
+    ) external;
 }

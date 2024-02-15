@@ -217,23 +217,44 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     })
 
     const batchIndexStart = BigNumber.from(this.inboxStartIndex).toNumber()
-    const batchIndexCtcNext = (await this.chainContract.getTotalBatchesByChainId(this.l2ChainId)).toNumber() + 1
+    const batchIndexCtcNext =
+      (
+        await this.chainContract.getTotalBatchesByChainId(this.l2ChainId)
+      ).toNumber() + 1
     const localInboxRecord = await this.inboxStorage.getLatestConfirmedTx()
-    const useBatchInbox = this.inboxAddress && this.inboxAddress.length === 42 && this.inboxAddress.startsWith('0x') && batchIndexStart <= batchIndexCtcNext
+    const useBatchInbox =
+      this.inboxAddress &&
+      this.inboxAddress.length === 42 &&
+      this.inboxAddress.startsWith('0x') &&
+      batchIndexStart <= batchIndexCtcNext
     let batchIndexNext = batchIndexCtcNext
     if (localInboxRecord) {
-      const localBatchIndex = BigNumber.from(localInboxRecord.batchIndex).toNumber()
+      const localBatchIndex = BigNumber.from(
+        localInboxRecord.batchIndex
+      ).toNumber()
       if (localBatchIndex >= batchIndexNext) {
         batchIndexNext = localBatchIndex + 1
 
         // read total elements
-        const inboxTx = await this.signer.provider.getTransaction(localInboxRecord.txHash)
-        if (inboxTx.blockNumber && inboxTx.blockNumber > 0 && inboxTx.data && inboxTx.data !== '0x' && inboxTx.data.length > 142) {
+        const inboxTx = await this.signer.provider.getTransaction(
+          localInboxRecord.txHash
+        )
+        if (
+          inboxTx.blockNumber &&
+          inboxTx.blockNumber > 0 &&
+          inboxTx.data &&
+          inboxTx.data !== '0x' &&
+          inboxTx.data.length > 142
+        ) {
           // set start block from raw data
           // 0x[2: DA type] [2: compress type] [64: batch index] [64: L2 start] [8: total blocks]
           //  > 142 ( 2 + 2 + 2 + 64 + 64 + 8 )
-          const inboxTxStartBlock = BigNumber.from('0x' + inboxTx.data.substring(70, 134)).toNumber()
-          const inboxTxTotal = BigNumber.from('0x' + inboxTx.data.substring(134, 8)).toNumber()
+          const inboxTxStartBlock = BigNumber.from(
+            '0x' + inboxTx.data.substring(70, 134)
+          ).toNumber()
+          const inboxTxTotal = BigNumber.from(
+            '0x' + inboxTx.data.substring(134, 8)
+          ).toNumber()
           startBlock = inboxTxStartBlock + inboxTxTotal + 1
 
           this.logger.info('Retrieved start block number from BatchInbox tx', {
@@ -370,13 +391,13 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // unsigned tx
     const tx = this.useMinio
       ? await this.mvmCtcContract.customPopulateTransaction.appendSequencerBatch(
-        batchParams,
-        this.encodeSequencerBatchOptions
-      )
+          batchParams,
+          this.encodeSequencerBatchOptions
+        )
       : await this.chainContract.customPopulateTransaction.appendSequencerBatch(
-        batchParams,
-        this.encodeSequencerBatchOptions
-      )
+          batchParams,
+          this.encodeSequencerBatchOptions
+        )
 
     this.logger.info('submitter with mpc', { url: this.mpcUrl })
     // MPC enabled: prepare nonce, gasPrice

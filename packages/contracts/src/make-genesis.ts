@@ -45,7 +45,7 @@ export interface RollupDeployConfig {
   l1MetisManagerAddress: string
 
   gasPriceOracleMinErc20BridgeCost: number
-  
+
   hfBerlinBlock: number
 }
 
@@ -108,9 +108,7 @@ export const makeL2GenesisFile = async (
       // Set the messageNonce to a high value to avoid overwriting old sent messages.
       messageNonce: 100000,
     },
-    MVM_ChainConfig: {
-    }
-
+    MVM_ChainConfig: {},
   }
 
   const dump = {}

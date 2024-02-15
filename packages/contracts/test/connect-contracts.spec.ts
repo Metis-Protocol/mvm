@@ -25,7 +25,6 @@ describe.skip('connectL1Contracts', () => {
     'messagePasser',
     'messageSender',
     'deployerWhiteList',
-
   ]
 
   before(async () => {

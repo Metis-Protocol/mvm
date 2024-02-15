@@ -42,6 +42,7 @@
     "build": "yarn lerna run build",
     "test": "yarn lerna run test --parallel",
     "test:coverage": "yarn lerna run test:coverage --parallel",
+    "format": "yarn lerna run format",
     "lint": "yarn lerna run lint",
     "lint:ts:check": "yarn lerna run lint:ts:check",
     "lint:check": "yarn lerna run lint:check",

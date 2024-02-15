@@ -22,16 +22,19 @@ export class InboxStorage {
     this.logger = logger
   }
 
-  public async recordFailedTx(batchIndex: number | BigNumber, errMsg: string): Promise<boolean> {
+  public async recordFailedTx(
+    batchIndex: number | BigNumber,
+    errMsg: string
+  ): Promise<boolean> {
     const jsonData = {
       batchIndex: BigNumber.from(batchIndex).toNumber(),
-      errMsg
+      errMsg,
     }
     const jsonString = JSON.stringify(jsonData, null, 2)
     const filePath = path.join(this.storagePath, INBOX_FAIL_FILE)
     try {
       await fs.writeFile(filePath, jsonString, { flag: 'w' })
-      this.logger.info('JSON data has been written to failed tx', {filePath})
+      this.logger.info('JSON data has been written to failed tx', { filePath })
       return true
     } catch (writeError) {
       this.logger.error('Error writing to failed tx file:', writeError)
@@ -43,13 +46,13 @@ export class InboxStorage {
     const jsonData = {
       batchIndex: BigNumber.from(inbox.batchIndex).toNumber(),
       number: BigNumber.from(inbox.blockNumber).toNumber(),
-      hash: inbox.txHash
+      hash: inbox.txHash,
     }
     const jsonString = JSON.stringify(jsonData, null, 2)
     const filePath = path.join(this.storagePath, INBOX_OK_FILE)
     try {
       await fs.writeFile(filePath, jsonString, { flag: 'w' })
-      this.logger.info('JSON data has been written to ok_tx file', {filePath})
+      this.logger.info('JSON data has been written to ok_tx file', { filePath })
       return true
     } catch (writeError) {
       this.logger.error('Error writing to ok_tx file:', writeError)
@@ -68,7 +71,7 @@ export class InboxStorage {
       return {
         batchIndex: readJsonData.batchIndex,
         blockNumber: readJsonData.number,
-        txHash: readJsonData.hash
+        txHash: readJsonData.hash,
       }
     } catch (readError) {
       this.logger.error('Error reading ok_tx file:', readError)

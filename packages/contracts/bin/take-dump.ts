@@ -63,12 +63,15 @@ import { makeL2GenesisFile } from '../src/make-genesis'
   const l1FeeWalletAddress = env.L1_FEE_WALLET_ADDRESS
   // The L1 cross domain messenger address, used for cross domain messaging
   const l1CrossDomainMessengerAddress = env.L1_CROSS_DOMAIN_MESSENGER_ADDRESS
-  
+
   const l1MetisAddress = env.METIS_ADDRESS
-  
+
   const l1MetisManagerAddress = env.L1_METIS_MANAGER_ADDRESS
-  const gasPriceOracleMinErc20BridgeCost = parseInt(env.MIN_L1_ERC20_BRIDGE_COST, 10)
-  
+  const gasPriceOracleMinErc20BridgeCost = parseInt(
+    env.MIN_L1_ERC20_BRIDGE_COST,
+    10
+  )
+
   const hfBerlinBlock = parseInt(env.BERLIN_BLOCK, 0)
 
   ensure(whitelistOwner, 'WHITELIST_OWNER')

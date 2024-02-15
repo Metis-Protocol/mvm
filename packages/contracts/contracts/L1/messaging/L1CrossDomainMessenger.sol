@@ -147,13 +147,12 @@ contract L1CrossDomainMessenger is
         bytes memory _message,
         uint32 _gasLimit
     ) external payable {
-    
         sendMessageViaChainId(DEFAULT_CHAINID, _target, _message, _gasLimit);
-        
+
         // iMVM_DiscountOracle oracle = iMVM_DiscountOracle(resolve('MVM_DiscountOracle'));
         // // this function will check against the whitelist and take the fee
         // oracle.processL2SeqGas{value:msg.value}(msg.sender, DEFAULT_CHAINID);
-        
+
         // address ovmCanonicalTransactionChain = resolve("CanonicalTransactionChain");
         // // Use the CTC queue length as nonce
         // uint40 nonce = ICanonicalTransactionChain(ovmCanonicalTransactionChain).getQueueLength();
@@ -169,7 +168,7 @@ contract L1CrossDomainMessenger is
 
         // emit SentMessage(_target, msg.sender, _message, nonce, _gasLimit, DEFAULT_CHAINID);
     }
-    
+
     /**
      * Sends a cross domain message to the target messenger.
      * only accounts checked by MVM_DiscountOracle.isXDomainSenderAllowed can send message from L1 to L2
@@ -183,21 +182,17 @@ contract L1CrossDomainMessenger is
         address _target,
         bytes memory _message,
         uint32 _gasLimit
-    )
-        override
-        payable
-        public
-    {
-    
-        iMVM_DiscountOracle oracle = iMVM_DiscountOracle(resolve('MVM_DiscountOracle'));
-        
+    ) public payable override {
+        iMVM_DiscountOracle oracle = iMVM_DiscountOracle(resolve("MVM_DiscountOracle"));
+
         // this function will check against the whitelist and take the fee
-        oracle.processL2SeqGas{value:msg.value}(msg.sender, _chainId);
-        
+        oracle.processL2SeqGas{ value: msg.value }(msg.sender, _chainId);
+
         address ovmCanonicalTransactionChain = resolve("CanonicalTransactionChain");
-        
+
         // Use the CTC queue length as nonce
-        uint40 nonce = ICanonicalTransactionChain(ovmCanonicalTransactionChain).getQueueLengthByChainId(_chainId);
+        uint40 nonce = ICanonicalTransactionChain(ovmCanonicalTransactionChain)
+            .getQueueLengthByChainId(_chainId);
 
         bytes memory xDomainCalldataRaw = Lib_CrossDomainUtils.encodeXDomainCalldata(
             _target,
@@ -205,7 +200,7 @@ contract L1CrossDomainMessenger is
             _message,
             nonce
         );
-        
+
         _sendXDomainMessageViaChainId(
             _chainId,
             ovmCanonicalTransactionChain,
@@ -226,8 +221,7 @@ contract L1CrossDomainMessenger is
         uint256 _messageNonce,
         L2MessageInclusionProof memory _proof
     ) external whenNotPaused {
-        relayMessageViaChainId(DEFAULT_CHAINID, _target, _sender,
-                               _message, _messageNonce, _proof);
+        relayMessageViaChainId(DEFAULT_CHAINID, _target, _sender, _message, _messageNonce, _proof);
     }
 
     /**
@@ -242,10 +236,17 @@ contract L1CrossDomainMessenger is
         uint32 _oldGasLimit,
         uint32 _newGasLimit
     ) external {
-        replayMessageViaChainId(DEFAULT_CHAINID, _target, _sender, _message,
-                                _queueIndex, _oldGasLimit, _newGasLimit);
+        replayMessageViaChainId(
+            DEFAULT_CHAINID,
+            _target,
+            _sender,
+            _message,
+            _queueIndex,
+            _oldGasLimit,
+            _newGasLimit
+        );
     }
-    
+
     function relayMessageViaChainId(
         uint256 _chainId,
         address _target,
@@ -253,12 +254,7 @@ contract L1CrossDomainMessenger is
         bytes memory _message,
         uint256 _messageNonce,
         L2MessageInclusionProof memory _proof
-    )
-        override
-        public
-        nonReentrant
-        whenNotPaused
-    {
+    ) public override nonReentrant whenNotPaused {
         bytes memory xDomainCalldata = Lib_CrossDomainUtils.encodeXDomainCalldata(
             _target,
             _sender,
@@ -266,11 +262,7 @@ contract L1CrossDomainMessenger is
             _messageNonce
         );
         require(
-            _verifyXDomainMessageByChainId(
-                _chainId,
-                xDomainCalldata,
-                _proof
-            ) == true,
+            _verifyXDomainMessageByChainId(_chainId, xDomainCalldata, _proof) == true,
             "Provided message could not be verified."
         );
 
@@ -306,18 +298,13 @@ contract L1CrossDomainMessenger is
 
         // Store an identifier that can be used to prove that the given message was relayed by some
         // user. Gives us an easy way to pay relayers for their work.
-        bytes32 relayId = keccak256(
-            abi.encodePacked(
-                xDomainCalldata,
-                msg.sender,
-                block.number
-            )
-        );
+        bytes32 relayId = keccak256(abi.encodePacked(xDomainCalldata, msg.sender, block.number));
         relayedMessages[relayId] = true;
     }
+
     /**
      * Replays a cross domain message to the target messenger.
-     * 
+     *
      */
     function replayMessageViaChainId(
         uint256 _chainId,
@@ -327,16 +314,13 @@ contract L1CrossDomainMessenger is
         uint256 _queueIndex,
         uint32 _oldGasLimit,
         uint32 _newGasLimit
-    )
-        override
-        public
-    {
-
+    ) public override {
         // Verify that the message is in the queue:
         address canonicalTransactionChain = resolve("CanonicalTransactionChain");
-        Lib_OVMCodec.QueueElement memory element =
-            ICanonicalTransactionChain(canonicalTransactionChain).getQueueElementByChainId(_chainId, _queueIndex);
-        
+        Lib_OVMCodec.QueueElement memory element = ICanonicalTransactionChain(
+            canonicalTransactionChain
+        ).getQueueElementByChainId(_chainId, _queueIndex);
+
         //Compute the calldata that was originally used to send the message.
         bytes memory xDomainCalldata = Lib_CrossDomainUtils.encodeXDomainCalldata(
             _target,
@@ -359,7 +343,6 @@ contract L1CrossDomainMessenger is
             transactionHash == element.transactionHash,
             "Provided message has not been enqueued."
         );
-
 
         _sendXDomainMessageViaChainId(
             _chainId,
@@ -471,6 +454,7 @@ contract L1CrossDomainMessenger is
             _message
         );
     }
+
     /**
      * Verifies that the given message is valid.
      * @param _xDomainCalldata Calldata to verify.
@@ -481,17 +465,9 @@ contract L1CrossDomainMessenger is
         uint256 _chainId,
         bytes memory _xDomainCalldata,
         L2MessageInclusionProof memory _proof
-    )
-        internal
-        view
-        returns (
-            bool
-        )
-    {
-        return (
-            _verifyStateRootProofByChainId(_chainId, _proof)
-            && _verifyStorageProof(_xDomainCalldata, _proof)
-        );
+    ) internal view returns (bool) {
+        return (_verifyStateRootProofByChainId(_chainId, _proof) &&
+            _verifyStorageProof(_xDomainCalldata, _proof));
     }
 
     /**
@@ -499,29 +475,22 @@ contract L1CrossDomainMessenger is
      * @param _proof Message inclusion proof.
      * @return Whether or not the provided proof is valid.
      */
-    function _verifyStateRootProofByChainId(
-        uint256 _chainId,
-        L2MessageInclusionProof memory _proof
-    )
+    function _verifyStateRootProofByChainId(uint256 _chainId, L2MessageInclusionProof memory _proof)
         internal
         view
-        returns (
-            bool
-        )
+        returns (bool)
     {
         IStateCommitmentChain ovmStateCommitmentChain = IStateCommitmentChain(
             resolve("StateCommitmentChain")
         );
 
-        return (
-            !ovmStateCommitmentChain.insideFraudProofWindow(_proof.stateRootBatchHeader)
-            && ovmStateCommitmentChain.verifyStateCommitmentByChainId(
+        return (!ovmStateCommitmentChain.insideFraudProofWindow(_proof.stateRootBatchHeader) &&
+            ovmStateCommitmentChain.verifyStateCommitmentByChainId(
                 _chainId,
                 _proof.stateRoot,
                 _proof.stateRootBatchHeader,
                 _proof.stateRootProof
-            )
-        );
+            ));
     }
 
     /**
@@ -535,9 +504,7 @@ contract L1CrossDomainMessenger is
         address _canonicalTransactionChain,
         bytes memory _message,
         uint256 _gasLimit
-    )
-        internal
-    {
+    ) internal {
         ICanonicalTransactionChain(_canonicalTransactionChain).enqueueByChainId(
             _chainId,
             Lib_PredeployAddresses.L2_CROSS_DOMAIN_MESSENGER,

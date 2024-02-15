@@ -19,7 +19,7 @@ contract OVM_DeployerWhitelist {
     event OwnerChanged(address oldOwner, address newOwner);
     event WhitelistStatusChanged(address deployer, bool whitelisted);
     event WhitelistDisabled(address oldOwner);
-    mapping (address => bool) public xDomainWL;
+    mapping(address => bool) public xDomainWL;
 
     /**********************
      * Contract Constants *
@@ -42,10 +42,13 @@ contract OVM_DeployerWhitelist {
         require(msg.sender == owner, "Function can only be called by the owner of this contract.");
         _;
     }
-    
+
     modifier onlyManager() {
-        require(msg.sender == iOVM_SequencerFeeVault(Lib_PredeployAddresses.SEQUENCER_FEE_WALLET).getL2Manager(),
-                "Function can only be called by the l2manager.");
+        require(
+            msg.sender ==
+                iOVM_SequencerFeeVault(Lib_PredeployAddresses.SEQUENCER_FEE_WALLET).getL2Manager(),
+            "Function can only be called by the l2manager."
+        );
         _;
     }
 
@@ -63,14 +66,8 @@ contract OVM_DeployerWhitelist {
         allowArbitraryDeployment = false;
         emit WhitelistStatusChanged(_deployer, _isWhitelisted);
     }
-    
-    function setWhitelistedXDomainSender(
-        address _sender,
-        bool _isWhitelisted
-    )
-        external
-        onlyOwner
-    {
+
+    function setWhitelistedXDomainSender(address _sender, bool _isWhitelisted) external onlyOwner {
         xDomainWL[_sender] = _isWhitelisted;
         allowAllXDomainSenders = false;
         emit WhitelistStatusChanged(_sender, _isWhitelisted);
@@ -92,11 +89,8 @@ contract OVM_DeployerWhitelist {
         emit WhitelistDisabled(owner);
         allowArbitraryDeployment = true;
     }
-    
-    function enableAllXDomainSenders()
-        external
-        onlyOwner
-    {
+
+    function enableAllXDomainSenders() external onlyOwner {
         emit WhitelistDisabled(owner);
         allowAllXDomainSenders = true;
     }
@@ -109,20 +103,8 @@ contract OVM_DeployerWhitelist {
     function isDeployerAllowed(address _deployer) external view returns (bool) {
         return (owner == address(0) || allowArbitraryDeployment || whitelist[_deployer]);
     }
-    
-    function isXDomainSenderAllowed(
-        address _sender
-    )
-        external
-        view
-        returns (
-            bool
-        )
-    {
-        return (
-            owner == address(0)
-            || allowAllXDomainSenders == true
-            || xDomainWL[_sender]
-        );
+
+    function isXDomainSenderAllowed(address _sender) external view returns (bool) {
+        return (owner == address(0) || allowAllXDomainSenders == true || xDomainWL[_sender]);
     }
 }

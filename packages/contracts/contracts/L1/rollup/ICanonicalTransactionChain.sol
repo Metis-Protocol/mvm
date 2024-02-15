@@ -14,17 +14,9 @@ interface ICanonicalTransactionChain {
     /**********
      * Events *
      **********/
-    event QueueGlobalMetadataSet(
-        address _sender,
-        uint256 _chainId,
-        bytes27 _globalMetadata
-    );
-    
-    event QueuePushed(
-        address _sender,
-        uint256 _chainId,
-        Lib_OVMCodec.QueueElement _object
-    );
+    event QueueGlobalMetadataSet(address _sender, uint256 _chainId, bytes27 _globalMetadata);
+
+    event QueuePushed(address _sender, uint256 _chainId, Lib_OVMCodec.QueueElement _object);
 
     event QueueSetted(
         address _sender,
@@ -40,25 +32,11 @@ interface ICanonicalTransactionChain {
         bytes27 _globalMetadata
     );
 
-    event BatchesGlobalMetadataSet(
-        address _sender,
-        uint256 _chainId,
-        bytes27 _globalMetadata
-    );
-    
-    event BatchPushed(
-        address _sender,
-        uint256 _chainId,
-        bytes32 _object,
-        bytes27 _globalMetadata
-    );
+    event BatchesGlobalMetadataSet(address _sender, uint256 _chainId, bytes27 _globalMetadata);
 
-    event BatchSetted(
-        address _sender,
-        uint256 _chainId,
-        uint256 _index,
-        bytes32 _object
-    );
+    event BatchPushed(address _sender, uint256 _chainId, bytes32 _object, bytes27 _globalMetadata);
+
+    event BatchSetted(address _sender, uint256 _chainId, uint256 _index, bytes32 _object);
 
     event BatchElementDeleted(
         address _sender,
@@ -215,52 +193,36 @@ interface ICanonicalTransactionChain {
         // uint24 _totalElementsToAppend,
         // BatchContext[] _contexts,
         // bytes[] _transactionDataFields
-    )
-        external;
-        
+    ) external;
+
     //added chain id function
-    
+
     /**
      * Retrieves the total number of elements submitted.
      * @param _chainId identity for the l2 chain.
      * @return _totalElements Total submitted elements.
      */
-    function getTotalElementsByChainId(
-        uint256 _chainId
-        )
+    function getTotalElementsByChainId(uint256 _chainId)
         external
         view
-        returns (
-            uint256 _totalElements
-        );
+        returns (uint256 _totalElements);
 
     /**
      * Retrieves the total number of batches submitted.
      * @param _chainId identity for the l2 chain.
      * @return _totalBatches Total submitted batches.
      */
-    function getTotalBatchesByChainId(
-        uint256 _chainId
-        )
+    function getTotalBatchesByChainId(uint256 _chainId)
         external
         view
-        returns (
-            uint256 _totalBatches
-        );
+        returns (uint256 _totalBatches);
 
     /**
      * Returns the index of the next element to be enqueued.
      * @param _chainId identity for the l2 chain.
      * @return Index for the next queue element.
      */
-    function getNextQueueIndexByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            uint40
-        );
+    function getNextQueueIndexByChainId(uint256 _chainId) external view returns (uint40);
 
     /**
      * Gets the queue element at a particular index.
@@ -268,57 +230,31 @@ interface ICanonicalTransactionChain {
      * @param _index Index of the queue element to access.
      * @return _element Queue element at the given index.
      */
-    function getQueueElementByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
+    function getQueueElementByChainId(uint256 _chainId, uint256 _index)
         external
         view
-        returns (
-            Lib_OVMCodec.QueueElement memory _element
-        );
+        returns (Lib_OVMCodec.QueueElement memory _element);
 
     /**
      * Returns the timestamp of the last transaction.
      * @param _chainId identity for the l2 chain.
      * @return Timestamp for the last transaction.
      */
-    function getLastTimestampByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            uint40
-        );
+    function getLastTimestampByChainId(uint256 _chainId) external view returns (uint40);
 
     /**
      * Returns the blocknumber of the last transaction.
      * @param _chainId identity for the l2 chain.
      * @return Blocknumber for the last transaction.
      */
-    function getLastBlockNumberByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            uint40
-        );
+    function getLastBlockNumberByChainId(uint256 _chainId) external view returns (uint40);
 
     /**
      * Get the number of queue elements which have not yet been included.
      * @param _chainId identity for the l2 chain.
      * @return Number of pending queue elements.
      */
-    function getNumPendingQueueElementsByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            uint40
-        );
+    function getNumPendingQueueElementsByChainId(uint256 _chainId) external view returns (uint40);
 
     /**
      * Retrieves the length of the queue, including
@@ -326,15 +262,7 @@ interface ICanonicalTransactionChain {
      * @param _chainId identity for the l2 chain.
      * @return Length of the queue.
      */
-    function getQueueLengthByChainId(
-        uint256 _chainId
-        )
-        external
-        view
-        returns (
-            uint40
-        );
-
+    function getQueueLengthByChainId(uint256 _chainId) external view returns (uint40);
 
     /**
      * Adds a transaction to the queue.
@@ -348,9 +276,8 @@ interface ICanonicalTransactionChain {
         address _target,
         uint256 _gasLimit,
         bytes memory _data
-    )
-        external;
-        
+    ) external;
+
     /**
      * Allows the sequencer to append a batch of transactions.
      * @dev This function uses a custom encoding scheme for efficiency reasons.
@@ -366,70 +293,40 @@ interface ICanonicalTransactionChain {
         // uint24 _totalElementsToAppend,
         // BatchContext[] _contexts,
         // bytes[] _transactionDataFields
-    )
-        external;
-    
-    function pushQueueByChainId(
-        uint256 _chainId,
-        Lib_OVMCodec.QueueElement calldata _object
-    )
+    ) external;
+
+    function pushQueueByChainId(uint256 _chainId, Lib_OVMCodec.QueueElement calldata _object)
         external;
 
     function setQueueByChainId(
         uint256 _chainId,
         uint256 _index,
         Lib_OVMCodec.QueueElement calldata _object
-    )
-        external;
+    ) external;
 
-    function setBatchGlobalMetadataByChainId(
-        uint256 _chainId,
-        bytes27 _globalMetadata
-    )
-        external;
-    
-    function getBatchGlobalMetadataByChainId(uint256 _chainId)
-        external
-        view
-        returns (
-            bytes27
-        );
-        
-    function lengthBatchByChainId(uint256 _chainId)
-        external
-        view
-        returns (
-            uint256
-        );
-        
+    function setBatchGlobalMetadataByChainId(uint256 _chainId, bytes27 _globalMetadata) external;
+
+    function getBatchGlobalMetadataByChainId(uint256 _chainId) external view returns (bytes27);
+
+    function lengthBatchByChainId(uint256 _chainId) external view returns (uint256);
+
     function pushBatchByChainId(
         uint256 _chainId,
         bytes32 _object,
         bytes27 _globalMetadata
-    )
-        external;
-    
+    ) external;
+
     function setBatchByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes32 _object
-    )
-        external;
-        
-    function getBatchByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        external
-        view
-        returns (
-            bytes32
-        );
-        
+    ) external;
+
+    function getBatchByChainId(uint256 _chainId, uint256 _index) external view returns (bytes32);
+
     function deleteBatchElementsAfterInclusiveByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes27 _globalMetadata
-    )
-        external;
+    ) external;
 }

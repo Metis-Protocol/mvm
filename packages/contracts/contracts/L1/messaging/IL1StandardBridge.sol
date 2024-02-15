@@ -52,24 +52,19 @@ interface IL1StandardBridge is IL1ERC20Bridge {
         uint32 _l2Gas,
         bytes calldata _data
     ) external payable;
-    
-    
-    function depositETHByChainId (
+
+    function depositETHByChainId(
         uint256 _chainId,
         uint32 _l2Gas,
         bytes calldata _data
-    )
-        external
-        payable;
-        
-    function depositETHToByChainId (
+    ) external payable;
+
+    function depositETHToByChainId(
         uint256 _chainId,
         address _to,
         uint32 _l2Gas,
         bytes calldata _data
-    )
-        external
-        payable;
+    ) external payable;
 
     /*************************
      * Cross-chain Functions *
@@ -92,13 +87,12 @@ interface IL1StandardBridge is IL1ERC20Bridge {
         uint256 _amount,
         bytes calldata _data
     ) external;
-    
-    function finalizeETHWithdrawalByChainId (
+
+    function finalizeETHWithdrawalByChainId(
         uint256 _chainId,
         address _from,
         address _to,
-        uint _amount,
+        uint256 _amount,
         bytes calldata _data
-    )
-        external;
+    ) external;
 }

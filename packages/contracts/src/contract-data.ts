@@ -88,6 +88,5 @@ export const getL2ContractData = () => {
       abi: OVM_DeployerWhitelist.abi,
       address: l2Addresses.OVM_DeployerWhitelist,
     },
-
   }
 }

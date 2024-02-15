@@ -25,5 +25,4 @@ interface IL2CrossDomainMessenger is ICrossDomainMessenger {
         bytes memory _message,
         uint256 _messageNonce
     ) external;
-    
 }

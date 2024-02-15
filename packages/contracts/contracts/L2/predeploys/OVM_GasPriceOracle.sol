@@ -32,11 +32,10 @@ contract OVM_GasPriceOracle {
     uint256 public scalar;
     // Number of decimals of the scalar
     uint256 public decimals;
-    
+
     // minimum gas to bridge the asset back to l1
     uint256 public minErc20BridgeCost;
-    
-    
+
     /**********************
      * Function Modifiers *
      **********************/
@@ -48,13 +47,15 @@ contract OVM_GasPriceOracle {
         require(msg.sender == owner, "Function can only be called by the owner of this contract.");
         _;
     }
-    
+
     modifier onlyManager() {
-        require(msg.sender == iOVM_SequencerFeeVault(Lib_PredeployAddresses.SEQUENCER_FEE_WALLET).getL2Manager(),
-                "Function can only be called by the l2manager.");
+        require(
+            msg.sender ==
+                iOVM_SequencerFeeVault(Lib_PredeployAddresses.SEQUENCER_FEE_WALLET).getL2Manager(),
+            "Function can only be called by the l2manager."
+        );
         _;
     }
-    
 
     /***************
      * Constructor *
@@ -90,7 +91,7 @@ contract OVM_GasPriceOracle {
         emit OwnerChanged(owner, _owner);
         owner = _owner;
     }
-    
+
     /**
      * Allows the owner to modify the l2 gas price.
      * @param _gasPrice New l2 gas price.
@@ -99,7 +100,7 @@ contract OVM_GasPriceOracle {
         gasPrice = _gasPrice;
         emit GasPriceUpdated(_gasPrice);
     }
-    
+
     /**
      * Allows the owner to modify the l1 bridge price.
      * @param _minCost New l2 gas price.
@@ -115,7 +116,7 @@ contract OVM_GasPriceOracle {
      */
     function setL1BaseFee(uint256 _baseFee) public onlyOwner {
         if (l1BaseFee > 0) {
-            require(_baseFee < l1BaseFee * 105 / 100, "increase is capped at 5%");
+            require(_baseFee < (l1BaseFee * 105) / 100, "increase is capped at 5%");
         }
         l1BaseFee = _baseFee;
         emit L1BaseFeeUpdated(_baseFee);
@@ -127,7 +128,7 @@ contract OVM_GasPriceOracle {
      */
     function setOverhead(uint256 _overhead) public onlyOwner {
         if (overhead > 0) {
-            require(_overhead < overhead * 105 / 100, "increase is capped at 5%");
+            require(_overhead < (overhead * 105) / 100, "increase is capped at 5%");
         }
         overhead = _overhead;
         emit OverheadUpdated(_overhead);
@@ -139,7 +140,7 @@ contract OVM_GasPriceOracle {
      */
     function setScalar(uint256 _scalar) public onlyOwner {
         if (scalar > 0) {
-            require(_scalar < scalar * 105 / 100, "increase is capped at 5%");
+            require(_scalar < (scalar * 105) / 100, "increase is capped at 5%");
         }
         scalar = _scalar;
         emit ScalarUpdated(_scalar);

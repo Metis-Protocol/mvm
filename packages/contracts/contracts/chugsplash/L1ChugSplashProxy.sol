@@ -15,7 +15,6 @@ import { iL1ChugSplashDeployer } from "./interfaces/iL1ChugSplashDeployer.sol";
  * modifier. And there almost certainly is not a good reason to not have that modifier. Beware!
  */
 contract L1ChugSplashProxy {
-
     /*************
      * Constants *
      *************/
@@ -98,7 +97,6 @@ contract L1ChugSplashProxy {
         }
     }
 
-
     /*********************
      * Fallback Function *
      *********************/
@@ -107,7 +105,6 @@ contract L1ChugSplashProxy {
         // Proxy call by default.
         _doProxyCall();
     }
-
 
     /********************
      * Public Functions *

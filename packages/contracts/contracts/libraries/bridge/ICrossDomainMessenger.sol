@@ -29,7 +29,7 @@ interface ICrossDomainMessenger {
     /********************
      * Public Functions *
      ********************/
-    
+
     /**
      * Sends a cross domain message to the target messenger.
      * @param _target Target contract address.
@@ -41,7 +41,6 @@ interface ICrossDomainMessenger {
         bytes calldata _message,
         uint32 _gasLimit
     ) external payable;
-
 
     /**
      * Sends a cross domain message to the target messenger.
@@ -56,5 +55,4 @@ interface ICrossDomainMessenger {
         bytes calldata _message,
         uint32 _gasLimit
     ) external payable;
-
 }

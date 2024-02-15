@@ -14,6 +14,7 @@
     "clean": "rimraf dist/ ./tsconfig.build.tsbuildinfo",
     "lint:check": "eslint .",
     "lint:fix": "yarn lint:check --fix",
+    "format": "prettier --write '**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "pre-commit": "lint-staged",
     "test": "ts-mocha test/*.spec.ts"

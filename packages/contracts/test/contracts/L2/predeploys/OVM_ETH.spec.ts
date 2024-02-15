@@ -25,17 +25,14 @@ describe('OVM_ETH', () => {
     it('should revert', async () => {
       await expect(
         OVM_ETH.transfer(await signer2.getAddress(), 100)
-      ).to.be.revertedWith(
-        'ERC20: transfer amount exceeds balance'
-      )
+      ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
     })
   })
 
   describe('approve', () => {
     it('should not revert', async () => {
-      await expect(
-        OVM_ETH.approve(await signer2.getAddress(), 100)
-      ).to.be.not.reverted
+      await expect(OVM_ETH.approve(await signer2.getAddress(), 100)).to.be.not
+        .reverted
     })
   })
 
@@ -47,17 +44,14 @@ describe('OVM_ETH', () => {
           await signer2.getAddress(),
           100
         )
-      ).to.be.revertedWith(
-        'ERC20: transfer amount exceeds balance'
-      )
+      ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
     })
   })
 
   describe('increaseAllowance', () => {
     it('should bot revert', async () => {
-      await expect(
-        OVM_ETH.increaseAllowance(await signer2.getAddress(), 100)
-      ).to.be.not.reverted
+      await expect(OVM_ETH.increaseAllowance(await signer2.getAddress(), 100))
+        .to.be.not.reverted
     })
   })
 
@@ -65,9 +59,7 @@ describe('OVM_ETH', () => {
     it('should revert', async () => {
       await expect(
         OVM_ETH.decreaseAllowance(await signer2.getAddress(), 100)
-      ).to.be.revertedWith(
-        'ERC20: decreased allowance below zero'
-      )
+      ).to.be.revertedWith('ERC20: decreased allowance below zero')
     })
   })
 })

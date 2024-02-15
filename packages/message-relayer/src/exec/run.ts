@@ -84,9 +84,15 @@ const main = async () => {
   if (!L2_NODE_WEB3_URL) {
     throw new Error('Must pass L2_NODE_WEB3_URL')
   }
-  const USE_CHAIN_STORE = config.bool('user-chain-store', env.USE_CHAIN_STORE === 'true')
+  const USE_CHAIN_STORE = config.bool(
+    'user-chain-store',
+    env.USE_CHAIN_STORE === 'true'
+  )
   const STORE_DB_URL: string = config.str('store-db-url', env.STORE_DB_URL)
-  const RELAY_NUMBER: number = config.uint('relay-number', parseInt(env.RELAY_NUMBER, 10) || 0)
+  const RELAY_NUMBER: number = config.uint(
+    'relay-number',
+    parseInt(env.RELAY_NUMBER, 10) || 0
+  )
 
   const l2Provider = new providers.StaticJsonRpcProvider(L2_NODE_WEB3_URL)
   const l1Provider = new providers.StaticJsonRpcProvider(L1_NODE_WEB3_URL)
@@ -100,8 +106,8 @@ const main = async () => {
   } else {
     throw new Error('Must pass one of L1_WALLET_KEY or MNEMONIC')
   }
-  var chainId=L2_NODE_CHAIN_ID
-  if(!chainId || chainId==0){
+  var chainId = L2_NODE_CHAIN_ID
+  if (!chainId || chainId == 0) {
     chainId = await l2Provider.send('eth_chainId', [])
   }
   const service = new MessageRelayerService({
@@ -119,7 +125,7 @@ const main = async () => {
     logger,
     useChainStore: USE_CHAIN_STORE,
     storeDbUrl: STORE_DB_URL,
-    relayNumber: RELAY_NUMBER
+    relayNumber: RELAY_NUMBER,
   })
 
   await service.start()

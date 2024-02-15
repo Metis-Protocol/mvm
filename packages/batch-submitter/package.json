@@ -15,6 +15,7 @@
     "lint": "yarn lint:fix && yarn lint:check",
     "pre-commit": "lint-staged",
     "lint:fix": "yarn lint:check --fix",
+    "format": "prettier --write '**/*.ts'",
     "lint:check": "eslint .",
     "test": "hardhat test --show-stack-traces",
     "test:mpc": "ts-mocha test/batch-submitter/mpc-client.spec.ts --timeout 320000 --show-stack-traces",

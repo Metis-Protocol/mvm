@@ -38,20 +38,21 @@ contract L2CrossDomainMessenger is IL2CrossDomainMessenger {
         l1CrossDomainMessenger = _l1CrossDomainMessenger;
     }
 
-     /**********************
+    /**********************
      * Function Modifiers *
      **********************/
 
     modifier onlyWhitelisted() {
         require(
-            OVM_DeployerWhitelist(Lib_PredeployAddresses.DEPLOYER_WHITELIST)
-               .isXDomainSenderAllowed(msg.sender),
+            OVM_DeployerWhitelist(Lib_PredeployAddresses.DEPLOYER_WHITELIST).isXDomainSenderAllowed(
+                    msg.sender
+                ),
             // solhint-disable-next-line max-line-length
             "L2 to L1 messages are restricted to whitelisted senders."
         );
         _;
     }
-    
+
     /********************
      * Public Functions *
      ********************/
@@ -84,9 +85,9 @@ contract L2CrossDomainMessenger is IL2CrossDomainMessenger {
 
         sentMessages[keccak256(xDomainCalldata)] = true;
 
-        (bool sent, ) = Lib_PredeployAddresses.SEQUENCER_FEE_WALLET.call{value: msg.value}("");
+        (bool sent, ) = Lib_PredeployAddresses.SEQUENCER_FEE_WALLET.call{ value: msg.value }("");
         require(sent, "Failed to send bridge fee");
-        
+
         // Actually send the message.
         iOVM_L2ToL1MessagePasser(Lib_PredeployAddresses.L2_TO_L1_MESSAGE_PASSER).passMessageToL1(
             xDomainCalldata
@@ -154,7 +155,7 @@ contract L2CrossDomainMessenger is IL2CrossDomainMessenger {
 
         relayedMessages[relayId] = true;
     }
-    
+
     function sendMessageViaChainId(
         uint256 _chainId,
         address _target,

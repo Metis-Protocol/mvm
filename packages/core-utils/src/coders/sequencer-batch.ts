@@ -62,39 +62,67 @@ export const encodeAppendSequencerBatch = async (
     encodedTransactionData += encodedSeqSignData
   }
 
-  console.info('input data', b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData.length)
+  console.info(
+    'input data',
+    b.shouldStartAtElement,
+    b.totalElementsToAppend,
+    encodedTransactionData.length
+  )
 
   if (opts?.useMinio && opts?.minioClient) {
     // generate merkle root
     const hash = (el: Buffer | string): Buffer => {
       return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex')
     }
-    const fromHexString = hexString => new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)))
+    const fromHexString = (hexString) =>
+      new Uint8Array(
+        hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+      )
     let leafs = []
-    for (let i = 0; i < b.transactions.length; i++){
+    for (let i = 0; i < b.transactions.length; i++) {
       const _blockNumber = b.blockNumbers[i]
       const _cur = b.transactions[i]
       const _encodedTxDataHeader = remove0x(
         BigNumber.from(remove0x(_cur).length / 2).toHexString()
       ).padStart(6, '0')
       const _encodedTxData = _encodedTxDataHeader + remove0x(_cur)
-      leafs.push(ethers.utils.keccak256(ethers.utils.solidityPack(['uint256', 'bytes'], [_blockNumber, fromHexString(_encodedTxData)])))
+      leafs.push(
+        ethers.utils.keccak256(
+          ethers.utils.solidityPack(
+            ['uint256', 'bytes'],
+            [_blockNumber, fromHexString(_encodedTxData)]
+          )
+        )
+      )
     }
     const tree = new MerkleTree(leafs, hash)
     const batchRoot = remove0x(tree.getHexRoot())
 
-    const storagedObject = await opts?.minioClient?.writeObject(batchRoot, b.shouldStartAtElement, b.totalElementsToAppend, encodedTransactionData, 3)
-    console.info('storage tx data to minio', storagedObject, 'context length', contexts.length)
+    const storagedObject = await opts?.minioClient?.writeObject(
+      batchRoot,
+      b.shouldStartAtElement,
+      b.totalElementsToAppend,
+      encodedTransactionData,
+      3
+    )
+    console.info(
+      'storage tx data to minio',
+      storagedObject,
+      'context length',
+      contexts.length
+    )
 
     // the following 2 conditions except empty encodedTransactionData
-    if (!storagedObject && encodedTransactionData && b.shouldStartAtElement >= 0 &&  b.totalElementsToAppend > 0) {
+    if (
+      !storagedObject &&
+      encodedTransactionData &&
+      b.shouldStartAtElement >= 0 &&
+      b.totalElementsToAppend > 0
+    ) {
       throw new Error('Storage encoded transaction data failed!')
     }
 
-    if (
-      storagedObject &&
-      contexts.length > 0
-    ) {
+    if (storagedObject && contexts.length > 0) {
       encodedTransactionData = storagedObject
       contexts.unshift({
         numSequencedTransactions: 0,
@@ -106,10 +134,17 @@ export const encodeAppendSequencerBatch = async (
   }
 
   const encodedContextsHeader = encodeHex(contexts.length, 6)
-  const encodedContexts = encodedContextsHeader +
+  const encodedContexts =
+    encodedContextsHeader +
     contexts.reduce((acc, cur) => acc + encodeBatchContext(cur), '')
 
-  console.info('sequencer batch result', encodeShouldStartAtElement, encodedTotalElementsToAppend, encodedContexts, encodedTransactionData)
+  console.info(
+    'sequencer batch result',
+    encodeShouldStartAtElement,
+    encodedTotalElementsToAppend,
+    encodedContexts,
+    encodedTransactionData
+  )
 
   return (
     encodeShouldStartAtElement +
@@ -215,14 +250,20 @@ export const decodeAppendSequencerBatch = async (
 }
 
 export const sequencerBatch = {
-  encode: async (b: AppendSequencerBatchParams, opts?: EncodeSequencerBatchOptions) => {
+  encode: async (
+    b: AppendSequencerBatchParams,
+    opts?: EncodeSequencerBatchOptions
+  ) => {
     const encodedParams = await encodeAppendSequencerBatch(b, opts)
     return (
       ethers.utils.id(APPEND_SEQUENCER_BATCH_METHOD_ID).slice(0, 10) +
       encodedParams
     )
   },
-  decode: async (b: string, opts?: EncodeSequencerBatchOptions): Promise<AppendSequencerBatchParams> => {
+  decode: async (
+    b: string,
+    opts?: EncodeSequencerBatchOptions
+  ): Promise<AppendSequencerBatchParams> => {
     b = remove0x(b)
     const functionSelector = b.slice(0, 8)
     if (

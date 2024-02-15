@@ -10,7 +10,7 @@ import {
   BatchContext,
   encodeAppendSequencerBatch,
   remove0x,
-  EncodeSequencerBatchOptions
+  EncodeSequencerBatchOptions,
 } from '@metis.io/core-utils'
 
 interface AppendSequencerBatchParams {
@@ -83,8 +83,16 @@ const appendSequencerBatch = async (
 }
 const encodeHex = (val: any, len: number) =>
   remove0x(BigNumber.from(val).toHexString()).padStart(len, '0')
-const getEncodedCalldata = async (batch: AppendSequencerBatchParams, opts?: EncodeSequencerBatchOptions): Promise<string> => {
+const getEncodedCalldata = async (
+  batch: AppendSequencerBatchParams,
+  opts?: EncodeSequencerBatchOptions
+): Promise<string> => {
   const methodId = APPEND_SEQUENCER_BATCH_METHOD_ID
   const calldata = await encodeAppendSequencerBatch(batch, opts)
-  return '0x' + remove0x(methodId) + encodeHex(batch.chainId, 64) + remove0x(calldata)
+  return (
+    '0x' +
+    remove0x(methodId) +
+    encodeHex(batch.chainId, 64) +
+    remove0x(calldata)
+  )
 }

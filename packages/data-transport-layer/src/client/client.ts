@@ -19,11 +19,13 @@ import {
 } from '../types'
 
 export class L1DataTransportClient {
-  public _chainId:number
-  constructor(private url: string) {this._chainId=0}
+  public _chainId: number
+  constructor(private url: string) {
+    this._chainId = 0
+  }
 
-  public setChainId(chainId:number){
-    this._chainId=chainId
+  public setChainId(chainId: number) {
+    this._chainId = chainId
   }
 
   public async syncing(): Promise<SyncingResponse> {
@@ -76,23 +78,36 @@ export class L1DataTransportClient {
     return this._get(`/batch/stateroot/latest/${this._chainId}`)
   }
 
-  public async getLatestVerifierResult(success: boolean): Promise<VerifierResultResponse> {
+  public async getLatestVerifierResult(
+    success: boolean
+  ): Promise<VerifierResultResponse> {
     return this._get(`/verifier/get/${success}/${this._chainId}`)
   }
 
-  public async setLatestVerifierResult(success: boolean, index: number, stateRoot: string, verifierRoot: string): Promise<VerifierResultResponse> {
-    return this._get(`/verifier/set/${success}/${this._chainId}/${index}/${stateRoot}/${verifierRoot}`)
+  public async setLatestVerifierResult(
+    success: boolean,
+    index: number,
+    stateRoot: string,
+    verifierRoot: string
+  ): Promise<VerifierResultResponse> {
+    return this._get(
+      `/verifier/set/${success}/${this._chainId}/${index}/${stateRoot}/${verifierRoot}`
+    )
   }
 
   public async getLatestVerifierStake(): Promise<VerifierStakeResponse> {
     return this._get(`/verifier/stake/latest/${this._chainId}`)
   }
 
-  public async getVerifierStakeByIndex(index: number): Promise<VerifierStakeResponse> {
+  public async getVerifierStakeByIndex(
+    index: number
+  ): Promise<VerifierStakeResponse> {
     return this._get(`/verifier/stake/index/${index}/${this._chainId}`)
   }
 
-  public async getBatchElementByIndex(index: number): Promise<AppendBatchElementResponse> {
+  public async getBatchElementByIndex(
+    index: number
+  ): Promise<AppendBatchElementResponse> {
     return this._get(`/batch/element/index/${index}/${this._chainId}`)
   }
 

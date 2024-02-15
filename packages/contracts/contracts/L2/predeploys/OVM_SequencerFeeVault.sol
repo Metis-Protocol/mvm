@@ -15,8 +15,7 @@ import { iMVM_ChainConfig } from "../../MVM/iMVM_ChainConfig.sol";
  * @dev Simple holding contract for fees paid to the Sequencer. Likely to be replaced in the future
  * but "good enough for now".
  */
-contract OVM_SequencerFeeVault is iOVM_SequencerFeeVault, CrossDomainEnabled{
-    
+contract OVM_SequencerFeeVault is iOVM_SequencerFeeVault, CrossDomainEnabled {
     /*************
      * Variables *
      *************/
@@ -35,14 +34,16 @@ contract OVM_SequencerFeeVault is iOVM_SequencerFeeVault, CrossDomainEnabled{
      * Currently HAS NO EFFECT in production because l2geth will mutate this storage slot during
      * the genesis block. This is ONLY for testing purposes.
      */
-    constructor(address _l2CrossDomainMessenger, 
-                address _l1FeeWallet,
-                address _l1Manager) CrossDomainEnabled(_l2CrossDomainMessenger){
+    constructor(
+        address _l2CrossDomainMessenger,
+        address _l1FeeWallet,
+        address _l1Manager
+    ) CrossDomainEnabled(_l2CrossDomainMessenger) {
         l1FeeWallet = _l1FeeWallet;
         l1Manager = _l1Manager;
     }
-    
-    modifier onlyManager {
+
+    modifier onlyManager() {
         require(msg.sender == l2Manager, "not allowed");
         _;
     }
@@ -52,6 +53,7 @@ contract OVM_SequencerFeeVault is iOVM_SequencerFeeVault, CrossDomainEnabled{
      ************/
 
     receive() external payable {}
+
     // Fallback function is called when msg.data is not empty
     fallback() external payable {}
 
@@ -59,17 +61,14 @@ contract OVM_SequencerFeeVault is iOVM_SequencerFeeVault, CrossDomainEnabled{
      * Public Functions *
      ********************/
 
-    function withdraw(uint256 amount) public onlyManager payable{
-        require(
-            address(this).balance >= amount,
-            "not enough balance to withraw"
-        );
-        
+    function withdraw(uint256 amount) public payable onlyManager {
+        require(address(this).balance >= amount, "not enough balance to withraw");
+
         if (amount == 0) {
             amount = address(this).balance;
         }
 
-        L2StandardBridge(Lib_PredeployAddresses.L2_STANDARD_BRIDGE).withdrawTo{value:msg.value}(
+        L2StandardBridge(Lib_PredeployAddresses.L2_STANDARD_BRIDGE).withdrawTo{ value: msg.value }(
             Lib_PredeployAddresses.MVM_COINBASE,
             l1FeeWallet,
             amount,
@@ -77,35 +76,42 @@ contract OVM_SequencerFeeVault is iOVM_SequencerFeeVault, CrossDomainEnabled{
             bytes("")
         );
     }
-    
-    function finalizeChainSwitch(
-        address _FeeWallet,
-        address _L2Manager
-    ) external virtual onlyFromCrossDomainAccount(l1Manager) {
-    
+
+    function finalizeChainSwitch(address _FeeWallet, address _L2Manager)
+        external
+        virtual
+        onlyFromCrossDomainAccount(l1Manager)
+    {
         l1FeeWallet = _FeeWallet;
         l2Manager = _L2Manager;
         emit ChainSwitch(l1FeeWallet, l2Manager);
     }
-    
-    function finalizeChainConfig(bytes calldata values) external virtual onlyFromCrossDomainAccount(l1Manager) {
+
+    function finalizeChainConfig(bytes calldata values)
+        external
+        virtual
+        onlyFromCrossDomainAccount(l1Manager)
+    {
         iMVM_ChainConfig(Lib_PredeployAddresses.MVM_CHAIN_CONFIG).setConfig(values);
         emit ConfigChange(values);
     }
-    
-    function send(address payable to, uint256 amount) public onlyManager{
-        (bool sent, ) = to.call{value: amount}("");
+
+    function send(address payable to, uint256 amount) public onlyManager {
+        (bool sent, ) = to.call{ value: amount }("");
         require(sent, "Failed to send metis");
     }
-    
-    function sendBatch(address payable[] calldata tos, uint256[] calldata amounts) public onlyManager {
+
+    function sendBatch(address payable[] calldata tos, uint256[] calldata amounts)
+        public
+        onlyManager
+    {
         require(tos.length == amounts.length, "lengths of the parameters do not match");
-        for (uint i = 0; i < tos.length; i++) {
+        for (uint256 i = 0; i < tos.length; i++) {
             send(tos[i], amounts[i]);
         }
     }
-    
-    function getL2Manager() view public returns(address) {
+
+    function getL2Manager() public view returns (address) {
         return l2Manager;
     }
 }

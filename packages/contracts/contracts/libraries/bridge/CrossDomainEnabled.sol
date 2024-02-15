@@ -19,7 +19,6 @@ contract CrossDomainEnabled {
     // Messenger contract used to send and recieve messages from the other domain.
     address public messenger;
 
-
     /***************
      * Constructor *
      ***************/
@@ -79,10 +78,12 @@ contract CrossDomainEnabled {
         uint32 _gasLimit,
         bytes memory _message,
         uint256 fee
-    )
-        internal
-    {
-        getCrossDomainMessenger().sendMessage{value:fee}(_crossDomainTarget, _message, _gasLimit);
+    ) internal {
+        getCrossDomainMessenger().sendMessage{ value: fee }(
+            _crossDomainTarget,
+            _message,
+            _gasLimit
+        );
     }
 
     /**
@@ -99,6 +100,11 @@ contract CrossDomainEnabled {
         bytes memory _message,
         uint256 fee
     ) internal {
-        getCrossDomainMessenger().sendMessageViaChainId{value:fee}(_chainId, _crossDomainTarget, _message, _gasLimit);
+        getCrossDomainMessenger().sendMessageViaChainId{ value: fee }(
+            _chainId,
+            _crossDomainTarget,
+            _message,
+            _gasLimit
+        );
     }
 }

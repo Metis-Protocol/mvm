@@ -97,5 +97,4 @@ interface IL1CrossDomainMessenger is ICrossDomainMessenger {
         uint32 _oldGasLimit,
         uint32 _newGasLimit
     ) external;
-
 }

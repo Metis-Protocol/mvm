@@ -11,11 +11,10 @@ import {
 const deployFn: DeployFunction = async (hre) => {
   const { deployer } = await hre.getNamedAccounts()
   const { chainId } = await hre.ethers.provider.getNetwork()
-  var bridge;
+  var bridge
   if (chainId === defaultHardhatNetworkParams.chainId) {
     bridge = 'L1StandardBridgeLocal'
-  } else
-  {
+  } else {
     bridge = 'L1StandardBridge'
   }
   await deployAndRegister({

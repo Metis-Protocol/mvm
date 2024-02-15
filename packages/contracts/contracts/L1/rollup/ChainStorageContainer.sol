@@ -30,15 +30,14 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
     /**************
      *  constant  *
      **************/
-    uint256 constant public DEFAULT_CHAINID = 1088;
-    
-    
+    uint256 public constant DEFAULT_CHAINID = 1088;
+
     /*************
      * Variables *
      *************/
 
     string public owner;
-    mapping(uint256=>Lib_Buffer.Buffer) internal buffers;
+    mapping(uint256 => Lib_Buffer.Buffer) internal buffers;
 
     /***************
      * Constructor *
@@ -74,50 +73,36 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
      * @inheritdoc IChainStorageContainer
      */
     function setGlobalMetadata(bytes27 _globalMetadata) public onlyOwner {
-        return setGlobalMetadataByChainId(DEFAULT_CHAINID,_globalMetadata);
+        return setGlobalMetadataByChainId(DEFAULT_CHAINID, _globalMetadata);
     }
-    
+
     function setByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes32 _object
-    )
-        override
-        public
-        onlyOwner
-    {
+    ) public override onlyOwner {
         buffers[_chainId].set(_index, _object);
     }
-    
+
     /**
      * @inheritdoc IChainStorageContainer
      */
-    function setGlobalMetadataByChainId(
-        uint256 _chainId,
-        bytes27 _globalMetadata
-    )
-        override
+    function setGlobalMetadataByChainId(uint256 _chainId, bytes27 _globalMetadata)
         public
+        override
         onlyOwner
     {
         return buffers[_chainId].setExtraData(_globalMetadata);
     }
-    
+
     /**
      * @inheritdoc IChainStorageContainer
      */
     function getGlobalMetadata() public view returns (bytes27) {
         return getGlobalMetadataByChainId(DEFAULT_CHAINID);
     }
-    
-    function getGlobalMetadataByChainId(uint256 _chainId)
-        override
-        public
-        view
-        returns (
-            bytes27
-        )
-    {
+
+    function getGlobalMetadataByChainId(uint256 _chainId) public view override returns (bytes27) {
         return buffers[_chainId].getExtraData();
     }
 
@@ -127,15 +112,8 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
     function length() public view returns (uint256) {
         return lengthByChainId(DEFAULT_CHAINID);
     }
-    
-    function lengthByChainId(uint256 _chainId)
-        override
-        public
-        view
-        returns (
-            uint256
-        )
-    {
+
+    function lengthByChainId(uint256 _chainId) public view override returns (uint256) {
         return uint256(buffers[_chainId].getLength());
     }
 
@@ -143,17 +121,10 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
      * @inheritdoc IChainStorageContainer
      */
     function push(bytes32 _object) public onlyOwner {
-        pushByChainId(DEFAULT_CHAINID,_object);
+        pushByChainId(DEFAULT_CHAINID, _object);
     }
-    
-    function pushByChainId(
-        uint256 _chainId,
-        bytes32 _object
-    )
-        override
-        public
-        onlyOwner
-    {
+
+    function pushByChainId(uint256 _chainId, bytes32 _object) public override onlyOwner {
         buffers[_chainId].push(_object);
     }
 
@@ -161,18 +132,14 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
      * @inheritdoc IChainStorageContainer
      */
     function push(bytes32 _object, bytes27 _globalMetadata) public onlyOwner {
-        pushByChainId(DEFAULT_CHAINID,_object,_globalMetadata);
+        pushByChainId(DEFAULT_CHAINID, _object, _globalMetadata);
     }
-    
+
     function pushByChainId(
         uint256 _chainId,
         bytes32 _object,
         bytes27 _globalMetadata
-    )
-        override
-        public
-        onlyOwner
-    {
+    ) public override onlyOwner {
         buffers[_chainId].push(_object, _globalMetadata);
     }
 
@@ -180,20 +147,10 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
      * @inheritdoc IChainStorageContainer
      */
     function get(uint256 _index) public view returns (bytes32) {
-        return getByChainId(DEFAULT_CHAINID,_index);
+        return getByChainId(DEFAULT_CHAINID, _index);
     }
-    
-    function getByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        override
-        public
-        view
-        returns (
-            bytes32
-        )
-    {
+
+    function getByChainId(uint256 _chainId, uint256 _index) public view override returns (bytes32) {
         return buffers[_chainId].get(uint40(_index));
     }
 
@@ -201,20 +158,15 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
      * @inheritdoc IChainStorageContainer
      */
     function deleteElementsAfterInclusive(uint256 _index) public onlyOwner {
-        deleteElementsAfterInclusiveByChainId(DEFAULT_CHAINID,_index);
+        deleteElementsAfterInclusiveByChainId(DEFAULT_CHAINID, _index);
     }
-    
-    function deleteElementsAfterInclusiveByChainId(
-        uint256 _chainId,
-        uint256 _index
-    )
-        override
+
+    function deleteElementsAfterInclusiveByChainId(uint256 _chainId, uint256 _index)
         public
+        override
         onlyOwner
     {
-        buffers[_chainId].deleteElementsAfterInclusive(
-            uint40(_index)
-        );
+        buffers[_chainId].deleteElementsAfterInclusive(uint40(_index));
     }
 
     /**
@@ -224,21 +176,14 @@ contract ChainStorageContainer is IChainStorageContainer, Lib_AddressResolver {
         public
         onlyOwner
     {
-        deleteElementsAfterInclusiveByChainId(DEFAULT_CHAINID,_index,_globalMetadata);
+        deleteElementsAfterInclusiveByChainId(DEFAULT_CHAINID, _index, _globalMetadata);
     }
-    
+
     function deleteElementsAfterInclusiveByChainId(
         uint256 _chainId,
         uint256 _index,
         bytes27 _globalMetadata
-    )
-        override
-        public
-        onlyOwner
-    {
-        buffers[_chainId].deleteElementsAfterInclusive(
-            uint40(_index),
-            _globalMetadata
-        );
+    ) public override onlyOwner {
+        buffers[_chainId].deleteElementsAfterInclusive(uint40(_index), _globalMetadata);
     }
 }

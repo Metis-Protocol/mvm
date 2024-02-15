@@ -1,19 +1,10 @@
 {
   "[typescript]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
-    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
-  "eslint.workingDirectories": [
-    {"directory": "packages/core-utils", "changeProcessCWD": false },
-    {"directory": "packages/common-ts", "changeProcessCWD": false },
-
-    {"directory": "packages/contracts", "changeProcessCWD": false },
-    {"directory": "packages/data-transport-layer", "changeProcessCWD": false },
-    {"directory": "packages/batch-submitter", "changeProcessCWD": false },
-    {"directory": "packages/message-relayer", "changeProcessCWD": false },
-  ],
   "eslint.nodePath": "./node_modules/eslint/bin/",
   "eslint.format.enable": false,
   "editorconfig.generateAuto": false,
-  "files.trimTrailingWhitespace": false,
+  "files.trimTrailingWhitespace": false
 }

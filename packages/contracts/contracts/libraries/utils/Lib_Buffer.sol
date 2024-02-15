@@ -185,7 +185,7 @@ library Lib_Buffer {
 
         return BufferContext({ length: length, extraData: extraData });
     }
-    
+
     /**
      * set elements for a given index.
      * @param _self Buffer to access.
@@ -196,9 +196,7 @@ library Lib_Buffer {
         Buffer storage _self,
         uint256 _index,
         bytes32 _value
-    )
-        internal
-    {
+    ) internal {
         BufferContext memory ctx = _self.getContext();
         require(_index < ctx.length, "Index out of bounds.");
         _self.buf[_index] = _value;

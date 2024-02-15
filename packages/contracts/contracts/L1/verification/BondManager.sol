@@ -31,22 +31,22 @@ contract BondManager is IBondManager, Lib_AddressResolver {
         // Only authenticate sequencer to submit state root batches.
         return _who == resolve("OVM_Proposer");
     }
-    
+
     function isCollateralizedByChainId(
         uint256 _chainId,
         address _who,
         address _prop
-    ) override public view returns (bool) {
-        require(_who==_prop,"sender must the proposer!");
+    ) public view override returns (bool) {
+        require(_who == _prop, "sender must the proposer!");
         require(
-            _prop == resolve(
-              string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_Proposer"))),
+            _prop ==
+                resolve(string(abi.encodePacked(Lib_Uint.uint2str(_chainId), "_MVM_Proposer"))),
             "Proposer does not match this chain."
         );
         return true;
         //return bonds[_who].state == State.COLLATERALIZED;
     }
-    
+
     // function registerSequencerByChainId(
     //    uint256 _chainId,
     //    address _sequencer,

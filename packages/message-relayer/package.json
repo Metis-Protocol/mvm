@@ -15,6 +15,7 @@
     "build": "tsc -p ./tsconfig.build.json",
     "clean": "rimraf  dist/ ./tsconfig.build.tsbuildinfo",
     "lint": "yarn lint:fix && yarn lint:check",
+    "format": "prettier --write '**/*.ts'",
     "pre-commit": "lint-staged",
     "lint:fix": "yarn lint:check --fix",
     "lint:check": "eslint .",

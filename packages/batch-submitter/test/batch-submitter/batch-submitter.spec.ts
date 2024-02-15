@@ -32,12 +32,7 @@ import {
   ResubmissionConfig,
 } from '../../src'
 
-import {
-  QueueOrigin,
-  Batch,
-  Signature,
-  remove0x,
-} from '@metis.io/core-utils'
+import { QueueOrigin, Batch, Signature, remove0x } from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
 
 const DUMMY_ADDRESS = '0x' + '00'.repeat(20)
@@ -97,7 +92,6 @@ describe('BatchSubmitter', () => {
       'OVM_Sequencer',
       await sequencer.getAddress()
     )
-
 
     Mock__OVM_ExecutionManager = await smockit(
       await getContractFactory('OVM_ExecutionManager')

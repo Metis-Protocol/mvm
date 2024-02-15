@@ -18,7 +18,7 @@ interface iOVM_SequencerFeeVault {
      * Constants *
      *************/
 
-    event ChainSwitch (address l1Wallet, address l2Manager);
+    event ChainSwitch(address l1Wallet, address l2Manager);
     event ConfigChange(bytes config);
 
     /********************
@@ -26,12 +26,14 @@ interface iOVM_SequencerFeeVault {
      ********************/
 
     function withdraw(uint256 amount) external payable;
-    
+
     function finalizeChainSwitch(address _FeeWallet, address _L2Manager) external;
-    
+
     function finalizeChainConfig(bytes calldata config) external;
+
     function send(address payable to, uint256 amount) external;
-    
+
     function sendBatch(address payable[] calldata tos, uint256[] calldata amounts) external;
-    function getL2Manager() view external returns(address);
+
+    function getL2Manager() external view returns (address);
 }

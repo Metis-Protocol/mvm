@@ -290,7 +290,8 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
         transactionEntries[sequencerTxIndex[j]].seqSign = ''
       }
       for (let j = startIndex; j < sequencerTxIndex.length; j++) {
-        transactionEntries[sequencerTxIndex[j]].seqSign = cachedSignList[j - startIndex]
+        transactionEntries[sequencerTxIndex[j]].seqSign =
+          cachedSignList[j - startIndex]
       }
     }
 

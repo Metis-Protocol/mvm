@@ -45,7 +45,7 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
     {
         l1TokenBridge = _l1TokenBridge;
     }
-    
+
     function getChainID() internal view returns (uint256) {
         uint256 id;
         assembly {
@@ -69,13 +69,20 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
     ) external payable virtual {
         _initiateWithdrawal(_l2Token, msg.sender, msg.sender, _amount, _l1Gas, _data);
     }
-    
+
     function withdrawMetis(
         uint256 _amount,
         uint32 _l1Gas,
         bytes calldata _data
     ) external payable virtual {
-        _initiateWithdrawal(Lib_PredeployAddresses.MVM_COINBASE, msg.sender, msg.sender, _amount, _l1Gas, _data);
+        _initiateWithdrawal(
+            Lib_PredeployAddresses.MVM_COINBASE,
+            msg.sender,
+            msg.sender,
+            _amount,
+            _l1Gas,
+            _data
+        );
     }
 
     /**
@@ -90,14 +97,21 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
     ) external payable virtual {
         _initiateWithdrawal(_l2Token, msg.sender, _to, _amount, _l1Gas, _data);
     }
-    
+
     function withdrawMetisTo(
         address _to,
         uint256 _amount,
         uint32 _l1Gas,
         bytes calldata _data
     ) external payable virtual {
-        _initiateWithdrawal(Lib_PredeployAddresses.MVM_COINBASE, msg.sender, _to, _amount, _l1Gas, _data);
+        _initiateWithdrawal(
+            Lib_PredeployAddresses.MVM_COINBASE,
+            msg.sender,
+            _to,
+            _amount,
+            _l1Gas,
+            _data
+        );
     }
 
     /**
@@ -120,13 +134,20 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
         uint32 _l1Gas,
         bytes calldata _data
     ) internal {
-        uint256 minL1Gas = OVM_GasPriceOracle(Lib_PredeployAddresses.OVM_GASPRICE_ORACLE).minErc20BridgeCost();
-        
+        uint256 minL1Gas = OVM_GasPriceOracle(Lib_PredeployAddresses.OVM_GASPRICE_ORACLE)
+            .minErc20BridgeCost();
+
         // require minimum gas unless, the metis manager is the sender
-        require (msg.value >= minL1Gas ||
-                    _from == Lib_PredeployAddresses.SEQUENCER_FEE_WALLET, 
-                 string(abi.encodePacked("insufficient withdrawal fee supplied. need at least ", Lib_Uint.uint2str(minL1Gas))));
-        
+        require(
+            msg.value >= minL1Gas || _from == Lib_PredeployAddresses.SEQUENCER_FEE_WALLET,
+            string(
+                abi.encodePacked(
+                    "insufficient withdrawal fee supplied. need at least ",
+                    Lib_Uint.uint2str(minL1Gas)
+                )
+            )
+        );
+
         // When a withdrawal is initiated, we burn the withdrawer's funds to prevent subsequent L2
         // usage
         IL2StandardERC20(_l2Token).burn(msg.sender, _amount);
@@ -137,33 +158,33 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
 
         if (_l2Token == Lib_PredeployAddresses.OVM_ETH) {
             message = abi.encodeWithSelector(
-                        IL1StandardBridge.finalizeETHWithdrawalByChainId.selector,
-                        getChainID(),
-                        _from,
-                        _to,
-                        _amount,
-                        _data
-                    );
+                IL1StandardBridge.finalizeETHWithdrawalByChainId.selector,
+                getChainID(),
+                _from,
+                _to,
+                _amount,
+                _data
+            );
         } else if (_l2Token == Lib_PredeployAddresses.MVM_COINBASE) {
             message = abi.encodeWithSelector(
-                        IL1ERC20Bridge.finalizeMetisWithdrawalByChainId.selector,
-                        getChainID(),
-                        _from,
-                        _to,
-                        _amount,
-                        _data
-                    );
+                IL1ERC20Bridge.finalizeMetisWithdrawalByChainId.selector,
+                getChainID(),
+                _from,
+                _to,
+                _amount,
+                _data
+            );
         } else {
             message = abi.encodeWithSelector(
-                        IL1ERC20Bridge.finalizeERC20WithdrawalByChainId.selector,
-                        getChainID(),
-                        l1Token,
-                        _l2Token,
-                        _from,
-                        _to,
-                        _amount,
-                        _data
-                    );
+                IL1ERC20Bridge.finalizeERC20WithdrawalByChainId.selector,
+                getChainID(),
+                l1Token,
+                _l2Token,
+                _from,
+                _to,
+                _amount,
+                _data
+            );
         }
 
         // Send message up to L1 bridge
@@ -171,7 +192,7 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
             l1TokenBridge,
             _l1Gas,
             message,
-            msg.value  // send all value as fees to cover relayer cost
+            msg.value // send all value as fees to cover relayer cost
         );
 
         emit WithdrawalInitiated(l1Token, _l2Token, msg.sender, _to, _amount, _data);
@@ -204,7 +225,7 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
             emit DepositFinalized(_l1Token, _l2Token, _from, _to, _amount, _data);
         } else {
             // disable because the mechanism is incompatible with the new xdomain fee structure.
-            
+
             // Either the L2 token which is being deposited-into disagrees about the correct address
             // of its L1 token, or does not support the correct interface.
             // This should only happen if there is a  malicious L2 token, or if a user somehow
@@ -228,10 +249,9 @@ contract L2StandardBridge is IL2ERC20Bridge, CrossDomainEnabled {
             //    l1TokenBridge,
             //    0,
             //    message,
-            //    0 
+            //    0
             //);
             emit DepositFailed(_l1Token, _l2Token, _from, _to, _amount, _data);
-
         }
     }
 }

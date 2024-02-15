@@ -34,7 +34,6 @@ const deployFn: DeployFunction = async (hre) => {
       })
     },
   })
-
 }
 
 deployFn.tags = ['Proxy__OVM_L1CrossDomainMessenger']

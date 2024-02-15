@@ -23,17 +23,14 @@ import { IChainStorageContainer } from "./IChainStorageContainer.sol";
  * Runtime target: EVM
  */
 contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
-
     /*************
      * Constants *
      *************/
 
     uint256 public FRAUD_PROOF_WINDOW;
     uint256 public SEQUENCER_PUBLISH_WINDOW;
-    
-    
-    uint256 public DEFAULT_CHAINID = 1088;
 
+    uint256 public DEFAULT_CHAINID = 1088;
 
     /***************
      * Constructor *
@@ -46,15 +43,13 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
         address _libAddressManager,
         uint256 _fraudProofWindow,
         uint256 _sequencerPublishWindow
-    )
-        Lib_AddressResolver(_libAddressManager)
-    {
+    ) Lib_AddressResolver(_libAddressManager) {
         FRAUD_PROOF_WINDOW = _fraudProofWindow;
         SEQUENCER_PUBLISH_WINDOW = _sequencerPublishWindow;
     }
-    
-    function setFraudProofWindow (uint256 window) external {
-        require (msg.sender == resolve("METIS_MANAGER"), "now allowed");
+
+    function setFraudProofWindow(uint256 window) external {
+        require(msg.sender == resolve("METIS_MANAGER"), "now allowed");
         FRAUD_PROOF_WINDOW = window;
     }
 
@@ -96,10 +91,12 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
      */
     function appendStateBatch(bytes32[] memory _batch, uint256 _shouldStartAtElement) external {
         //require (1==0, "don't use");
-        string memory proposer = string(abi.encodePacked(Lib_Uint.uint2str(DEFAULT_CHAINID), "_MVM_Proposer"));
+        string memory proposer = string(
+            abi.encodePacked(Lib_Uint.uint2str(DEFAULT_CHAINID), "_MVM_Proposer")
+        );
         appendStateBatchByChainId(DEFAULT_CHAINID, _batch, _shouldStartAtElement, proposer);
     }
-    
+
     /**
      * @inheritdoc IStateCommitmentChain
      */
@@ -161,7 +158,7 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
         // // solhint-enable max-line-length
 
         // return (totalElements, lastSequencerTimestamp);
-        
+
         return _getBatchExtraDataByChainId(DEFAULT_CHAINID);
     }
 
@@ -189,15 +186,11 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     /**
      * @inheritdoc IStateCommitmentChain
      */
-    function getTotalElementsByChainId(
-        uint256 _chainId
-        )
-        override
+    function getTotalElementsByChainId(uint256 _chainId)
         public
         view
-        returns (
-            uint256 _totalElements
-        )
+        override
+        returns (uint256 _totalElements)
     {
         (uint40 totalElements, ) = _getBatchExtraDataByChainId(_chainId);
         return uint256(totalElements);
@@ -206,15 +199,11 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     /**
      * @inheritdoc IStateCommitmentChain
      */
-    function getTotalBatchesByChainId(
-        uint256 _chainId
-        )
-        override
+    function getTotalBatchesByChainId(uint256 _chainId)
         public
         view
-        returns (
-            uint256 _totalBatches
-        )
+        override
+        returns (uint256 _totalBatches)
     {
         return batches().lengthByChainId(_chainId);
     }
@@ -222,20 +211,16 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     /**
      * @inheritdoc IStateCommitmentChain
      */
-    function getLastSequencerTimestampByChainId(
-        uint256 _chainId
-        )
-        override
+    function getLastSequencerTimestampByChainId(uint256 _chainId)
         public
         view
-        returns (
-            uint256 _lastSequencerTimestamp
-        )
+        override
+        returns (uint256 _lastSequencerTimestamp)
     {
         (, uint40 lastSequencerTimestamp) = _getBatchExtraDataByChainId(_chainId);
         return uint256(lastSequencerTimestamp);
     }
-    
+
     /**
      * @inheritdoc IStateCommitmentChain
      */
@@ -244,32 +229,32 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
         bytes32[] memory _batch,
         uint256 _shouldStartAtElement,
         string memory proposer
-    )
-        override
-        public
-    {
+    ) public override {
         // Fail fast in to make sure our batch roots aren't accidentally made fraudulent by the
         // publication of batches by some other user.
         require(
             _shouldStartAtElement == getTotalElementsByChainId(_chainId),
             "Actual batch start index does not match expected start index."
         );
-        
+
         address proposerAddr = resolve(proposer);
 
         // Proposers must have previously staked at the BondManager
         require(
-            IBondManager(resolve("BondManager")).isCollateralizedByChainId(_chainId,msg.sender,proposerAddr),
+            IBondManager(resolve("BondManager")).isCollateralizedByChainId(
+                _chainId,
+                msg.sender,
+                proposerAddr
+            ),
             "Proposer does not have enough collateral posted"
         );
 
-        require(
-            _batch.length > 0,
-            "Cannot submit an empty state batch."
-        );
+        require(_batch.length > 0, "Cannot submit an empty state batch.");
 
         require(
-            getTotalElementsByChainId(_chainId) + _batch.length <= ICanonicalTransactionChain(resolve("CanonicalTransactionChain")).getTotalElementsByChainId(_chainId),
+            getTotalElementsByChainId(_chainId) + _batch.length <=
+                ICanonicalTransactionChain(resolve("CanonicalTransactionChain"))
+                    .getTotalElementsByChainId(_chainId),
             "Number of state roots cannot exceed the number of canonical transactions."
         );
 
@@ -289,13 +274,12 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     function deleteStateBatchByChainId(
         uint256 _chainId,
         Lib_OVMCodec.ChainBatchHeader memory _batchHeader
-    )
-        override
-        public
-    {
+    ) public override {
         require(
-            msg.sender == resolve(
-              string(abi.encodePacked(Lib_Uint.uint2str(_chainId),"_MVM_FraudVerifier"))),
+            msg.sender ==
+                resolve(
+                    string(abi.encodePacked(Lib_Uint.uint2str(_chainId), "_MVM_FraudVerifier"))
+                ),
             "State batches can only be deleted by the MVM_FraudVerifier."
         );
 
@@ -304,7 +288,7 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
             "State batches can only be deleted within the fraud proof window."
         );
 
-        _deleteBatchByChainId(_chainId,_batchHeader);
+        _deleteBatchByChainId(_chainId, _batchHeader);
     }
 
     /**
@@ -315,18 +299,8 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
         bytes32 _element,
         Lib_OVMCodec.ChainBatchHeader memory _batchHeader,
         Lib_OVMCodec.ChainInclusionProof memory _proof
-    )
-        override
-        public
-        view
-        returns (
-            bool
-        )
-    {
-        require(
-            _isValidBatchHeaderByChainId(_chainId,_batchHeader),
-            "Invalid batch header."
-        );
+    ) public view override returns (bool) {
+        require(_isValidBatchHeaderByChainId(_chainId, _batchHeader), "Invalid batch header.");
 
         require(
             Lib_MerkleTree.verify(
@@ -367,7 +341,6 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     //     );
     //     return timestamp + FRAUD_PROOF_WINDOW > block.timestamp;
     // }
-    
 
     /**********************
      * Internal Functions *
@@ -378,30 +351,24 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
      * @return Total number of elements submitted.
      * @return Timestamp of the last batch submitted by the sequencer.
      */
-    function _getBatchExtraDataByChainId(
-        uint256 _chainId
-        )
-        internal
-        view
-        returns (
-            uint40,
-            uint40
-        )
-    {
+    function _getBatchExtraDataByChainId(uint256 _chainId) internal view returns (uint40, uint40) {
         bytes27 extraData = batches().getGlobalMetadataByChainId(_chainId);
 
         uint40 totalElements;
         uint40 lastSequencerTimestamp;
         assembly {
-            extraData              := shr(40, extraData)
-            totalElements          :=         and(extraData, 0x000000000000000000000000000000000000000000000000000000FFFFFFFFFF)
-            lastSequencerTimestamp := shr(40, and(extraData, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000000000))
+            extraData := shr(40, extraData)
+            totalElements := and(
+                extraData,
+                0x000000000000000000000000000000000000000000000000000000FFFFFFFFFF
+            )
+            lastSequencerTimestamp := shr(
+                40,
+                and(extraData, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000000000)
+            )
         }
 
-        return (
-            totalElements,
-            lastSequencerTimestamp
-        );
+        return (totalElements, lastSequencerTimestamp);
     }
 
     /**
@@ -410,15 +377,10 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
      * @param _lastSequencerTimestamp Timestamp of the last batch submitted by the sequencer.
      * @return Encoded batch context.
      */
-    function _makeBatchExtraDataByChainId(
-        uint40 _totalElements,
-        uint40 _lastSequencerTimestamp
-    )
+    function _makeBatchExtraDataByChainId(uint40 _totalElements, uint40 _lastSequencerTimestamp)
         internal
         pure
-        returns (
-            bytes27
-        )
+        returns (bytes27)
     {
         bytes27 extraData;
         assembly {
@@ -440,11 +402,11 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
         bytes32[] memory _batch,
         bytes memory _extraData,
         address proposer
-    )
-        internal
-    {
-        (uint40 totalElements, uint40 lastSequencerTimestamp) = _getBatchExtraDataByChainId(_chainId);
-        
+    ) internal {
+        (uint40 totalElements, uint40 lastSequencerTimestamp) = _getBatchExtraDataByChainId(
+            _chainId
+        );
+
         lastSequencerTimestamp = uint40(block.timestamp);
 
         // if (msg.sender == proposer) {
@@ -497,33 +459,21 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     function _deleteBatchByChainId(
         uint256 _chainId,
         Lib_OVMCodec.ChainBatchHeader memory _batchHeader
-    )
-        internal
-    {
+    ) internal {
         require(
             _batchHeader.batchIndex < batches().lengthByChainId(_chainId),
             "Invalid batch index."
         );
 
-        require(
-            _isValidBatchHeaderByChainId(_chainId,_batchHeader),
-            "Invalid batch header."
-        );
+        require(_isValidBatchHeaderByChainId(_chainId, _batchHeader), "Invalid batch header.");
 
         batches().deleteElementsAfterInclusiveByChainId(
             _chainId,
             _batchHeader.batchIndex,
-            _makeBatchExtraDataByChainId(
-                uint40(_batchHeader.prevTotalElements),
-                0
-            )
+            _makeBatchExtraDataByChainId(uint40(_batchHeader.prevTotalElements), 0)
         );
 
-        emit StateBatchDeleted(
-            _chainId,
-            _batchHeader.batchIndex,
-            _batchHeader.batchRoot
-        );
+        emit StateBatchDeleted(_chainId, _batchHeader.batchIndex, _batchHeader.batchRoot);
     }
 
     /**
@@ -534,13 +484,9 @@ contract StateCommitmentChain is IStateCommitmentChain, Lib_AddressResolver {
     function _isValidBatchHeaderByChainId(
         uint256 _chainId,
         Lib_OVMCodec.ChainBatchHeader memory _batchHeader
-    )
-        internal
-        view
-        returns (
-            bool
-        )
-    {
-        return Lib_OVMCodec.hashBatchHeader(_batchHeader) == batches().getByChainId(_chainId,_batchHeader.batchIndex);
+    ) internal view returns (bool) {
+        return
+            Lib_OVMCodec.hashBatchHeader(_batchHeader) ==
+            batches().getByChainId(_chainId, _batchHeader.batchIndex);
     }
 }

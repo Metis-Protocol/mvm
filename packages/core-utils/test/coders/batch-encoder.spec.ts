@@ -71,7 +71,8 @@ describe('BatchEncoder', () => {
       // expect(async () => await encodeAppendSequencerBatch(batch)).to.throw(
       //   'Unexpected uneven hex string value!'
       // )
-      const retrieveException = async () => await encodeAppendSequencerBatch(batch)
+      const retrieveException = async () =>
+        await encodeAppendSequencerBatch(batch)
       assert.isRejected(retrieveException(), Error)
 
       // expect(() => sequencerBatch.decode('0x')).to.throw(

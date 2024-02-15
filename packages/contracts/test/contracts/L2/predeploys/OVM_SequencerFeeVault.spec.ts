@@ -24,7 +24,11 @@ describe('OVM_SequencerFeeVault', () => {
   let OVM_SequencerFeeVault: Contract
   beforeEach(async () => {
     const factory = await hre.ethers.getContractFactory('OVM_SequencerFeeVault')
-    OVM_SequencerFeeVault = await factory.deploy(await signer1.getAddress(), await signer1.getAddress(), await signer1.getAddress())
+    OVM_SequencerFeeVault = await factory.deploy(
+      await signer1.getAddress(),
+      await signer1.getAddress(),
+      await signer1.getAddress()
+    )
   })
 
   describe('withdraw', async () => {
@@ -78,7 +82,11 @@ describe('OVM_SequencerFeeVault', () => {
       const factory = await hre.ethers.getContractFactory(
         'OVM_SequencerFeeVault'
       )
-      OVM_SequencerFeeVault = await factory.deploy(`0x${'11'.repeat(20)}`,`0x${'22'.repeat(20)}`,`0x${'33'.repeat(20)}`)
+      OVM_SequencerFeeVault = await factory.deploy(
+        `0x${'11'.repeat(20)}`,
+        `0x${'22'.repeat(20)}`,
+        `0x${'33'.repeat(20)}`
+      )
 
       expect(
         await hre.ethers.provider.getStorageAt(

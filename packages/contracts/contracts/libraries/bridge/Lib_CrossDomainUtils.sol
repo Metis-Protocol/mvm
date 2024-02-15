@@ -31,7 +31,7 @@ library Lib_CrossDomainUtils {
                 _messageNonce
             );
     }
-    
+
     /**
      * Generates the correct cross domain calldata for a message.
      * @param _chainId L2 chain id.
@@ -47,20 +47,15 @@ library Lib_CrossDomainUtils {
         address _sender,
         bytes memory _message,
         uint256 _messageNonce
-    )
-        internal
-        pure
-        returns (
-            bytes memory
-        )
-    {
-        return abi.encodeWithSignature(
-            "relayMessageViaChainId(uint256,address,address,bytes,uint256)",
-            _chainId,
-            _target,
-            _sender,
-            _message,
-            _messageNonce
-        );
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodeWithSignature(
+                "relayMessageViaChainId(uint256,address,address,bytes,uint256)",
+                _chainId,
+                _target,
+                _sender,
+                _message,
+                _messageNonce
+            );
     }
 }

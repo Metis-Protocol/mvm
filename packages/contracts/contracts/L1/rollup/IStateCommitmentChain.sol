@@ -22,19 +22,14 @@ interface IStateCommitmentChain {
         bytes _extraData
     );
 
-    event StateBatchDeleted(
-        uint256 _chainId,
-        uint256 indexed _batchIndex,
-        bytes32 _batchRoot
-    );
-
+    event StateBatchDeleted(uint256 _chainId, uint256 indexed _batchIndex, bytes32 _batchRoot);
 
     /********************
      * Public Functions *
      ********************/
-    
+
     function batches() external view returns (IChainStorageContainer);
-    
+
     /**
      * Retrieves the total number of elements submitted.
      * @return _totalElements Total submitted elements.
@@ -86,13 +81,9 @@ interface IStateCommitmentChain {
     function insideFraudProofWindow(Lib_OVMCodec.ChainBatchHeader memory _batchHeader)
         external
         view
-        returns (
-            bool _inside
-        );
-        
-        
-        
-     /********************
+        returns (bool _inside);
+
+    /********************
      * chain id added func *
      ********************/
 
@@ -104,9 +95,7 @@ interface IStateCommitmentChain {
     function getTotalElementsByChainId(uint256 _chainId)
         external
         view
-        returns (
-            uint256 _totalElements
-        );
+        returns (uint256 _totalElements);
 
     /**
      * Retrieves the total number of batches submitted.
@@ -116,9 +105,7 @@ interface IStateCommitmentChain {
     function getTotalBatchesByChainId(uint256 _chainId)
         external
         view
-        returns (
-            uint256 _totalBatches
-        );
+        returns (uint256 _totalBatches);
 
     /**
      * Retrieves the timestamp of the last batch submitted by the sequencer.
@@ -128,10 +115,8 @@ interface IStateCommitmentChain {
     function getLastSequencerTimestampByChainId(uint256 _chainId)
         external
         view
-        returns (
-            uint256 _lastSequencerTimestamp
-        );
-        
+        returns (uint256 _lastSequencerTimestamp);
+
     /**
      * Appends a batch of state roots to the chain.
      * @param _chainId identity for the l2 chain.
@@ -143,8 +128,7 @@ interface IStateCommitmentChain {
         bytes32[] calldata _batch,
         uint256 _shouldStartAtElement,
         string calldata proposer
-    )
-        external;
+    ) external;
 
     /**
      * Deletes all state roots after (and including) a given batch.
@@ -154,8 +138,7 @@ interface IStateCommitmentChain {
     function deleteStateBatchByChainId(
         uint256 _chainId,
         Lib_OVMCodec.ChainBatchHeader memory _batchHeader
-    )
-        external;
+    ) external;
 
     /**
      * Verifies a batch inclusion proof.
@@ -169,12 +152,7 @@ interface IStateCommitmentChain {
         bytes32 _element,
         Lib_OVMCodec.ChainBatchHeader memory _batchHeader,
         Lib_OVMCodec.ChainInclusionProof memory _proof
-    )
-        external
-        view
-        returns (
-            bool _verified
-        );
+    ) external view returns (bool _verified);
 
     /**
      * Checks whether a given batch is still inside its fraud proof window.

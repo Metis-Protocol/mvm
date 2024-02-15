@@ -10,13 +10,24 @@ import { Lib_OVMCodec } from "../libraries/codec/Lib_OVMCodec.sol";
 import { Lib_MerkleTree } from "../libraries/utils/Lib_MerkleTree.sol";
 import { IStateCommitmentChain } from "../L1/rollup/IStateCommitmentChain.sol";
 
-contract MVM_Verifier is Lib_AddressResolver{
+contract MVM_Verifier is Lib_AddressResolver {
     // second slot
     address public metis;
 
-    enum SETTLEMENT {NOT_ENOUGH_VERIFIER, SAME_ROOT, AGREE, DISAGREE, PASS}
+    enum SETTLEMENT {
+        NOT_ENOUGH_VERIFIER,
+        SAME_ROOT,
+        AGREE,
+        DISAGREE,
+        PASS
+    }
 
-    event NewChallenge(uint256 cIndex, uint256 chainID, Lib_OVMCodec.ChainBatchHeader header, uint256 timestamp);
+    event NewChallenge(
+        uint256 cIndex,
+        uint256 chainID,
+        Lib_OVMCodec.ChainBatchHeader header,
+        uint256 timestamp
+    );
     event Verify1(uint256 cIndex, address verifier);
     event Verify2(uint256 cIndex, address verifier);
     event Finalize(uint256 cIndex, address sender, SETTLEMENT result);
@@ -30,52 +41,52 @@ contract MVM_Verifier is Lib_AddressResolver{
     /*************
      * Constants *
      *************/
-    string constant public CONFIG_OWNER_KEY = "METIS_MANAGER";
+    string public constant CONFIG_OWNER_KEY = "METIS_MANAGER";
 
     //challenge info
     struct Challenge {
-       address challenger;
-       uint256 chainID;
-       uint256 index;
-       Lib_OVMCodec.ChainBatchHeader header;
-       uint256 timestamp;
-       uint256 numQualifiedVerifiers;
-       uint256 numVerifiers;
-       address[] verifiers;
-       bool done;
+        address challenger;
+        uint256 chainID;
+        uint256 index;
+        Lib_OVMCodec.ChainBatchHeader header;
+        uint256 timestamp;
+        uint256 numQualifiedVerifiers;
+        uint256 numVerifiers;
+        address[] verifiers;
+        bool done;
     }
 
-    mapping (address => uint256) public verifier_stakes;
-    mapping (uint256 => mapping (address=>bytes)) private challenge_keys;
-    mapping (uint256 => mapping (address=>bytes)) private challenge_key_hashes;
-    mapping (uint256 => mapping (address=>bytes)) private challenge_hashes;
+    mapping(address => uint256) public verifier_stakes;
+    mapping(uint256 => mapping(address => bytes)) private challenge_keys;
+    mapping(uint256 => mapping(address => bytes)) private challenge_key_hashes;
+    mapping(uint256 => mapping(address => bytes)) private challenge_hashes;
 
-    mapping (address => uint256) public rewards;
-    mapping (address => uint8) public absence_strikes;
-    mapping (address => uint8) public consensus_strikes;
+    mapping(address => uint256) public rewards;
+    mapping(address => uint8) public absence_strikes;
+    mapping(address => uint8) public consensus_strikes;
 
     // only one active challenge for each chain  chainid=>cIndex
-    mapping (uint256 => uint256) public chain_under_challenge;
+    mapping(uint256 => uint256) public chain_under_challenge;
 
     // white list
-    mapping (address => bool) public whitelist;
+    mapping(address => bool) public whitelist;
     bool useWhiteList;
 
     address[] public verifiers;
     Challenge[] public challenges;
 
-    uint public verifyWindow = 3600 * 24; // 24 hours of window to complete the each verify phase
-    uint public activeChallenges;
+    uint256 public verifyWindow = 3600 * 24; // 24 hours of window to complete the each verify phase
+    uint256 public activeChallenges;
 
     uint256 public minStake;
     uint256 public seqStake;
 
     uint256 public numQualifiedVerifiers;
 
-    uint FAIL_THRESHOLD = 2;  // 1 time grace
-    uint ABSENCE_THRESHOLD = 4;  // 2 times grace
+    uint256 FAIL_THRESHOLD = 2; // 1 time grace
+    uint256 ABSENCE_THRESHOLD = 4; // 2 times grace
 
-    modifier onlyManager {
+    modifier onlyManager() {
         require(
             msg.sender == resolve(CONFIG_OWNER_KEY),
             "MVM_Verifier: Function can only be called by the METIS_MANAGER."
@@ -83,39 +94,38 @@ contract MVM_Verifier is Lib_AddressResolver{
         _;
     }
 
-    modifier onlyWhitelisted {
+    modifier onlyWhitelisted() {
         require(isWhiteListed(msg.sender), "only whitelisted verifiers can call");
         _;
     }
 
-    modifier onlyStaked {
+    modifier onlyStaked() {
         require(isSufficientlyStaked(msg.sender), "insufficient stake");
         _;
     }
 
-    constructor(
-    )
-      Lib_AddressResolver(address(0))
-    {
-    }
+    constructor() Lib_AddressResolver(address(0)) {}
 
     // add stake as a verifier
-    function verifierStake(uint256 stake) public onlyWhitelisted{
-       require(activeChallenges == 0, "stake is currently prohibited"); //ongoing challenge
-       require(stake > 0, "zero stake not allowed");
-       require(IERC20(metis).transferFrom(msg.sender, address(this), stake), "transfer metis failed");
+    function verifierStake(uint256 stake) public onlyWhitelisted {
+        require(activeChallenges == 0, "stake is currently prohibited"); //ongoing challenge
+        require(stake > 0, "zero stake not allowed");
+        require(
+            IERC20(metis).transferFrom(msg.sender, address(this), stake),
+            "transfer metis failed"
+        );
 
-       uint256 previousBalance = verifier_stakes[msg.sender];
-       verifier_stakes[msg.sender] += stake;
+        uint256 previousBalance = verifier_stakes[msg.sender];
+        verifier_stakes[msg.sender] += stake;
 
-       require(isSufficientlyStaked(msg.sender), "insufficient stake to qualify as a verifier");
+        require(isSufficientlyStaked(msg.sender), "insufficient stake to qualify as a verifier");
 
-       if (previousBalance == 0) {
-          numQualifiedVerifiers++;
-          verifiers.push(msg.sender);
-       }
+        if (previousBalance == 0) {
+            numQualifiedVerifiers++;
+            verifiers.push(msg.sender);
+        }
 
-       emit Stake(msg.sender, stake);
+        emit Stake(msg.sender, stake);
     }
 
     // start a new challenge
@@ -126,70 +136,97 @@ contract MVM_Verifier is Lib_AddressResolver{
     //
     // @dev why do we ask for key and keyhash? because we want verifiers compute the state instead
     // of just copying from other verifiers.
-    function newChallenge(uint256 chainID, Lib_OVMCodec.ChainBatchHeader calldata header, bytes calldata proposedHash, bytes calldata keyhash)
-       public onlyWhitelisted onlyStaked {
+    function newChallenge(
+        uint256 chainID,
+        Lib_OVMCodec.ChainBatchHeader calldata header,
+        bytes calldata proposedHash,
+        bytes calldata keyhash
+    ) public onlyWhitelisted onlyStaked {
+        uint256 tempIndex = chain_under_challenge[chainID] - 1;
+        require(
+            tempIndex == 0 || block.timestamp - challenges[tempIndex].timestamp > verifyWindow * 2,
+            "there is an ongoing challenge"
+        );
+        if (tempIndex > 0) {
+            finalize(tempIndex);
+        }
+        IStateCommitmentChain stateChain = IStateCommitmentChain(resolve("StateCommitmentChain"));
 
-       uint tempIndex = chain_under_challenge[chainID] - 1;
-       require(tempIndex == 0 || block.timestamp - challenges[tempIndex].timestamp > verifyWindow * 2, "there is an ongoing challenge");
-       if (tempIndex > 0) {
-          finalize(tempIndex);
-       }
-       IStateCommitmentChain stateChain = IStateCommitmentChain(resolve("StateCommitmentChain"));
+        // while the root is encrypted, the timestamp is available in the extradata field of the header
+        require(
+            stateChain.insideFraudProofWindow(header),
+            "the batch is outside of the fraud proof window"
+        );
 
-       // while the root is encrypted, the timestamp is available in the extradata field of the header
-       require(stateChain.insideFraudProofWindow(header), "the batch is outside of the fraud proof window");
+        Challenge memory c;
+        c.chainID = chainID;
+        c.challenger = msg.sender;
+        c.timestamp = block.timestamp;
+        c.header = header;
 
-       Challenge memory c;
-       c.chainID = chainID;
-       c.challenger = msg.sender;
-       c.timestamp = block.timestamp;
-       c.header = header;
+        challenges.push(c);
+        uint256 cIndex = challenges.length - 1;
 
-       challenges.push(c);
-       uint cIndex = challenges.length - 1;
+        // house keeping
+        challenge_hashes[cIndex][msg.sender] = proposedHash;
+        challenge_key_hashes[cIndex][msg.sender] = keyhash;
+        challenges[cIndex].numVerifiers++; // the challenger
 
-       // house keeping
-       challenge_hashes[cIndex][msg.sender] = proposedHash;
-       challenge_key_hashes[cIndex][msg.sender] = keyhash;
-       challenges[cIndex].numVerifiers++; // the challenger
+        // this will prevent stake change
+        activeChallenges++;
 
-       // this will prevent stake change
-       activeChallenges++;
-
-       chain_under_challenge[chainID] = cIndex + 1; // +1 because 0 means no in-progress challenge
-       emit NewChallenge(cIndex, chainID, header, block.timestamp);
+        chain_under_challenge[chainID] = cIndex + 1; // +1 because 0 means no in-progress challenge
+        emit NewChallenge(cIndex, chainID, header, block.timestamp);
     }
 
     // phase 1 of the verify, provide an encrypted hash and the hash of the decryption key
     // @param cIndex index of the challenge
     // @param hash encrypted hash of the correct state (for the index referred in the challenge)
     // @param keyhash hash of the decryption key
-    function verify1(uint256 cIndex, bytes calldata hash, bytes calldata keyhash) public onlyWhitelisted onlyStaked{
-       require(challenge_hashes[cIndex][msg.sender].length == 0, "verify1 already completed for the sender");
-       challenge_hashes[cIndex][msg.sender] = hash;
-       challenge_key_hashes[cIndex][msg.sender] = keyhash;
-       challenges[cIndex].numVerifiers++;
-       emit Verify1(cIndex, msg.sender);
+    function verify1(
+        uint256 cIndex,
+        bytes calldata hash,
+        bytes calldata keyhash
+    ) public onlyWhitelisted onlyStaked {
+        require(
+            challenge_hashes[cIndex][msg.sender].length == 0,
+            "verify1 already completed for the sender"
+        );
+        challenge_hashes[cIndex][msg.sender] = hash;
+        challenge_key_hashes[cIndex][msg.sender] = keyhash;
+        challenges[cIndex].numVerifiers++;
+        emit Verify1(cIndex, msg.sender);
     }
 
     // phase 2 of the verify, provide the actual key to decrypt the hash
     // @param cIndex index of the challenge
     // @param key the decryption key
-    function verify2(uint256 cIndex, bytes calldata key) public onlyStaked onlyWhitelisted{
-        require(challenges[cIndex].numVerifiers == numQualifiedVerifiers
-               || block.timestamp - challenges[cIndex].timestamp > verifyWindow, "phase 2 not ready");
-        require(challenge_hashes[cIndex][msg.sender].length > 0, "you didn't participate in phase 1");
+    function verify2(uint256 cIndex, bytes calldata key) public onlyStaked onlyWhitelisted {
+        require(
+            challenges[cIndex].numVerifiers == numQualifiedVerifiers ||
+                block.timestamp - challenges[cIndex].timestamp > verifyWindow,
+            "phase 2 not ready"
+        );
+        require(
+            challenge_hashes[cIndex][msg.sender].length > 0,
+            "you didn't participate in phase 1"
+        );
         if (challenge_keys[cIndex][msg.sender].length > 0) {
             finalize(cIndex);
             return;
         }
 
         //verify whether the key matches the keyhash initially provided.
-        require(sha256(key) == bytes32(challenge_key_hashes[cIndex][msg.sender]), "key and keyhash don't match");
+        require(
+            sha256(key) == bytes32(challenge_key_hashes[cIndex][msg.sender]),
+            "key and keyhash don't match"
+        );
 
         if (msg.sender == challenges[cIndex].challenger) {
             //decode the root in the header too
-            challenges[cIndex].header.batchRoot = bytes32(decrypt(abi.encodePacked(challenges[cIndex].header.batchRoot), key));
+            challenges[cIndex].header.batchRoot = bytes32(
+                decrypt(abi.encodePacked(challenges[cIndex].header.batchRoot), key)
+            );
         }
         challenge_keys[cIndex][msg.sender] = key;
         challenge_hashes[cIndex][msg.sender] = decrypt(challenge_hashes[cIndex][msg.sender], key);
@@ -200,28 +237,29 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     function finalize(uint256 cIndex) internal {
-
         Challenge storage challenge = challenges[cIndex];
 
         require(challenge.done == false, "challenge is closed");
 
-        if (challenge.verifiers.length != challenge.numVerifiers
-           && block.timestamp - challenge.timestamp < verifyWindow * 2) {
-           // not ready to finalize. do nothing
-           return;
+        if (
+            challenge.verifiers.length != challenge.numVerifiers &&
+            block.timestamp - challenge.timestamp < verifyWindow * 2
+        ) {
+            // not ready to finalize. do nothing
+            return;
         }
 
         IStateCommitmentChain stateChain = IStateCommitmentChain(resolve("StateCommitmentChain"));
         bytes32 proposedHash = bytes32(challenge_hashes[cIndex][challenge.challenger]);
 
-        uint reward = 0;
+        uint256 reward = 0;
 
         address[] memory agrees = new address[](challenge.verifiers.length);
-        uint numAgrees = 0;
+        uint256 numAgrees = 0;
         address[] memory disagrees = new address[](challenge.verifiers.length);
-        uint numDisagrees = 0;
+        uint256 numDisagrees = 0;
         address[] memory penalized = new address[](challenge.verifiers.length);
-        uint numPenalized = 0;
+        uint256 numPenalized = 0;
 
         for (uint256 i = 0; i < verifiers.length; i++) {
             if (!isSufficientlyStaked(verifiers[i]) || !isWhiteListed(verifiers[i])) {
@@ -258,8 +296,10 @@ contract MVM_Verifier is Lib_AddressResolver{
             penalize(penalized[i]);
         }
 
-        if (Lib_OVMCodec.hashBatchHeader(challenge.header) !=
-                stateChain.batches().getByChainId(challenge.chainID, challenge.header.batchIndex)) {
+        if (
+            Lib_OVMCodec.hashBatchHeader(challenge.header) !=
+            stateChain.batches().getByChainId(challenge.chainID, challenge.header.batchIndex)
+        ) {
             // wrong header, penalize the challenger
             reward += penalize(challenge.challenger);
 
@@ -267,25 +307,23 @@ contract MVM_Verifier is Lib_AddressResolver{
             // is garbage.
             distributeReward(reward, disagrees, challenge.verifiers.length - 1);
             emit Finalize(cIndex, msg.sender, SETTLEMENT.DISAGREE);
-
-        } else if (challenge.verifiers.length < numQualifiedVerifiers * 75 / 100) {
+        } else if (challenge.verifiers.length < (numQualifiedVerifiers * 75) / 100) {
             // the absent verifiers get a absense strike. no other penalties. already done
             emit Finalize(cIndex, msg.sender, SETTLEMENT.NOT_ENOUGH_VERIFIER);
-        }
-        else if (proposedHash != challenge.header.batchRoot) {
+        } else if (proposedHash != challenge.header.batchRoot) {
             if (numAgrees <= numDisagrees) {
-               // no consensus, challenge failed.
-               for (uint i = 0; i < numAgrees; i++) {
+                // no consensus, challenge failed.
+                for (uint256 i = 0; i < numAgrees; i++) {
                     consensus_strikes[agrees[i]] += 2;
                     if (consensus_strikes[agrees[i]] > FAIL_THRESHOLD) {
                         reward += penalize(agrees[i]);
                     }
-               }
-               distributeReward(reward, disagrees, disagrees.length);
-               emit Finalize(cIndex, msg.sender, SETTLEMENT.DISAGREE);
+                }
+                distributeReward(reward, disagrees, disagrees.length);
+                emit Finalize(cIndex, msg.sender, SETTLEMENT.DISAGREE);
             } else {
-               // reached agreement. delete the batch root and slash the sequencer if the header is still valid
-               if(stateChain.insideFraudProofWindow(challenge.header)) {
+                // reached agreement. delete the batch root and slash the sequencer if the header is still valid
+                if (stateChain.insideFraudProofWindow(challenge.header)) {
                     // this header needs to be within the window
                     stateChain.deleteStateBatchByChainId(challenge.chainID, challenge.header);
 
@@ -293,7 +331,7 @@ contract MVM_Verifier is Lib_AddressResolver{
                     if (seqStake > 0) {
                         reward += seqStake;
 
-                        for (uint i = 0; i < numDisagrees; i++) {
+                        for (uint256 i = 0; i < numDisagrees; i++) {
                             consensus_strikes[disagrees[i]] += 2;
                             if (consensus_strikes[disagrees[i]] > FAIL_THRESHOLD) {
                                 reward += penalize(disagrees[i]);
@@ -323,7 +361,10 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     function depositSeqStake(uint256 amount) public onlyManager {
-        require(IERC20(metis).transferFrom(msg.sender, address(this), amount), "transfer metis failed");
+        require(
+            IERC20(metis).transferFrom(msg.sender, address(this), amount),
+            "transfer metis failed"
+        );
         seqStake += amount;
         emit Stake(msg.sender, amount);
     }
@@ -338,41 +379,36 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     function claim() public {
-       require(rewards[msg.sender] > 0, "no reward to claim");
-       uint256 amount = rewards[msg.sender];
-       rewards[msg.sender] = 0;
+        require(rewards[msg.sender] > 0, "no reward to claim");
+        uint256 amount = rewards[msg.sender];
+        rewards[msg.sender] = 0;
 
-       require(IERC20(metis).transfer(msg.sender, amount), "token transfer failed");
+        require(IERC20(metis).transfer(msg.sender, amount), "token transfer failed");
 
-       emit Claim(msg.sender, amount);
+        emit Claim(msg.sender, amount);
     }
 
     function withdraw(uint256 amount) public {
-       require(activeChallenges == 0, "withdraw is currently prohibited"); //ongoing challenge
+        require(activeChallenges == 0, "withdraw is currently prohibited"); //ongoing challenge
 
-       uint256 balance = verifier_stakes[msg.sender];
-       require(balance >= amount, "insufficient stake to withdraw");
+        uint256 balance = verifier_stakes[msg.sender];
+        require(balance >= amount, "insufficient stake to withdraw");
 
-       if (balance - amount < minStake && balance >= minStake) {
-           numQualifiedVerifiers--;
-           deleteVerifier(msg.sender);
-       }
-       verifier_stakes[msg.sender] -= amount;
+        if (balance - amount < minStake && balance >= minStake) {
+            numQualifiedVerifiers--;
+            deleteVerifier(msg.sender);
+        }
+        verifier_stakes[msg.sender] -= amount;
 
-       require(IERC20(metis).transfer(msg.sender, amount), "token transfer failed");
+        require(IERC20(metis).transfer(msg.sender, amount), "token transfer failed");
     }
 
-    function setMinStake(
-        uint256 _minStake
-    )
-        public
-        onlyManager
-    {
+    function setMinStake(uint256 _minStake) public onlyManager {
         minStake = _minStake;
-        uint num = 0;
+        uint256 num = 0;
         if (verifiers.length > 0) {
             address[] memory arr = new address[](verifiers.length);
-            for (uint i = 0; i < verifiers.length; ++i) {
+            for (uint256 i = 0; i < verifiers.length; ++i) {
                 if (verifier_stakes[verifiers[i]] >= minStake) {
                     arr[num] = verifiers[i];
                     num++;
@@ -380,7 +416,7 @@ contract MVM_Verifier is Lib_AddressResolver{
             }
             if (num < verifiers.length) {
                 delete verifiers;
-                for (uint i = 0; i < num; i++) {
+                for (uint256 i = 0; i < num; i++) {
                     verifiers.push(arr[i]);
                 }
             }
@@ -389,15 +425,16 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     // helper
-    function isWhiteListed(address verifier) view public returns(bool){
+    function isWhiteListed(address verifier) public view returns (bool) {
         return !useWhiteList || whitelist[verifier];
     }
-    function isSufficientlyStaked (address target) view public returns(bool) {
-       return (verifier_stakes[target] >= minStake);
+
+    function isSufficientlyStaked(address target) public view returns (bool) {
+        return (verifier_stakes[target] >= minStake);
     }
 
     // set the length of the time windows for each verification phase
-    function setVerifyWindow (uint256 window) onlyManager public {
+    function setVerifyWindow(uint256 window) public onlyManager {
         verifyWindow = window;
     }
 
@@ -412,82 +449,86 @@ contract MVM_Verifier is Lib_AddressResolver{
         useWhiteList = false;
     }
 
-    function setThreshold(uint absence_threshold, uint fail_threshold) public onlyManager {
+    function setThreshold(uint256 absence_threshold, uint256 fail_threshold) public onlyManager {
         ABSENCE_THRESHOLD = absence_threshold;
         FAIL_THRESHOLD = fail_threshold;
     }
 
-    function getMerkleRoot(bytes32[] calldata elements) pure public returns (bytes32) {
+    function getMerkleRoot(bytes32[] calldata elements) public pure returns (bytes32) {
         return Lib_MerkleTree.getMerkleRoot(elements);
     }
 
     //helper fucntion to encrypt data
-    function encrypt(bytes calldata data, bytes calldata key) pure public returns (bytes memory) {
-      bytes memory encryptedData = data;
-      uint j = 0;
+    function encrypt(bytes calldata data, bytes calldata key) public pure returns (bytes memory) {
+        bytes memory encryptedData = data;
+        uint256 j = 0;
 
-      for (uint i = 0; i < encryptedData.length; i++) {
-          if (j == key.length) {
-             j = 0;
-          }
-          encryptedData[i] = encryptByte(encryptedData[i], uint8(key[j]));
-          j++;
-      }
+        for (uint256 i = 0; i < encryptedData.length; i++) {
+            if (j == key.length) {
+                j = 0;
+            }
+            encryptedData[i] = encryptByte(encryptedData[i], uint8(key[j]));
+            j++;
+        }
 
-      return encryptedData;
+        return encryptedData;
     }
 
-    function encryptByte(bytes1 b, uint8 k) pure internal returns (bytes1) {
-      uint16 temp16 = uint16(uint8(b));
-      temp16 += k;
+    function encryptByte(bytes1 b, uint8 k) internal pure returns (bytes1) {
+        uint16 temp16 = uint16(uint8(b));
+        temp16 += k;
 
-      if (temp16 > 255) {
-         temp16 -= 256;
-      }
-      return bytes1(uint8(temp16));
+        if (temp16 > 255) {
+            temp16 -= 256;
+        }
+        return bytes1(uint8(temp16));
     }
 
     // helper fucntion to decrypt the data
-    function decrypt(bytes memory data, bytes memory key) pure public returns (bytes memory) {
-      bytes memory decryptedData = data;
-      uint j = 0;
+    function decrypt(bytes memory data, bytes memory key) public pure returns (bytes memory) {
+        bytes memory decryptedData = data;
+        uint256 j = 0;
 
-      for (uint i = 0; i < decryptedData.length; i++) {
-          if (j == key.length) {
-             j = 0;
-          }
+        for (uint256 i = 0; i < decryptedData.length; i++) {
+            if (j == key.length) {
+                j = 0;
+            }
 
-          decryptedData[i] = decryptByte(decryptedData[i], uint8(key[j]));
+            decryptedData[i] = decryptByte(decryptedData[i], uint8(key[j]));
 
-          j++;
-      }
+            j++;
+        }
 
-      return decryptedData;
+        return decryptedData;
     }
 
-    function decryptByte(bytes1 b, uint8 k) pure internal returns (bytes1) {
-      uint16 temp16 = uint16(uint8(b));
-      if (temp16 > k) {
-         temp16 -= k;
-      } else {
-         temp16 = 256 - k;
-      }
+    function decryptByte(bytes1 b, uint8 k) internal pure returns (bytes1) {
+        uint16 temp16 = uint16(uint8(b));
+        if (temp16 > k) {
+            temp16 -= k;
+        } else {
+            temp16 = 256 - k;
+        }
 
-      return bytes1(uint8(temp16));
+        return bytes1(uint8(temp16));
     }
 
     // calculate the rewards
-    function distributeReward(uint256 amount, address[] memory list, uint num) internal {
-        uint reward = amount / num;
+    function distributeReward(
+        uint256 amount,
+        address[] memory list,
+        uint256 num
+    ) internal {
+        uint256 reward = amount / num;
         if (reward == 0) {
             return;
         }
-        uint total = 0;
-        for (uint i; i < list.length; i++) {
+        uint256 total = 0;
+        for (uint256 i; i < list.length; i++) {
             if (isSufficientlyStaked(list[i])) {
-               rewards[list[i]] += reward;
-               total += reward;
-               emit Reward(list[i], reward);
+                rewards[list[i]] += reward;
+                total += reward;
+                emit Reward(list[i], reward);
             }
         }
 
@@ -503,7 +544,7 @@ contract MVM_Verifier is Lib_AddressResolver{
     }
 
     // slash the verifier stake
-    function penalize(address target) internal returns(uint256) {
+    function penalize(address target) internal returns (uint256) {
         uint256 stake = verifier_stakes[target];
         verifier_stakes[target] = 0;
         numQualifiedVerifiers--;
@@ -515,8 +556,8 @@ contract MVM_Verifier is Lib_AddressResolver{
 
     function deleteVerifier(address target) internal {
         bool hasVerifier = false;
-        uint pos = 0;
-        for (uint i = 0; i < verifiers.length; i++){
+        uint256 pos = 0;
+        for (uint256 i = 0; i < verifiers.length; i++) {
             if (verifiers[i] == target) {
                 hasVerifier = true;
                 pos = i;
@@ -524,11 +565,10 @@ contract MVM_Verifier is Lib_AddressResolver{
             }
         }
         if (hasVerifier) {
-            for (uint i = pos; i < verifiers.length-1; i++) {
-                verifiers[i] = verifiers[i+1];
+            for (uint256 i = pos; i < verifiers.length - 1; i++) {
+                verifiers[i] = verifiers[i + 1];
             }
             verifiers.pop();
         }
     }
-
 }

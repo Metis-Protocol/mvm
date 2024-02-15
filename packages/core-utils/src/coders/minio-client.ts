@@ -4,8 +4,8 @@ import crypto from 'crypto'
 
 export interface MinioConfig {
   options: Minio.ClientOptions
-  l2ChainId: number,
-  bucket: string,
+  l2ChainId: number
+  bucket: string
 }
 
 export class MinioClient {
@@ -28,10 +28,12 @@ export class MinioClient {
     try {
       const hasBucket = await this.client.bucketExists(bucketName)
       if (!hasBucket) {
-        await this.client.makeBucket(bucketName, this.options.region || 'us-east-1')
+        await this.client.makeBucket(
+          bucketName,
+          this.options.region || 'us-east-1'
+        )
       }
-    }
-    catch(x) {
+    } catch (x) {
       console.log('bucket exists check', x.message)
     }
     return bucketName
@@ -46,43 +48,68 @@ export class MinioClient {
     startAtElement: number,
     totalElements: number,
     encodedTransactionData: string,
-    tryCount: number): Promise<string> {
-      console.info('start write object', startAtElement, totalElements, 'len ' + encodedTransactionData.length)
-      if (!encodedTransactionData || startAtElement < 0 || totalElements <= 0) {
-        console.info('return with nothing to write')
+    tryCount: number
+  ): Promise<string> {
+    console.info(
+      'start write object',
+      startAtElement,
+      totalElements,
+      'len ' + encodedTransactionData.length
+    )
+    if (!encodedTransactionData || startAtElement < 0 || totalElements <= 0) {
+      console.info('return with nothing to write')
+      return ''
+    }
+    let objectKey = ''
+    try {
+      const calcHash = [
+        startAtElement,
+        totalElements,
+        new Date().getTime(),
+        encodedTransactionData,
+      ]
+      const metaData = {
+        'Content-Type': 'application/octet-stream',
+        'x-metis-meta-tx-start': startAtElement,
+        'x-metis-meta-tx-total': totalElements,
+        'x-metis-meta-tx-timestamp': calcHash[2],
+        'x-metis-meta-tx-batch-hash': this.sha256Hash(calcHash.join('_')),
+      }
+      // object key is timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + root[64]
+      // sizeOfTxData here is string length, if compare to sizeInBytes, should be encodedTransactionData.length/2
+      const sizeOfTxData = encodeHex(encodedTransactionData.length, 8)
+      objectKey = `${encodeHex(calcHash[2], 13)}0${sizeOfTxData}${root}`
+      const bucketName = await this.ensureBucket()
+      await this.client.putObject(
+        bucketName,
+        objectKey,
+        encodedTransactionData,
+        null,
+        metaData
+      )
+      console.info('write object successfully', objectKey)
+    } catch (x) {
+      console.error('write object err', x.message)
+      if (tryCount <= 0) {
         return ''
       }
-      let objectKey = '';
-      try {
-        const calcHash = [startAtElement, totalElements, new Date().getTime(), encodedTransactionData]
-        const metaData = {
-            'Content-Type': 'application/octet-stream',
-            'x-metis-meta-tx-start': startAtElement,
-            'x-metis-meta-tx-total': totalElements,
-            'x-metis-meta-tx-timestamp': calcHash[2],
-            'x-metis-meta-tx-batch-hash': this.sha256Hash(calcHash.join('_')),
-        }
-        // object key is timestamp[13] + zero[1]{0} + sizeOfTxData[8]{00000000} + root[64]
-        // sizeOfTxData here is string length, if compare to sizeInBytes, should be encodedTransactionData.length/2
-        const sizeOfTxData = encodeHex(encodedTransactionData.length, 8)
-        objectKey = `${encodeHex(calcHash[2], 13)}0${sizeOfTxData}${root}`
-        const bucketName = await this.ensureBucket()
-        await this.client.putObject(bucketName, objectKey, encodedTransactionData, null, metaData)
-        console.info('write object successfully', objectKey)
-      }
-      catch(x) {
-        console.error('write object err', x.message)
-        if (tryCount <= 0) {
-          return ''
-        }
-        tryCount--
-        await sleep(1000)
-        objectKey = await this.writeObject(root, startAtElement, totalElements, encodedTransactionData, tryCount)
-      }
-      return objectKey
+      tryCount--
+      await sleep(1000)
+      objectKey = await this.writeObject(
+        root,
+        startAtElement,
+        totalElements,
+        encodedTransactionData,
+        tryCount
+      )
+    }
+    return objectKey
   }
 
-  public async readObject(objectName: string, tryCount: number): Promise<string> {
+  public async readObject(
+    objectName: string,
+    tryCount: number
+  ): Promise<string> {
     if (!objectName) {
       return ''
     }
@@ -90,30 +117,33 @@ export class MinioClient {
     try {
       let self = this
       const bucketName = await this.ensureBucket()
-      data = await new Promise(function(resolve, reject){
+      data = await new Promise(function (resolve, reject) {
         let chunks = ''
-        self.client.getObject(bucketName, objectName, function(err, dataStream) {
-          if (err) {
-            reject(err)
-            return
+        self.client.getObject(
+          bucketName,
+          objectName,
+          function (err, dataStream) {
+            if (err) {
+              reject(err)
+              return
+            }
+            dataStream.on('data', function (chunk) {
+              chunks += chunk
+            })
+            dataStream.on('end', function () {
+              resolve(chunks)
+            })
+            dataStream.on('error', function (err) {
+              console.log(err)
+              reject(err)
+            })
           }
-          dataStream.on('data', function(chunk) {
-           chunks += chunk
-          })
-          dataStream.on('end', function() {
-            resolve(chunks)
-          })
-          dataStream.on('error', function(err) {
-            console.log(err)
-            reject(err)
-          })
-        })
+        )
       })
       if (!data || data.length === 0) {
         throw 'getObject err: readable.read'
       }
-    }
-    catch(x) {
+    } catch (x) {
       console.error('read object err', x.message)
       if (tryCount <= 0) {
         return ''
@@ -125,7 +155,11 @@ export class MinioClient {
     return data
   }
 
-  public async verifyObject(objectName: string, data: string, tryCount: number) : Promise<boolean> {
+  public async verifyObject(
+    objectName: string,
+    data: string,
+    tryCount: number
+  ): Promise<boolean> {
     if (!objectName || !data || objectName.length <= 18) {
       return false
     }
@@ -138,22 +172,37 @@ export class MinioClient {
         throw 'statObject failed'
       }
       meta = stat.metaData
-      if (meta['x-metis-meta-tx-start'] == 'undefined' || meta['x-metis-meta-tx-total'] == 'undefined'
-      || !meta['x-metis-meta-tx-timestamp']) {
+      if (
+        meta['x-metis-meta-tx-start'] == 'undefined' ||
+        meta['x-metis-meta-tx-total'] == 'undefined' ||
+        !meta['x-metis-meta-tx-timestamp']
+      ) {
         return false
       }
       // to verfiy
-      const calcHash = [meta['x-metis-meta-tx-start'], meta['x-metis-meta-tx-total'], meta['x-metis-meta-tx-timestamp'], data]
+      const calcHash = [
+        meta['x-metis-meta-tx-start'],
+        meta['x-metis-meta-tx-total'],
+        meta['x-metis-meta-tx-timestamp'],
+        data,
+      ]
       // hash from name
       const hashFromName = objectName.substr(22, 64)
       const hashFromCalc = this.sha256Hash(calcHash.join('_'))
       verified = hashFromName === hashFromCalc
       if (!verified) {
-        console.info('compare hash', 'from name', hashFromName, 'from calc', hashFromCalc, 'data len', data.length)
+        console.info(
+          'compare hash',
+          'from name',
+          hashFromName,
+          'from calc',
+          hashFromCalc,
+          'data len',
+          data.length
+        )
       }
       return verified
-    }
-    catch(x) {
+    } catch (x) {
       console.error('stat object err', x.message)
       if (tryCount <= 0) {
         return false
