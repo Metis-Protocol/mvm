@@ -11,6 +11,7 @@ module.exports = {
     es6: true,
     ecmaVersion: 6,
     sourceType: 'module',
+    tsconfigRootDir: __dirname,
   },
   plugins: [
     'eslint-plugin-import',
