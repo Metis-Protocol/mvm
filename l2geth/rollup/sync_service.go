@@ -525,18 +525,16 @@ func (s *SyncService) HandleSyncFromOther() {
 	if s.syncQueueFromOthers == nil {
 		return
 	}
-	for {
-		select {
-		case block := <-s.syncQueueFromOthers:
-			// unactive sequencers update local tx pool from active sequencer
-			if !s.verifier {
-				blockNumber := block.NumberU64()
-				for index, tx := range block.Transactions() {
-					log.Debug("Handle SyncFromOther ", "tx", tx.Hash(), "index", index, "block", blockNumber)
-					err := s.applyTransaction(tx, false)
-					if err != nil {
-						log.Error("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
-					}
+
+	for block := range s.syncQueueFromOthers {
+		// unactive sequencers update local tx pool from active sequencer
+		if !s.verifier {
+			blockNumber := block.NumberU64()
+			for index, tx := range block.Transactions() {
+				log.Debug("Handle SyncFromOther ", "tx", tx.Hash(), "index", index, "block", blockNumber)
+				err := s.applyTransaction(tx, false)
+				if err != nil {
+					log.Error("HandleSyncFromOther applyTransaction ", "tx", tx.Hash(), "err", err)
 				}
 			}
 		}
