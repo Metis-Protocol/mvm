@@ -45,6 +45,8 @@ export interface L1DataTransportServiceOptions {
   minioUseSsl?: boolean
   minioAccessKey?: string
   minioSecretKey?: string
+
+  trustedIndexer?: string
 }
 
 const optionSettings = {
@@ -120,6 +122,7 @@ export class L1DataTransportService extends BaseService<L1DataTransportServiceOp
         metrics: this.state.metrics,
         db: this.state.db,
         dbs: this.state.dbs,
+        trustedIndexer: this.options.trustedIndexer,
       })
     }
 

@@ -6,6 +6,7 @@ import { LevelUp } from 'levelup'
 import axios from 'axios'
 import bfj from 'bfj'
 import { Gauge } from 'prom-client'
+import path from 'path'
 
 /* Imports: Internal */
 import {
@@ -75,6 +76,8 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
 
   private l2IngestionMetrics: L2IngestionMetrics
 
+  private trustedIndexerEndpoint: string
+
   private state: {
     db: TransportDB
     dbs: TransportDBMap
@@ -96,10 +99,17 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
     )
     this.state.dbs = {}
 
-    this.state.l2RpcProvider =
-      typeof this.options.l2RpcProvider === 'string'
-        ? new StaticJsonRpcProvider(this.options.l2RpcProvider)
-        : this.options.l2RpcProvider
+    if (this.options.trustedIndexer) {
+      this.trustedIndexerEndpoint = path.join(
+        this.options.trustedIndexer,
+        `${this.options.l2ChainId}`
+      )
+    } else {
+      this.state.l2RpcProvider =
+        typeof this.options.l2RpcProvider === 'string'
+          ? new StaticJsonRpcProvider(this.options.l2RpcProvider)
+          : this.options.l2RpcProvider
+    }
   }
 
   protected async _start(): Promise<void> {
@@ -108,7 +118,7 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
         const highestSyncedL2BlockNumber =
           (await this.state.db.getHighestSyncedUnconfirmedBlock()) || 1
 
-        const currentL2Block = await this.state.l2RpcProvider.getBlockNumber()
+        const currentL2Block = await this._getLastestBlockNumber()
 
         // Make sure we don't exceed the tip.
         const targetL2Block = Math.min(
@@ -188,7 +198,13 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
     }
 
     let blocks: any = []
-    if (this.options.legacySequencerCompatibility) {
+    if (this.options.trustedIndexer) {
+      const blockPromises = []
+      for (let i = startBlockNumber; i <= endBlockNumber; i++) {
+        blockPromises.push(this._getTrustedIndexerBlock(i))
+      }
+      blocks = await Promise.all(blockPromises)
+    } else if (this.options.legacySequencerCompatibility) {
       const blockPromises = []
       for (let i = startBlockNumber; i <= endBlockNumber; i++) {
         blockPromises.push(
@@ -247,5 +263,19 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
       }
       await handleSequencerBlock.storeBlock(entry, db)
     }
+  }
+
+  private async _getLastestBlockNumber(): Promise<number> {
+    if (this.options.trustedIndexer) {
+      const resp = await axios.get(`${this.trustedIndexerEndpoint}/latest`)
+      return Number(resp.data)
+    }
+
+    return this.state.l2RpcProvider.getBlockNumber()
+  }
+
+  private async _getTrustedIndexerBlock(n: number) {
+    const resp = await axios.get(`${this.trustedIndexerEndpoint}/blocks/${n}`)
+    return resp.data
   }
 }

@@ -58,6 +58,7 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       minioPort: config.uint('minio-port', 5080),
       minioSecretKey: config.str('minio-secret-key'),
       minioUseSsl: config.bool('minio-use-ssl', false),
+      trustedIndexer: config.str('trusted-indexer'),
     })
 
     const stop = async (signal) => {
