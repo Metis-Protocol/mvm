@@ -254,6 +254,7 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
     // in update period, perhaps some start tx has no sequencer sign (only one batch like this)
     if (nextTxPointer < calldata.length) {
       const cachedSignList = []
+      // eslint-disable-next-line @typescript-eslint/prefer-for-of
       for (let j = 0; j < sequencerTxIndex.length; j++) {
         const sequencerSign = parseSequencerBatchTransaction(
           calldata,
