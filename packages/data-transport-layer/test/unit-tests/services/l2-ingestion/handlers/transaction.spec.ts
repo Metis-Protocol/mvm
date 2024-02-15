@@ -9,7 +9,7 @@ describe('Handlers: handleSequencerBlock', () => {
     it('should correctly extract key fields from an L2 mainnet transaction', async () => {
       const input1: [any, number] = [l2Block, 10]
 
-      const output1 = await handleSequencerBlock.parseBlock(...input1)
+      const [output1] = await handleSequencerBlock.parseBlock(...input1)
 
       expect(output1.stateRootEntry.value).to.equal(l2Block.stateRoot)
       expect(output1.transactionEntry.decoded.data).to.equal(
