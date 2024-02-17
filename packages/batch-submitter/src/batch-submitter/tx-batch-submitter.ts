@@ -32,7 +32,7 @@ import {
   AppendSequencerBatchParams,
 } from '../transaction-chain-contract'
 
-import { BlockRange, BatchSubmitter } from '.'
+import { BlockRange, BatchSubmitter, TransactionBatchSubmitterInbox } from '.'
 import { TransactionSubmitter, MpcClient } from '../utils'
 import { InboxStorage, InboxRecordInfo } from '../storage'
 
@@ -58,6 +58,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private inboxStorage: InboxStorage
   private inboxAddress: string
   private inboxStartIndex: string
+  private inboxSubmitter: TransactionBatchSubmitterInbox
 
   constructor(
     signer: Signer,
@@ -115,6 +116,13 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.inboxAddress = batchInboxAddress
     this.inboxStartIndex = batchInboxStartIndex
     this.inboxStorage = new InboxStorage(batchInboxStoragePath, logger)
+    this.inboxSubmitter = new TransactionBatchSubmitterInbox(
+      this.inboxStorage,
+      this.inboxAddress,
+      this.l2Provider,
+      this.logger,
+      this.maxTxSize
+    )
 
     this.logger.info('Batch validation options', {
       autoFixBatchOptions,
@@ -216,7 +224,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       startBlock,
     })
 
+    // batch index start from config
     const batchIndexStart = BigNumber.from(this.inboxStartIndex).toNumber()
+    // current batch index from CTC contract
     const batchIndexCtcNext =
       (
         await this.chainContract.getTotalBatchesByChainId(this.l2ChainId)
@@ -227,6 +237,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       this.inboxAddress.length === 42 &&
       this.inboxAddress.startsWith('0x') &&
       batchIndexStart <= batchIndexCtcNext
+    // read next batch index from local storage and inbox tx hash
     let batchIndexNext = batchIndexCtcNext
     if (localInboxRecord) {
       const localBatchIndex = BigNumber.from(
@@ -253,9 +264,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
             '0x' + inboxTx.data.substring(70, 134)
           ).toNumber()
           const inboxTxTotal = BigNumber.from(
-            '0x' + inboxTx.data.substring(134, 8)
+            '0x' + inboxTx.data.substring(134, 142)
           ).toNumber()
-          startBlock = inboxTxStartBlock + inboxTxTotal + 1
+          startBlock = inboxTxStartBlock + inboxTxTotal
 
           this.logger.info('Retrieved start block number from BatchInbox tx', {
             inboxTxStartBlock,
@@ -296,12 +307,16 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     return {
       start: startBlock,
       end: endBlock,
+      useInbox: useBatchInbox,
+      nextBatchIndex: batchIndexNext,
     }
   }
 
   public async _submitBatch(
     startBlock: number,
-    endBlock: number
+    endBlock: number,
+    useInbox?: boolean,
+    nextBatchIndex?: number
   ): Promise<TransactionReceipt> {
     // Do not submit batch if gas price above threshold
     const gasPriceInGwei = parseInt(
@@ -317,6 +332,26 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         }
       )
       return
+    }
+
+    if (useInbox) {
+      this.logger.debug('Will submit batch to inbox address', {
+        startBlock,
+        endBlock,
+        nextBatchIndex,
+      })
+      return this.inboxSubmitter.submitBatchToInbox(
+        startBlock,
+        endBlock,
+        nextBatchIndex,
+        this.metrics,
+        this.signer,
+        this.mpcUrl,
+        this._shouldSubmitBatch,
+        this.transactionSubmitter,
+        this._makeHooks('sendBatchToInbox'),
+        this._submitAndLogTx
+      )
     }
 
     const params = await this._generateSequencerBatchParams(

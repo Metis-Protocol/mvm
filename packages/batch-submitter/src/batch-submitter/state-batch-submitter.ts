@@ -156,6 +156,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
     startBlock: number,
     endBlock: number
   ): Promise<TransactionReceipt> {
+    // eslint-disable-next-line radix
     const proposer = parseInt(this.l2ChainId.toString()) + '_MVM_Proposer'
     const batch = await this._generateStateCommitmentBatch(startBlock, endBlock)
     const calldata = this.chainContract.interface.encodeFunctionData(

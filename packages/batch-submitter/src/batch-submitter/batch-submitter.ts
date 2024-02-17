@@ -20,6 +20,8 @@ import { TxSubmissionHooks } from '..'
 export interface BlockRange {
   start: number
   end: number
+  useInbox?: boolean
+  nextBatchIndex?: number
 }
 
 interface BatchSubmitterMetrics {
@@ -62,7 +64,9 @@ export abstract class BatchSubmitter {
 
   public abstract _submitBatch(
     startBlock: number,
-    endBlock: number
+    endBlock: number,
+    useInbox?: boolean,
+    nextBatchIndex?: number
   ): Promise<TransactionReceipt>
   public abstract _onSync(): Promise<TransactionReceipt>
   public abstract _getBatchStartAndEnd(): Promise<BlockRange>
@@ -95,7 +99,12 @@ export abstract class BatchSubmitter {
       return
     }
 
-    return this._submitBatch(range.start, range.end)
+    return this._submitBatch(
+      range.start,
+      range.end,
+      range.useInbox,
+      range.nextBatchIndex
+    )
   }
 
   protected async _hasEnoughETHToCoverGasCosts(): Promise<boolean> {
@@ -219,7 +228,11 @@ export abstract class BatchSubmitter {
 
   protected async _submitAndLogTx(
     submitTransaction: () => Promise<TransactionReceipt>,
-    successMessage: string
+    successMessage: string,
+    callback?: (
+      receipt: TransactionReceipt | null,
+      err: any
+    ) => Promise<boolean>
   ): Promise<TransactionReceipt> {
     this.lastBatchSubmissionTimestamp = Date.now()
     this.logger.debug('Submitting transaction & waiting for receipt...')
@@ -227,7 +240,15 @@ export abstract class BatchSubmitter {
     let receipt: TransactionReceipt
     try {
       receipt = await submitTransaction()
+      if (callback) {
+        const cbStatus = await callback(receipt, null)
+        this.logger.debug(`Submitted to inbox success log: ${cbStatus}`)
+      }
     } catch (err) {
+      if (callback) {
+        const cbStatus = await callback(null, err)
+        this.logger.debug(`Submitted to inbox failed log: ${cbStatus}`)
+      }
       this.metrics.failedSubmissions.inc()
       if (err.reason) {
         this.logger.error(`Transaction invalid: ${err.reason}, aborting`, {

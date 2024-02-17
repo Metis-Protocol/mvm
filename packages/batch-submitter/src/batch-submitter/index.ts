@@ -1,5 +1,6 @@
 export * from './batch-submitter'
 export * from './tx-batch-submitter'
+export * from './tx-batch-submitter-inbox'
 export * from './state-batch-submitter'
 
 export const TX_BATCH_SUBMITTER_LOG_TAG = 'oe:batch_submitter:tx_chain'
