@@ -82,7 +82,7 @@ contract MVM_L2ChainManagerOnL1 is iMVM_L2ChainManagerOnL1, CrossDomainEnabled {
         emit SwitchSeq(_chainId, wallet, manager);
     }
 
-    function pushConfig(uint256 _chainId, bytes calldata _configs) public payable {
+    function pushConfig(uint256 _chainId, bytes calldata _configs) public payable onlyManager {
         bytes memory message = abi.encodeWithSelector(
             iOVM_SequencerFeeVault.finalizeChainConfig.selector,
             _configs

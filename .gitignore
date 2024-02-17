@@ -25,5 +25,3 @@ packages/data-transport-layer/db
 
 .env
 *.log
-
-.vscode/
