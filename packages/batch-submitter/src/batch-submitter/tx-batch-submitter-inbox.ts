@@ -16,6 +16,7 @@ import {
   toHexString,
   encodeHex,
   L2Transaction,
+  zlibCompressHexString,
 } from '@metis.io/core-utils'
 import { randomUUID } from 'crypto'
 
@@ -337,8 +338,16 @@ export class TransactionBatchSubmitterInbox {
         }
       })
     })
+    let encoded = ''
+    try {
+      const compressedEncoed = await zlibCompressHexString(encodeBlockData)
+      encoded = `${da}${compressType}${batchIndex}${l2Start}${totalElements}${compressedEncoed}`
+    } catch (err) {
+      this.logger.error('Zlib compress error', { err })
+      throw new Error('Zlib compress encode blocks data error!')
+    }
     return {
-      inputData: encodeBlockData,
+      inputData: encoded,
       batch: blocks,
     }
   }
