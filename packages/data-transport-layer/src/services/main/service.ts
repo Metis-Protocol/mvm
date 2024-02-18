@@ -47,6 +47,11 @@ export interface L1DataTransportServiceOptions {
   minioSecretKey?: string
 
   trustedIndexer?: string
+
+  deSeqBlock: number
+  batchInboxAddress: string
+  batchInboxSender: string
+  batchInboxStartIndex: number
 }
 
 const optionSettings = {

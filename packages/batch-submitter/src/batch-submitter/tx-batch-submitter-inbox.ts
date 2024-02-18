@@ -301,7 +301,7 @@ export class TransactionBatchSubmitterInbox {
     nextBatchIndex: number,
     blocks: BatchToInbox
   ): Promise<InboxBatchParams> {
-    // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [32 l1BlockNumber *enqueue*] [32 l1Origin *enqueue*].. } ...]
+    // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [32 l1Origin *enqueue*].. } ...]
     // DA: 0 - L1, 1 - memo, 2 - celestia
     const da = encodeHex(0, 2)
     // Compress Type: 0 - none, 11 - zlib
@@ -312,16 +312,23 @@ export class TransactionBatchSubmitterInbox {
 
     let encodeBlockData = ''
     blocks.forEach((inboxElement: BatchToInboxElement) => {
-      // block encode, [3 txs count] [5 block timestamp]
-      // tx[0], [1 type 0 sequencerTx, 1 enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [32 l1BlockNumber *enqueue*] [32 l1Origin *enqueue*]
+      // block encode, [3 txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0]
+      // tx[0], [1 type 0 sequencerTx, 1 enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [32 l1Origin *enqueue*]
+      // for enqueue, queueIndex can use nonce, so not encode it
       encodeBlockData += encodeHex(inboxElement.txs.length, 6)
       encodeBlockData += encodeHex(inboxElement.timestamp, 10)
 
+      let txIndex = 0
       inboxElement.txs.forEach((inboxTx: BatchToInboxRawTx) => {
         const curTx = inboxTx.rawTransaction
         if (curTx.length % 2 !== 0) {
           throw new Error('Unexpected uneven hex string value!')
         }
+        if (txIndex === 0) {
+          // put l1BlockNumber to block level info
+          encodeBlockData += encodeHex(inboxTx.l1BlockNumber, 64)
+        }
+        txIndex++
         encodeBlockData += encodeHex(inboxTx.isSequencerTx ? 0 : 1, 2)
         encodeBlockData += remove0x(
           BigNumber.from(remove0x(curTx).length / 2).toHexString()
@@ -333,7 +340,6 @@ export class TransactionBatchSubmitterInbox {
           ).padStart(6, '0')
           encodeBlockData += inboxTx.seqSign
         } else {
-          encodeBlockData += encodeHex(inboxTx.l1BlockNumber, 64)
           encodeBlockData += remove0x(inboxTx.l1TxOrigin)
         }
       })

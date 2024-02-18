@@ -59,6 +59,10 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       minioSecretKey: config.str('minio-secret-key'),
       minioUseSsl: config.bool('minio-use-ssl', false),
       trustedIndexer: config.str('trusted-indexer'),
+      deSeqBlock: config.uint('deseqblock', 0),
+      batchInboxAddress: config.str('batch-inbox-address'),
+      batchInboxSender: config.str('batch-inbox-sender'),
+      batchInboxStartIndex: config.uint('batch-inbox-start-index', 0),
     })
 
     const stop = async (signal) => {

@@ -98,6 +98,13 @@ services:
       DATA_TRANSPORT_LAYER__L2_RPC_ENDPOINT: http://l2geth:8545
       DATA_TRANSPORT_LAYER__SYNC_FROM_L2: 'false'
       DATA_TRANSPORT_LAYER__L2_CHAIN_ID: 1088
+      # de-seq-block enables multiple txs per block, both for SYNC_FROM_L1 L2
+      DATA_TRANSPORT_LAYER__DESEQBLOCK: 0
+      # batch inbox to address, used by SYNC_FROM_L1
+      DATA_TRANSPORT_LAYER__BATCH_INBOX_ADDRESS: "0x"
+      DATA_TRANSPORT_LAYER__BATCH_INBOX_SENDER: ""
+       # start batch index
+      DATA_TRANSPORT_LAYER__BATCH_INBOX_START_INDEX: "0"
     ports:
       - ${DTL_PORT:-7878}:7878
     restart: on-failure
@@ -198,6 +205,8 @@ services:
       # EXTERNAL_IP:
       # boot node to discover p2p fastly
       # BOOTNODES:
+      # de-seq-block enables multiple txs per block
+      DESEQBLOCK: 0
     ports:
       - ${L2GETH_HTTP_PORT:-8545}:8545
       - ${L2GETH_WS_PORT:-8546}:8546
@@ -239,6 +248,8 @@ services:
       # EXTERNAL_IP:
       # boot node to discover p2p fastly
       # BOOTNODES:
+      # de-seq-block enables multiple txs per block
+      DESEQBLOCK: 0
     ports:
       - ${L2GETH_HTTP_PORT:-18545}:8545
       - ${L2GETH_WS_PORT:-18546}:8546
@@ -280,6 +291,8 @@ services:
       # EXTERNAL_IP:
       # boot node to discover p2p fastly
       # BOOTNODES:
+      # de-seq-block enables multiple txs per block
+      DESEQBLOCK: 0
     ports:
       - ${L2GETH_HTTP_PORT:-18547}:8545
       - ${L2GETH_WS_PORT:-18548}:8546
@@ -320,6 +333,8 @@ services:
       BLOCK_SIGNER_ADDRESS: "0x00000398232E2064F896018496b4b44b3D62751F"
       SEQSET_VALID_HEIGHT: 35
       SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+      # de-seq-block enables multiple txs per block
+      DESEQBLOCK: 0
     ports:
       - ${L2GETH_HTTP_PORT:-10545}:8545
       - ${L2GETH_WS_PORT:-10546}:8546
@@ -381,6 +396,9 @@ services:
       SEQUENCER_PRIVATE_KEY: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
       # test mpc with chain id 5 http://3.213.188.165:1317
       MPC_URL: ""
+      BATCH_INBOX_ADDRESS: "0x"
+      # start batch index
+      BATCH_INBOX_START_INDEX: "0"
     restart: on-failure
     volumes:
       - /tmp/mvm/batchSubmitter:/data
