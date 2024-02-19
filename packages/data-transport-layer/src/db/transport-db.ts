@@ -14,6 +14,7 @@ import {
   VerifierResultEntry,
   VerifierStakeEntry,
   AppendBatchElementEntry,
+  BlockEntry,
 } from '../types/database-types'
 import { SimpleDB } from './simple-db'
 
@@ -28,12 +29,16 @@ const TRANSPORT_DB_KEYS = {
   UNCONFIRMED_STATE_ROOT: `unconfirmed:stateroot`,
   STATE_ROOT_BATCH: `batch:stateroot`,
   STARTING_L1_BLOCK: `l1:starting`,
+  STARTING_L1_BATCH_INDEX: `l1:batchindex`,
   HIGHEST_L2_BLOCK: `l2:highest`,
   HIGHEST_SYNCED_BLOCK: `synced:highest`,
+  HIGHEST_SYNCED_BATCH_INDEX: `synced:batchindex`,
   VERIFIER_FAILED: `verifier:failed`,
   VERIFIER_SUCCESSFUL: `verifier:successful`,
   MVM_CTC_VERIFIER_STAKE: `mvmctc:verifierstake`,
   MVM_CTC_BATCH_ELEMENT: `mvmctc:batchelement`,
+  BLOCK: `block`,
+  UNCONFIRMED_BLOCK: `unconfirmed:block`,
 }
 
 interface Indexed {
@@ -74,6 +79,16 @@ export class TransportDB {
 
   public async putEnqueueEntries(entries: EnqueueEntry[]): Promise<void> {
     await this._putEntries(TRANSPORT_DB_KEYS.ENQUEUE, entries)
+  }
+
+  public async putBlockEntries(entries: BlockEntry[]): Promise<void> {
+    await this._putEntries(TRANSPORT_DB_KEYS.BLOCK, entries)
+  }
+
+  public async putUnconfirmedBlockEntries(
+    entries: BlockEntry[]
+  ): Promise<void> {
+    await this._putEntries(TRANSPORT_DB_KEYS.UNCONFIRMED_BLOCK, entries)
   }
 
   public async putTransactionEntries(
@@ -197,6 +212,21 @@ export class TransportDB {
 
   public async getEnqueueByIndex(index: number): Promise<EnqueueEntry> {
     return this._getEntryByIndex(TRANSPORT_DB_KEYS.ENQUEUE, index)
+  }
+
+  public async getBlockByIndex(index: number): Promise<BlockEntry> {
+    return this._getEntryByIndex(TRANSPORT_DB_KEYS.BLOCK, index)
+  }
+
+  public async getUnconfirmedBlockByIndex(index: number): Promise<BlockEntry> {
+    return this._getEntryByIndex(TRANSPORT_DB_KEYS.UNCONFIRMED_BLOCK, index)
+  }
+
+  public async getBlocksByIndexRange(
+    start: number,
+    end: number
+  ): Promise<BlockEntry[]> {
+    return this._getEntries(TRANSPORT_DB_KEYS.BLOCK, start, end)
   }
 
   public async getTransactionByIndex(index: number): Promise<TransactionEntry> {
@@ -334,6 +364,25 @@ export class TransportDB {
     ])
   }
 
+  public async getHighestSyncedL1BatchIndex(): Promise<number> {
+    return (
+      (await this.db.get<number>(
+        TRANSPORT_DB_KEYS.HIGHEST_SYNCED_BATCH_INDEX,
+        0
+      )) || 0
+    )
+  }
+
+  public async setHighestSyncedL1BatchIndex(batch: number): Promise<void> {
+    return this.db.put<number>([
+      {
+        key: TRANSPORT_DB_KEYS.HIGHEST_SYNCED_BATCH_INDEX,
+        index: 0,
+        value: batch,
+      },
+    ])
+  }
+
   public async getStartingL1Block(): Promise<number> {
     return this.db.get<number>(TRANSPORT_DB_KEYS.STARTING_L1_BLOCK, 0)
   }
@@ -344,6 +393,20 @@ export class TransportDB {
         key: TRANSPORT_DB_KEYS.STARTING_L1_BLOCK,
         index: 0,
         value: block,
+      },
+    ])
+  }
+
+  public async getStartingL1BatchIndex(): Promise<number> {
+    return this.db.get<number>(TRANSPORT_DB_KEYS.STARTING_L1_BATCH_INDEX, 0)
+  }
+
+  public async setStartingL1BatchIndex(batch: number): Promise<void> {
+    return this.db.put<number>([
+      {
+        key: TRANSPORT_DB_KEYS.STARTING_L1_BATCH_INDEX,
+        index: 0,
+        value: batch,
       },
     ])
   }

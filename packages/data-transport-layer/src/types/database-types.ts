@@ -91,3 +91,11 @@ export interface AppendBatchElementEntry {
   l1BlockNumber: number
   timestamp: number
 }
+
+export interface BlockEntry {
+  index: number
+  batchIndex: number
+  timestamp: number
+  transactions: TransactionEntry[]
+  confirmed: boolean
+}

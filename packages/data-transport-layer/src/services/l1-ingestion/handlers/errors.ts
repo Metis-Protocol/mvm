@@ -1,6 +1,7 @@
 export type EventName =
   | 'TransactionEnqueued'
   | 'SequencerBatchAppended'
+  | 'SequencerBatchInbox'
   | 'StateBatchAppended'
 
 export class MissingElementError extends Error {

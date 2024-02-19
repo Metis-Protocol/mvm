@@ -17,6 +17,7 @@ import {
 import { sleep, toRpcHexString, validators } from '../../utils'
 import { L1DataTransportServiceOptions } from '../main/service'
 import { handleSequencerBlock } from './handlers/transaction'
+import { handleDeSequencerBlock } from './handlers/transaction-deseq'
 
 interface L2IngestionMetrics {
   highestSyncedL2Block: Gauge<string>
@@ -251,17 +252,28 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
     }
 
     for (const block of blocks) {
-      const entry = await handleSequencerBlock.parseBlock(
-        block,
-        this.options.l2ChainId
-      )
       let db = this.state.db
       if (this.options.l2ChainId && this.options.l2ChainId > 0) {
         db = await this.options.dbs.getTransportDbByChainId(
           this.options.l2ChainId
         )
       }
-      await handleSequencerBlock.storeBlock(entry, db)
+      if (
+        this.options.deSeqBlock > 0 &&
+        block.number >= this.options.deSeqBlock
+      ) {
+        const entry = await handleDeSequencerBlock.parseBlock(
+          block,
+          this.options.l2ChainId
+        )
+        await handleDeSequencerBlock.storeBlock(entry, db)
+      } else {
+        const entry = await handleSequencerBlock.parseBlock(
+          block,
+          this.options.l2ChainId
+        )
+        await handleSequencerBlock.storeBlock(entry, db)
+      }
     }
   }
 

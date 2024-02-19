@@ -9,6 +9,7 @@ import {
   StateRootEntry,
   VerifierStakeEntry,
   AppendBatchElementEntry,
+  BlockEntry,
 } from './database-types'
 
 export type TypedEthersEvent<T> = Event & {
@@ -29,12 +30,24 @@ export type ParseEventHandler<TEventArgs, TExtraData, TParsedEvent> = (
 
 export type StoreEventHandler<TParsedEvent> = (
   parsedEvent: TParsedEvent,
-  db: TransportDB
+  db: TransportDB,
+  options?: any
 ) => Promise<void>
 
 export interface EventHandlerSet<TEventArgs, TExtraData, TParsedEvent> {
   getExtraData: GetExtraDataHandler<TEventArgs, TExtraData>
   parseEvent: ParseEventHandler<TEventArgs, TExtraData, TParsedEvent>
+  storeEvent: StoreEventHandler<TParsedEvent>
+}
+
+export type GetExtraDataHandlerAny<TExtraData> = (
+  event?: any,
+  l1RpcProvider?: BaseProvider
+) => Promise<TExtraData>
+
+export interface EventHandlerSetAny<TExtraData, TParsedEvent> {
+  getExtraData: GetExtraDataHandlerAny<TExtraData>
+  parseEvent: ParseEventHandler<any, TExtraData, TParsedEvent>
   storeEvent: StoreEventHandler<TParsedEvent>
 }
 
@@ -57,6 +70,11 @@ export interface SequencerBatchAppendedExtraData {
 export interface SequencerBatchAppendedParsedEvent {
   transactionBatchEntry: TransactionBatchEntry
   transactionEntries: TransactionEntry[]
+}
+
+export interface SequencerBatchInboxParsedEvent {
+  transactionBatchEntry: TransactionBatchEntry
+  blockEntries: BlockEntry[]
 }
 
 export interface StateBatchAppendedExtraData {

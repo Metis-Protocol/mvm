@@ -2,6 +2,7 @@
 import { fromHexString, FallbackProvider } from '@metis.io/core-utils'
 import { BaseService, Metrics } from '@eth-optimism/common-ts'
 import { BaseProvider } from '@ethersproject/providers'
+import { BlockWithTransactions } from '@ethersproject/abstract-provider'
 import { LevelUp } from 'levelup'
 import { constants } from 'ethers'
 import { Gauge, Counter } from 'prom-client'
@@ -19,7 +20,11 @@ import {
   loadContract,
   validators,
 } from '../../utils'
-import { TypedEthersEvent, EventHandlerSet } from '../../types'
+import {
+  TypedEthersEvent,
+  EventHandlerSet,
+  EventHandlerSetAny,
+} from '../../types'
 import { handleEventsTransactionEnqueued } from './handlers/transaction-enqueued'
 import { handleEventsSequencerBatchAppended } from './handlers/sequencer-batch-appended'
 import { handleEventsStateBatchAppended } from './handlers/state-batch-appended'
@@ -27,6 +32,7 @@ import { L1DataTransportServiceOptions } from '../main/service'
 import { MissingElementError } from './handlers/errors'
 import { handleEventsVerifierStake } from './handlers/verifier-stake'
 import { handleEventsAppendBatchElement } from './handlers/append-batch-element'
+import { handleEventsSequencerBatchInbox } from './handlers/sequencer-batch-inbox'
 
 interface L1IngestionMetrics {
   highestSyncedL1Block: Gauge<string>
@@ -108,6 +114,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     contracts: OptimismContracts
     l1RpcProvider: BaseProvider
     startingL1BlockNumber: number
+    startingL1BatchIndex: number
   } = {} as any
 
   protected async _init(): Promise<void> {
@@ -192,6 +199,20 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     this.state.startingL1BlockNumber = startingL1BlockNumber
     await this.state.db.setStartingL1Block(this.state.startingL1BlockNumber)
 
+    // get or set startingL1BatchIndex
+    let startingL1BatchIndex = await this.state.db.getStartingL1BatchIndex()
+    if (startingL1BatchIndex === null || startingL1BatchIndex === undefined) {
+      // get from contract
+      startingL1BatchIndex =
+        await this.state.contracts.CanonicalTransactionChain.getTotalBatchesByChainId(
+          this.options.l2ChainId
+        )
+      this.state.startingL1BatchIndex = startingL1BatchIndex
+      await this.state.db.setStartingL1BatchIndex(
+        this.state.startingL1BatchIndex
+      )
+    }
+
     // Store the total number of submitted transactions so the server can tell clients if we're
     // done syncing or not
     const totalElements =
@@ -223,9 +244,32 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           continue
         }
 
+        const highestSyncedL1BatchIndex =
+          (await this.state.db.getHighestSyncedL1BatchIndex()) ||
+          this.state.startingL1BatchIndex
+
+        const inboxAddress = this.options.batchInboxAddress
+        const inboxBatchStart = this.options.batchInboxStartIndex
+        const inboxSender = this.options.batchInboxSender
+        const useBatchInbox =
+          inboxAddress &&
+          inboxAddress.length === 42 &&
+          inboxAddress.startsWith('0x') &&
+          inboxSender &&
+          inboxSender.length === 42 &&
+          inboxSender.startsWith('0x') &&
+          inboxBatchStart > 0 &&
+          highestSyncedL1BatchIndex > 0 &&
+          inboxBatchStart <= highestSyncedL1BatchIndex + 1
+
         this.logger.info('Synchronizing events from Layer 1 (Ethereum)', {
           highestSyncedL1Block,
           targetL1Block,
+          highestSyncedL1BatchIndex,
+          inboxAddress,
+          inboxSender,
+          inboxBatchStart,
+          useBatchInbox,
         })
 
         // I prefer to do this in serial to avoid non-determinism. We could have a discussion about
@@ -239,13 +283,39 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           handleEventsTransactionEnqueued
         )
 
-        await this._syncEvents(
-          'CanonicalTransactionChain',
-          'SequencerBatchAppended',
-          highestSyncedL1Block,
-          targetL1Block,
-          handleEventsSequencerBatchAppended
-        )
+        if (!useBatchInbox) {
+          await this._syncEvents(
+            'CanonicalTransactionChain',
+            'SequencerBatchAppended',
+            highestSyncedL1Block,
+            targetL1Block,
+            handleEventsSequencerBatchAppended
+          )
+
+          await this._syncEvents(
+            'Proxy__MVM_CanonicalTransaction',
+            'VerifierStake',
+            highestSyncedL1Block,
+            targetL1Block,
+            handleEventsVerifierStake
+          )
+
+          await this._syncEvents(
+            'Proxy__MVM_CanonicalTransaction',
+            'AppendBatchElement',
+            highestSyncedL1Block,
+            targetL1Block,
+            handleEventsAppendBatchElement
+          )
+        } else {
+          // TODO handleEvents
+          await this._syncInboxBatch(
+            highestSyncedL1Block,
+            targetL1Block,
+            highestSyncedL1BatchIndex,
+            handleEventsSequencerBatchInbox
+          )
+        }
 
         await this._syncEvents(
           'StateCommitmentChain',
@@ -253,22 +323,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           highestSyncedL1Block,
           targetL1Block,
           handleEventsStateBatchAppended
-        )
-
-        await this._syncEvents(
-          'Proxy__MVM_CanonicalTransaction',
-          'VerifierStake',
-          highestSyncedL1Block,
-          targetL1Block,
-          handleEventsVerifierStake
-        )
-
-        await this._syncEvents(
-          'Proxy__MVM_CanonicalTransaction',
-          'AppendBatchElement',
-          highestSyncedL1Block,
-          targetL1Block,
-          handleEventsAppendBatchElement
         )
 
         await this.state.db.setHighestSyncedL1Block(targetL1Block)
@@ -288,15 +342,19 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           })
 
           // Different functions for getting the last good element depending on the event type.
+          // Should bind to chain db
+          const dbL2ChainId = await this.options.dbs.getTransportDbByChainId(
+            this.options.l2ChainId
+          )
           const handlers = {
             SequencerBatchAppended:
-              this.state.db.getLatestTransactionBatch.bind(this.state.db),
-            StateBatchAppended: this.state.db.getLatestStateRootBatch.bind(
-              this.state.db
-            ),
-            TransactionEnqueued: this.state.db.getLatestEnqueue.bind(
-              this.state.db
-            ),
+              this.state.db.getLatestTransactionBatch.bind(dbL2ChainId),
+            SequencerBatchInbox:
+              this.state.db.getLatestTransactionBatch.bind(dbL2ChainId),
+            StateBatchAppended:
+              this.state.db.getLatestStateRootBatch.bind(dbL2ChainId),
+            TransactionEnqueued:
+              this.state.db.getLatestEnqueue.bind(dbL2ChainId),
           }
 
           // Find the last good element and reset the highest synced L1 block to go back to the
@@ -347,6 +405,114 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
         } else {
           throw err
         }
+      }
+    }
+  }
+
+  private async _syncInboxBatch(
+    fromL1Block: number,
+    toL1Block: number,
+    highestSyncedL1BatchIndex: number,
+    handlers: EventHandlerSetAny<any, any>
+  ): Promise<void> {
+    let blockPromises = []
+    for (let i = fromL1Block; i <= toL1Block; i++) {
+      blockPromises.push(this.state.l1RpcProvider.getBlockWithTransactions(i))
+    }
+
+    // Just making sure that the blocks will come back in increasing order.
+    let blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
+
+    const extraDatas: any[] = []
+    let minBatchIndex = 0
+    let maxBatchIndex = 0
+    let shouldLoopBlocks = true
+    let fromBlockLoop = fromL1Block
+    while (shouldLoopBlocks) {
+      const blocksReversed = blocks.reverse()
+      for (const block of blocksReversed) {
+        for (const tx of block.transactions) {
+          if (
+            tx.to === this.options.batchInboxAddress &&
+            tx.from === this.options.batchInboxSender &&
+            tx.data.length >= 140
+          ) {
+            // verfiy data
+            const makeEvent = {
+              transaction: tx,
+              block,
+            }
+            try {
+              const extraData = await handlers.getExtraData(
+                makeEvent,
+                this.state.l1RpcProvider
+              )
+              const batchIndex = extraData.batchIndex
+              // do not save when found
+              if (batchIndex <= highestSyncedL1BatchIndex) {
+                break
+              }
+              // this means submit batches with lower index, ignore
+              if (maxBatchIndex !== 0 && batchIndex >= maxBatchIndex) {
+                break
+              }
+              // duplicate batch
+              if (minBatchIndex !== 0 && batchIndex >= minBatchIndex) {
+                break
+              }
+              minBatchIndex = batchIndex
+              if (maxBatchIndex === 0) {
+                maxBatchIndex = batchIndex
+              }
+              extraDatas.push(extraData)
+            } catch (err) {
+              this.logger.warn('Verify inbox batch failed:', {
+                tx,
+              })
+            }
+          }
+        }
+      }
+      if (
+        fromBlockLoop <= this.options.l1StartHeight ||
+        minBatchIndex === 0 ||
+        minBatchIndex <= highestSyncedL1BatchIndex + 1
+      ) {
+        shouldLoopBlocks = false
+        break
+      }
+
+      // reload prevent blocks, this may happend when CTC update to Inbox
+      blockPromises = []
+      const toBlockLoop = fromBlockLoop
+      fromBlockLoop = Math.max(
+        fromL1Block - this.options.logsPerPollingInterval,
+        this.options.l1StartHeight
+      )
+      for (let i = fromBlockLoop; i <= toBlockLoop; i++) {
+        blockPromises.push(this.state.l1RpcProvider.getBlockWithTransactions(i))
+      }
+      blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
+    }
+    if (extraDatas.length > 0) {
+      const db = await this.options.dbs.getTransportDbByChainId(
+        this.options.l2ChainId
+      )
+      const extraDatasReversed = extraDatas.reverse()
+      const tick = Date.now()
+      for (const extraData of extraDatasReversed) {
+        const parsedEvent = await handlers.parseEvent(
+          null,
+          extraData,
+          this.options.l2ChainId,
+          this.options
+        )
+        this.logger.info('Storing Inbox Batch:', {
+          chainId: this.options.l2ChainId,
+          parsedEvent,
+        })
+        await handlers.storeEvent(parsedEvent, db, this.options)
+        await this.state.db.setHighestSyncedL1BatchIndex(extraData.batchIndex)
       }
     }
   }
