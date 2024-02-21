@@ -21,6 +21,8 @@ import {
   SyncingResponse,
   TransactionBatchResponse,
   TransactionResponse,
+  BlockBatchResponse,
+  BlockResponse,
   VerifierResultResponse,
   VerifierResultEntry,
   VerifierStakeResponse,
@@ -256,6 +258,24 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
     }
     return db
   }
+
+  private useBatchInbox(batchIndex: number): boolean {
+    const inboxAddress = this.options.batchInboxAddress
+    const inboxBatchStart = this.options.batchInboxStartIndex
+    const inboxSender = this.options.batchInboxSender
+    const useBatchInbox =
+      inboxAddress &&
+      inboxAddress.length === 42 &&
+      inboxAddress.startsWith('0x') &&
+      inboxSender &&
+      inboxSender.length === 42 &&
+      inboxSender.startsWith('0x') &&
+      inboxBatchStart > 0 &&
+      batchIndex > 0 &&
+      inboxBatchStart <= batchIndex + 1
+    return useBatchInbox
+  }
+
   /**
    * Registers all of the server routes we want to expose.
    * TODO: Link to our API spec.
@@ -542,6 +562,10 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
           }
         }
 
+        if (this.useBatchInbox(batch.index)) {
+          throw new Error('USE_INBOX_BATCH_INDEX')
+        }
+
         const transactions = await db.getFullTransactionsByIndexRange(
           BigNumber.from(batch.prevTotalElements).toNumber(),
           BigNumber.from(batch.prevTotalElements).toNumber() +
@@ -561,6 +585,11 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       async (req): Promise<TransactionBatchResponse> => {
         const chainId = BigNumber.from(req.params.chainId).toNumber()
         const db = await this._getDb(chainId)
+
+        if (this.useBatchInbox(BigNumber.from(req.params.index).toNumber())) {
+          throw new Error('USE_INBOX_BATCH_INDEX')
+        }
+
         const batch = await db.getTransactionBatchByIndex(
           BigNumber.from(req.params.index).toNumber()
         )
@@ -581,6 +610,151 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
         return {
           batch,
           transactions,
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/block/latest/:chainId',
+      async (req): Promise<BlockResponse> => {
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
+
+        const backend = req.query.backend || this.options.defaultBackend
+        let block = null
+
+        switch (backend) {
+          case 'l1':
+            block = await db.getLatestBlock()
+            break
+          case 'l2':
+            block = await db.getLatestUnconfirmedBlock()
+            break
+          default:
+            throw new Error(`Unknown transaction backend ${backend}`)
+        }
+
+        if (block === null) {
+          return {
+            block: null,
+            batch: null,
+          }
+        }
+
+        const batch = await db.getTransactionBatchByIndex(block.batchIndex)
+
+        return {
+          block,
+          batch,
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/block/index/:index/:chainId',
+      async (req): Promise<BlockResponse> => {
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
+
+        const backend = req.query.backend || this.options.defaultBackend
+        let block = null
+
+        switch (backend) {
+          case 'l1':
+            block = await db.getBlockByIndex(
+              BigNumber.from(req.params.index).toNumber()
+            )
+            break
+          case 'l2':
+            block = await db.getUnconfirmedBlockByIndex(
+              BigNumber.from(req.params.index).toNumber()
+            )
+            break
+          default:
+            throw new Error(`Unknown block backend ${backend}`)
+        }
+
+        if (block === null) {
+          return {
+            block: null,
+            batch: null,
+          }
+        }
+
+        const batch = await db.getTransactionBatchByIndex(block.batchIndex)
+
+        return {
+          block,
+          batch,
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/batch/block/latest/:chainId',
+      async (req): Promise<BlockBatchResponse> => {
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
+        const batch = await db.getLatestTransactionBatch()
+
+        if (batch === null) {
+          return {
+            batch: null,
+            blocks: [],
+          }
+        }
+
+        if (!this.useBatchInbox(batch.index)) {
+          throw new Error('BELOW_INBOX_BATCH_INDEX')
+        }
+
+        const blocks = await db.getBlocksByIndexRange(
+          BigNumber.from(batch.prevTotalElements).toNumber(),
+          BigNumber.from(batch.prevTotalElements).toNumber() +
+            BigNumber.from(batch.size).toNumber()
+        )
+
+        return {
+          batch,
+          blocks,
+        }
+      }
+    )
+
+    this._registerRoute(
+      'get',
+      '/batch/block/index/:index/:chainId',
+      async (req): Promise<BlockBatchResponse> => {
+        const chainId = BigNumber.from(req.params.chainId).toNumber()
+        const db = await this._getDb(chainId)
+
+        if (!this.useBatchInbox(BigNumber.from(req.params.index).toNumber())) {
+          throw new Error('BELOW_INBOX_BATCH_INDEX')
+        }
+
+        const batch = await db.getTransactionBatchByIndex(
+          BigNumber.from(req.params.index).toNumber()
+        )
+
+        if (batch === null) {
+          return {
+            batch: null,
+            blocks: [],
+          }
+        }
+
+        const blocks = await db.getBlocksByIndexRange(
+          BigNumber.from(batch.prevTotalElements).toNumber(),
+          BigNumber.from(batch.prevTotalElements).toNumber() +
+            BigNumber.from(batch.size).toNumber()
+        )
+
+        return {
+          batch,
+          blocks,
         }
       }
     )

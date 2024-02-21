@@ -649,6 +649,9 @@ func (s *SyncService) syncTransactionsToTip() error {
 		return s.syncTransactions(s.backend)
 	}
 	check := func() (*uint64, error) {
+		if rcfg.DeSeqBlock > 0 && s.bc.CurrentBlock().NumberU64() >= rcfg.DeSeqBlock {
+			return s.client.GetLatestBlockIndex(s.backend)
+		}
 		return s.client.GetLatestTransactionIndex(s.backend)
 	}
 	if err := s.syncToTip(sync, check); err != nil {
@@ -934,6 +937,67 @@ func (s *SyncService) GetNextBatchIndex() uint64 {
 func (s *SyncService) SetLatestBatchIndex(index *uint64) {
 	if index != nil {
 		rawdb.WriteHeadBatchIndex(s.db, *index)
+	}
+}
+
+// applyBlock is a higher level API for applying a block
+func (s *SyncService) applyBlock(block *types.Block) error {
+	if block == nil || len(block.Transactions()) == 0 {
+		return nil
+	}
+	s.applyLock.Lock()
+	defer s.applyLock.Unlock()
+	txs := block.Transactions()
+	log.Info("start to applyBlock", "tx0", txs[0].Hash().Hex())
+	index := block.NumberU64() - 1
+	next := s.GetNextIndex()
+	if index > next {
+		return fmt.Errorf("Received block at index %d when looking for %d", index, next)
+	}
+	if index < next {
+		log.Trace("applyHistoricalBlock", "index", index, "next", next)
+		blockLocal := s.bc.GetBlockByNumber(index + 1)
+		if blockLocal == nil {
+			return fmt.Errorf("Block %d is not found", index+1)
+		}
+		txsLocal := blockLocal.Transactions()
+		if len(txsLocal) != len(txs) {
+			return fmt.Errorf("Not equals transaction length found in block %d, local length %d, dtl remote length %d", index+1, len(txsLocal), len(txs))
+		}
+		if !isCtcTxEqual(txs[0], txsLocal[0]) {
+			log.Error("Mismatched transaction 0", "index", index)
+		} else {
+			log.Debug("Historical transaction matches", "index", index, "hash local", txsLocal[0].Hash().Hex(), "hash remote", txs[0].Hash().Hex())
+		}
+		return nil
+	}
+
+	// TODO verify sequencer sign of txs[0]
+
+	sender, _ := types.Sender(s.signer, txs[0])
+	owner := s.GasPriceOracleOwnerAddress()
+	// send to handle the new tx
+	s.txFeed.Send(core.NewTxsEvent{
+		Txs:   txs,
+		ErrCh: nil,
+	})
+	// Block until the transaction has been added to the chain
+	log.Trace("Waiting for block transactions to be added to chain", "hash tx0", txs[0].Hash().Hex())
+	select {
+	case txApplyErr := <-s.txApplyErrCh:
+		log.Error("Got error when added block txs to chain", "err", txApplyErr)
+		return txApplyErr
+	case <-s.chainHeadCh:
+		// Update the cache when the transaction is from the owner
+		// of the gas price oracle
+		if owner != nil && sender == *owner {
+			if err := s.updateGasPriceOracleCache(nil); err != nil {
+				log.Error("chainHeadCh got applyBlock finish but update gasPriceOracleCache failed", "current latest", *s.GetLatestIndex())
+				return err
+			}
+		}
+		log.Info("chainHeadCh got applyBlock finish", "current latest", *s.GetLatestIndex())
+		return nil
 	}
 }
 
@@ -1768,14 +1832,57 @@ func (s *SyncService) syncBatches() (*uint64, error) {
 	return index, nil
 }
 
+func (s *SyncService) syncBlockBatch(index uint64) error {
+	batch, blocks, err := s.client.GetBlockBatch(index)
+	if err != nil {
+		return err
+	}
+	next := s.GetNextIndex()
+	for _, block := range blocks {
+		index := block.NumberU64() - 1
+		if index < next {
+			log.Info("Block indexed, continue", "index", index)
+			continue
+		}
+		if err := s.applyBlock(block); err != nil {
+			return fmt.Errorf("cannot apply batched block: %w", err)
+		}
+		// verifier stateroot of txs[0]
+		txIndex, stateRoot, verifierRoot, err := s.verifyStateRoot(block.Transactions()[0], batch.Root)
+		if err != nil {
+			// report to dtl success=false
+			s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, false)
+			return err
+		}
+		// report to dtl success=true
+		s.client.SetLastVerifier(txIndex, stateRoot, verifierRoot, true)
+	}
+	s.SetLatestBatchIndex(&index)
+	return nil
+}
+
 // syncTransactionBatchRange will sync a range of batched transactions from
 // start to end (inclusive)
 func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 	log.Info("Syncing transaction batch range", "start", start, "end", end)
 	for i := start; i <= end; i++ {
+		if rcfg.DeSeqBlock > 0 && s.bc.CurrentBlock().NumberU64() >= rcfg.DeSeqBlock {
+			err := s.syncBlockBatch(i)
+			if err != nil {
+				return fmt.Errorf("Cannot get block batch: %w", err)
+			}
+			continue
+		}
 		log.Debug("Fetching transaction batch", "index", i)
 		batch, txs, err := s.client.GetTransactionBatch(i)
 		if err != nil {
+			if strings.Contains(err.Error(), "USE_INBOX_BATCH_INDEX") {
+				err := s.syncBlockBatch(i)
+				if err != nil {
+					return fmt.Errorf("Cannot get block batch: %w", err)
+				}
+				continue
+			}
 			return fmt.Errorf("Cannot get transaction batch: %w", err)
 		}
 		next := s.GetNextIndex()
@@ -1893,14 +2000,25 @@ func (s *SyncService) syncTransactions(backend Backend) (*uint64, error) {
 // syncTransactionRange will sync a range of transactions from
 // start to end (inclusive) from a specific Backend
 func (s *SyncService) syncTransactionRange(start, end uint64, backend Backend) error {
-	log.Info("Syncing transaction range", "start", start, "end", end, "backend", backend.String())
+	log.Info("Syncing transaction or block range", "start", start, "end", end, "backend", backend.String())
 	for i := start; i <= end; i++ {
-		tx, err := s.client.GetTransaction(i, backend)
-		if err != nil {
-			return fmt.Errorf("cannot fetch transaction %d: %w", i, err)
-		}
-		if err := s.applyTransaction(tx, true); err != nil {
-			return fmt.Errorf("Cannot apply transaction: %w", err)
+		// i + 1 equals the next block number
+		if rcfg.DeSeqBlock > 0 && i+1 >= rcfg.DeSeqBlock {
+			block, err := s.client.GetBlock(i, s.backend)
+			if err != nil {
+				return fmt.Errorf("cannot fetch block %d: %w", i, err)
+			}
+			if err := s.applyBlock(block); err != nil {
+				return fmt.Errorf("Cannot apply block: %w", err)
+			}
+		} else {
+			tx, err := s.client.GetTransaction(i, backend)
+			if err != nil {
+				return fmt.Errorf("cannot fetch transaction %d: %w", i, err)
+			}
+			if err := s.applyTransaction(tx, true); err != nil {
+				return fmt.Errorf("Cannot apply transaction: %w", err)
+			}
 		}
 	}
 	return nil

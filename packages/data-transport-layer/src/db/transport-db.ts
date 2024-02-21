@@ -297,6 +297,14 @@ export class TransportDB {
     return this._getLatestEntry(TRANSPORT_DB_KEYS.TRANSACTION_BATCH)
   }
 
+  public async getLatestBlock(): Promise<BlockEntry> {
+    return this._getLatestEntry(TRANSPORT_DB_KEYS.BLOCK)
+  }
+
+  public async getLatestUnconfirmedBlock(): Promise<BlockEntry> {
+    return this._getLatestEntry(TRANSPORT_DB_KEYS.UNCONFIRMED_BLOCK)
+  }
+
   public async getLatestStateRoot(): Promise<StateRootEntry> {
     return this._getLatestEntry(TRANSPORT_DB_KEYS.STATE_ROOT)
   }

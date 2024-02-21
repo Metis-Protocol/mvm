@@ -194,6 +194,8 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
           transactionEntry.queueIndex = BigNumber.from(decoded.nonce).toNumber()
           transactionEntry.queueOrigin = 'l1'
           transactionEntry.value = '0x0'
+          // reset to null, looks like rollup client use it
+          transactionEntry.decoded = null
         }
         blockEntry.transactions.push(transactionEntry)
       }

@@ -116,6 +116,17 @@ type decoded struct {
 	Data      hexutil.Bytes   `json:"data"`
 }
 
+// block represents the return result of the remote server.
+// It either came from a batch or was replicated from the sequencer.
+// It is used after DeSeqBlock
+type block struct {
+	Index        uint64         `json:"index"`
+	BatchIndex   uint64         `json:"batchIndex"`
+	Timestamp    uint64         `json:"timestamp"`
+	Transactions []*transaction `json:"transactions"`
+	Confirmed    bool           `json:"confirmed"`
+}
+
 // RollupClient is able to query for information
 // that is required by the SyncService
 type RollupClient interface {
@@ -135,6 +146,13 @@ type RollupClient interface {
 	SyncStatus(Backend) (*SyncStatus, error)
 	GetStateRoot(index uint64) (common.Hash, error)
 	SetLastVerifier(index uint64, stateRoot string, verifierRoot string, success bool) error
+	GetRawBlock(uint64, Backend) (*BlockResponse, error)
+	GetBlock(uint64, Backend) (*types.Block, error)
+	GetLatestBlock(Backend) (*types.Block, error)
+	GetLatestBlockIndex(Backend) (*uint64, error)
+	GetLatestBlockBatch() (*Batch, []*types.Block, error)
+	GetLatestBlockBatchIndex() (*uint64, error)
+	GetBlockBatch(uint64) (*Batch, []*types.Block, error)
 }
 
 // Client is an HTTP based RollupClient
@@ -156,6 +174,20 @@ type TransactionResponse struct {
 type TransactionBatchResponse struct {
 	Batch        *Batch         `json:"batch"`
 	Transactions []*transaction `json:"transactions"`
+}
+
+// TransactionResponse represents the response from the remote server when
+// querying transactions.
+type BlockResponse struct {
+	Block *block `json:"block"`
+	Batch *Batch `json:"batch"`
+}
+
+// TransactionBatchResponse represents the response from the remote server
+// when querying batches.
+type BlockBatchResponse struct {
+	Batch  *Batch   `json:"batch"`
+	Blocks []*block `json:"blocks"`
 }
 
 type stateRoot struct {
@@ -343,6 +375,27 @@ func (c *Client) GetLatestTransactionBatchIndex() (*uint64, error) {
 	}
 	index := batch.Index
 	return &index, nil
+}
+
+// batchedBlockToBlock converts a block into a types.Block
+func batchedBlockToBlock(res *block, signerChain *types.EIP155Signer) (*types.Block, error) {
+	if res == nil || len(res.Transactions) == 0 {
+		return nil, errElementNotFound
+	}
+	header := &types.Header{
+		Time:   res.Timestamp,
+		Number: big.NewInt(int64(res.Index + 1)),
+	}
+	var transactions []*types.Transaction
+	for _, tx := range res.Transactions {
+		transaction, err := batchedTransactionToTransaction(tx, signerChain)
+		if err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, transaction)
+	}
+	block := types.NewBlock(header, transactions, nil, nil)
+	return block, nil
 }
 
 // batchedTransactionToTransaction converts a transaction into a
@@ -722,4 +775,142 @@ func (c *Client) SetLastVerifier(index uint64, stateRoot string, verifierRoot st
 		return fmt.Errorf("Cannot set last verifier %d: %w", index, err)
 	}
 	return nil
+}
+
+// GetRawBlock will get a block with transactions by inbox batch index
+func (c *Client) GetRawBlock(index uint64, backend Backend) (*BlockResponse, error) {
+	str := strconv.FormatUint(index, 10)
+	response, err := c.client.R().
+		SetPathParams(map[string]string{
+			"index":   str,
+			"chainId": c.chainID,
+		}).
+		SetQueryParams(map[string]string{
+			"backend": backend.String(),
+		}).
+		SetResult(&BlockResponse{}).
+		Get("/block/index/{index}/{chainId}")
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch block: %w", err)
+	}
+	res, ok := response.Result().(*BlockResponse)
+	if !ok {
+		return nil, fmt.Errorf("could not get tx with index %d", index)
+	}
+	return res, nil
+}
+
+// GetBlock will get a block with transactions by inbox batch index
+func (c *Client) GetBlock(index uint64, backend Backend) (*types.Block, error) {
+	res, err := c.GetRawBlock(index, backend)
+	if err != nil {
+		return nil, err
+	}
+	return batchedBlockToBlock(res.Block, c.signer)
+}
+
+// GetLatestBlock will get the latest transaction, meaning the transaction
+// with the greatest Canonical Transaction Chain index
+func (c *Client) GetLatestBlock(backend Backend) (*types.Block, error) {
+	response, err := c.client.R().
+		SetPathParams(map[string]string{
+			"chainId": c.chainID,
+		}).
+		SetResult(&BlockResponse{}).
+		SetQueryParams(map[string]string{
+			"backend": backend.String(),
+		}).
+		Get("/block/latest/{chainId}")
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch latest block: %w", err)
+	}
+	res, ok := response.Result().(*BlockResponse)
+	if !ok {
+		return nil, errors.New("Cannot get latest block")
+	}
+
+	return batchedBlockToBlock(res.Block, c.signer)
+}
+
+// GetLatestBlockIndex returns the latest inbox batch
+// submitted or not, depending on the backend
+// the index keeps the same rule as CTC tx index (blockNumber - 1)
+func (c *Client) GetLatestBlockIndex(backend Backend) (*uint64, error) {
+	block, err := c.GetLatestBlock(backend)
+	if err != nil {
+		return nil, err
+	}
+
+	index := block.NumberU64() - 1
+	return &index, nil
+}
+
+// GetLatestBlockBatch will return the latest block batch
+func (c *Client) GetLatestBlockBatch() (*Batch, []*types.Block, error) {
+	response, err := c.client.R().
+		SetPathParams(map[string]string{
+			"chainId": c.chainID,
+		}).
+		SetResult(&BlockBatchResponse{}).
+		Get("/batch/block/latest/{chainId}")
+
+	if err != nil {
+		return nil, nil, errors.New("Cannot get latest block batch")
+	}
+	txBatch, ok := response.Result().(*BlockBatchResponse)
+	if !ok {
+		return nil, nil, fmt.Errorf("Cannot parse block batch response")
+	}
+	return parseBlockBatchResponse(txBatch, c.signer)
+}
+
+// GetBlockBatch will return the block batch by batch index
+func (c *Client) GetBlockBatch(index uint64) (*Batch, []*types.Block, error) {
+	str := strconv.FormatUint(index, 10)
+	response, err := c.client.R().
+		SetResult(&BlockBatchResponse{}).
+		SetPathParams(map[string]string{
+			"index":   str,
+			"chainId": c.chainID,
+		}).
+		Get("/batch/block/index/{index}/{chainId}")
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("Cannot get block batch %d: %w", index, err)
+	}
+	blockBatch, ok := response.Result().(*BlockBatchResponse)
+	if !ok {
+		return nil, nil, fmt.Errorf("Cannot parse block batch response")
+	}
+	return parseBlockBatchResponse(blockBatch, c.signer)
+}
+
+// parseBlockBatchResponse will turn a BlockBatchResponse into a
+// Batch and its corresponding types.Transactions
+func parseBlockBatchResponse(blockBatch *BlockBatchResponse, signer *types.EIP155Signer) (*Batch, []*types.Block, error) {
+	if blockBatch == nil || blockBatch.Batch == nil {
+		return nil, nil, errElementNotFound
+	}
+	batch := blockBatch.Batch
+	blocks := make([]*types.Block, len(blockBatch.Blocks))
+	for i, block := range blockBatch.Blocks {
+		blockNew, err := batchedBlockToBlock(block, signer)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Cannot parse block batch: %w", err)
+		}
+		blocks[i] = blockNew
+	}
+	return batch, blocks, nil
+}
+
+// GetLatestBlockBatchIndex returns the latest block batch index
+func (c *Client) GetLatestBlockBatchIndex() (*uint64, error) {
+	batch, _, err := c.GetLatestBlockBatch()
+	if err != nil {
+		return nil, err
+	}
+	index := batch.Index
+	return &index, nil
 }

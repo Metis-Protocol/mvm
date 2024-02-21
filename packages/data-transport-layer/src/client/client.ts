@@ -14,6 +14,8 @@ import {
   SyncingResponse,
   TransactionBatchResponse,
   TransactionResponse,
+  BlockBatchResponse,
+  BlockResponse,
   VerifierResultResponse,
   VerifierStakeResponse,
 } from '../types'
@@ -58,6 +60,24 @@ export class L1DataTransportClient {
 
   public async getLatestTransactionBatch(): Promise<TransactionBatchResponse> {
     return this._get(`/batch/transaction/latest/${this._chainId}`)
+  }
+
+  public async getBlockByIndex(index: number): Promise<BlockResponse> {
+    return this._get(`/block/index/${index}/${this._chainId}`)
+  }
+
+  public async getLatestBlock(): Promise<BlockResponse> {
+    return this._get(`/block/latest/${this._chainId}`)
+  }
+
+  public async getBlockBatchByIndex(
+    index: number
+  ): Promise<BlockBatchResponse> {
+    return this._get(`/batch/block/index/${index}/${this._chainId}`)
+  }
+
+  public async getLatestBlockBatch(): Promise<BlockBatchResponse> {
+    return this._get(`/batch/block/latest/${this._chainId}`)
   }
 
   public async getStateRootByIndex(index: number): Promise<StateRootResponse> {

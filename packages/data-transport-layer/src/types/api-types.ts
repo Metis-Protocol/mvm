@@ -7,6 +7,7 @@ import {
   VerifierResultEntry,
   VerifierStakeEntry,
   AppendBatchElementEntry,
+  BlockEntry,
 } from './database-types'
 
 export type EnqueueResponse = EnqueueEntry & {
@@ -21,6 +22,16 @@ export interface TransactionResponse {
 export interface TransactionBatchResponse {
   batch: TransactionBatchEntry
   transactions: TransactionEntry[]
+}
+
+export interface BlockResponse {
+  batch: TransactionBatchEntry
+  block: BlockEntry
+}
+
+export interface BlockBatchResponse {
+  batch: TransactionBatchEntry
+  blocks: BlockEntry[]
 }
 
 export interface StateRootResponse {
