@@ -227,10 +227,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // batch index start from config
     const batchIndexStart = BigNumber.from(this.inboxStartIndex).toNumber()
     // current batch index from CTC contract
-    const batchIndexCtcNext =
-      (
-        await this.chainContract.getTotalBatchesByChainId(this.l2ChainId)
-      ).toNumber() + 1
+    const batchIndexCtcNext = (
+      await this.chainContract.getTotalBatchesByChainId(this.l2ChainId)
+    ).toNumber()
     const localInboxRecord = await this.inboxStorage.getLatestConfirmedTx()
     const useBatchInbox =
       this.inboxAddress &&
@@ -347,10 +346,25 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         this.metrics,
         this.signer,
         this.mpcUrl,
-        this._shouldSubmitBatch,
+        (sizeInBytes: number): boolean => {
+          return this._shouldSubmitBatch(sizeInBytes)
+        },
         this.transactionSubmitter,
         this._makeHooks('sendBatchToInbox'),
-        this._submitAndLogTx
+        (
+          submitTransaction: () => Promise<TransactionReceipt>,
+          successMessage: string,
+          callback?: (
+            receipt: TransactionReceipt | null,
+            err: any
+          ) => Promise<boolean>
+        ): Promise<TransactionReceipt> => {
+          return this._submitAndLogTx(
+            submitTransaction,
+            successMessage,
+            callback
+          )
+        }
       )
     }
 

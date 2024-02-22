@@ -377,7 +377,7 @@ export class TransactionBatchSubmitterInbox {
         rawTransaction: l2Tx.rawTransaction,
         isSequencerTx: this._isSequencerTx(l2Tx),
         seqSign: '',
-        l1BlockNumber: null,
+        l1BlockNumber: l2Tx.l1BlockNumber,
         l1TxOrigin: null,
       }
       if (batchElementTx.isSequencerTx) {
@@ -404,7 +404,6 @@ export class TransactionBatchSubmitterInbox {
           batchElementTx.seqSign = `${r}${s}${v}`
         }
       } else {
-        batchElementTx.l1BlockNumber = l2Tx.l1BlockNumber
         batchElementTx.l1TxOrigin = l2Tx.l1TxOrigin
       }
       batchElement.txs.push(batchElementTx)

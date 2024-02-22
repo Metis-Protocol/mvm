@@ -19,10 +19,11 @@ const deployFn: DeployFunction = async (hre) => {
     }
   )
 
+  // if use minio DA, register this as contract.address, else use ovmSequencerAddress
   await registerAddress({
     hre,
     name: (hre as any).deployConfig.l2chainid + '_MVM_Sequencer',
-    address: contract.address,
+    address: (hre as any).deployConfig.ovmSequencerAddress,
   })
 
   // L2CrossDomainMessenger is the address of the predeploy on L2. We can refactor off-chain

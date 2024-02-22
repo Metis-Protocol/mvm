@@ -54,7 +54,8 @@ var (
 	bloomBitsPrefix = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	// Optimism specific
-	txMetaPrefix = []byte("x") // txMetaPrefix + hash -> transaction metadata
+	txMetaPrefix     = []byte("x")  // txMetaPrefix + hash -> transaction metadata
+	txMetaPrefixHash = []byte("xm") // txMetaPrefix + hash -> transaction metadata
 
 	// headIndexKey tracks the last processed ctc index
 	headIndexKey = []byte("LastIndex")
@@ -162,6 +163,11 @@ func txLookupKey(hash common.Hash) []byte {
 // txMetaKey = txMetaPrefix + num (uint64 big endian)
 func txMetaKey(number uint64) []byte {
 	return append(txMetaPrefix, encodeBlockNumber(number)...)
+}
+
+// txMetaKey = txMetaPrefix + hash
+func txMetaKeyHash(hash common.Hash) []byte {
+	return append(txMetaPrefixHash, hash.Bytes()...)
 }
 
 // bloomBitsKey = bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash

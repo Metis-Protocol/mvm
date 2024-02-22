@@ -84,13 +84,19 @@ func ReadTransaction(db ethdb.Reader, hash common.Hash) (*types.Transaction, com
 		log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash)
 		return nil, common.Hash{}, 0, 0
 	}
+	txsCount := len(body.Transactions)
 	for txIndex, tx := range body.Transactions {
 		if tx.Hash() == hash {
 			// UsingOVM
 			// Read the transaction meta from the database and attach it
 			// to the transaction. Since there is 1 transaction per block, the
 			// blocknumber is used as the key.
-			txMeta := ReadTransactionMeta(db, *blockNumber)
+			var txMeta *types.TransactionMeta
+			if txsCount == 1 {
+				txMeta = ReadTransactionMeta(db, *blockNumber)
+			} else {
+				txMeta = ReadTransactionMetaHash(db, hash)
+			}
 			if txMeta != nil {
 				tx.SetTransactionMeta(txMeta)
 			}

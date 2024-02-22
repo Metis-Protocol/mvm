@@ -109,7 +109,7 @@ services:
       - ${DTL_PORT:-7878}:7878
     restart: on-failure
     volumes:
-      - /tmp/mvm/dtl:/data/db
+      - /tmp/mvm/dtl:/data
 
   dtlB:
     depends_on:
@@ -138,7 +138,7 @@ services:
       - ${DTL_PORT:-7879}:7878
     restart: on-failure
     volumes:
-      - /tmp/mvm/dtlB:/data/db
+      - /tmp/mvm/dtlB:/data
 
   dtlReplica:
     depends_on:
@@ -169,7 +169,7 @@ services:
       - ${DTL_PORT:-7880}:7878
     restart: on-failure
     volumes:
-      - /tmp/mvm/dtlReplica:/data/db
+      - /tmp/mvm/dtlReplica:/data
 
   l2geth:
     depends_on:

@@ -383,6 +383,48 @@ func WriteTransactionMetaRaw(db ethdb.KeyValueWriter, number uint64, data []byte
 }
 
 // UsingOVM
+// extend for multiple txs in a block
+func ReadTransactionMetaHash(db ethdb.Reader, hash common.Hash) *types.TransactionMeta {
+	data := ReadTransactionMetaRawHash(db, hash)
+	if len(data) == 0 {
+		return nil
+	}
+
+	meta, err := types.TxMetaDecode(data)
+	if err != nil {
+		log.Error("Invalid raw tx meta with hash", "hash", hash, "err", err)
+		return nil
+	}
+
+	return meta
+}
+
+// UsingOVM
+// extend for multiple txs in a block
+func ReadTransactionMetaRawHash(db ethdb.Reader, hash common.Hash) []byte {
+	data, _ := db.Get(txMetaKeyHash(hash))
+	if len(data) > 0 {
+		return data
+	}
+	return nil
+}
+
+// UsingOVM
+// extend for multiple txs in a block
+func WriteTransactionMetaHash(db ethdb.KeyValueWriter, hash common.Hash, meta *types.TransactionMeta) {
+	data := types.TxMetaEncode(meta)
+	WriteTransactionMetaRawHash(db, hash, data)
+}
+
+// UsingOVM
+// extend for multiple txs in a block
+func WriteTransactionMetaRawHash(db ethdb.KeyValueWriter, hash common.Hash, data []byte) {
+	if err := db.Put(txMetaKeyHash(hash), data); err != nil {
+		log.Crit("Failed to store transaction meta with hash", "err", err)
+	}
+}
+
+// UsingOVM
 // DeleteTransactionMeta removes the transaction metadata associated with a hash
 func DeleteTransactionMeta(db ethdb.KeyValueWriter, number uint64) {
 	if err := db.Delete(txMetaKey(number)); err != nil {
@@ -587,8 +629,14 @@ func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
 	// and set the txmeta on each transaction. This is because the tx meta
 	// is not included as part of the RLP encoding of a transaction to be
 	// backwards compatible with layer one
+	txsCount := len(body.Transactions)
 	for i := 0; i < len(body.Transactions); i++ {
-		meta := ReadTransactionMeta(db, header.Number.Uint64())
+		var meta *types.TransactionMeta
+		if txsCount == 1 {
+			meta = ReadTransactionMeta(db, header.Number.Uint64())
+		} else {
+			meta = ReadTransactionMetaHash(db, body.Transactions[i].Hash())
+		}
 		body.Transactions[i].SetTransactionMeta(meta)
 	}
 	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)

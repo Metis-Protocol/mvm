@@ -266,6 +266,10 @@ export class L2IngestionService extends BaseService<L2IngestionServiceOptions> {
           block,
           this.options.l2ChainId
         )
+        this.logger.info('handleDeSequencerBlock', {
+          block,
+          entry,
+        })
         await handleDeSequencerBlock.storeBlock(entry, db)
       } else {
         const entry = await handleSequencerBlock.parseBlock(

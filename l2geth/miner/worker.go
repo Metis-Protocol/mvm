@@ -564,13 +564,20 @@ func (w *worker) mainLoop() {
 				}
 				continue
 			}
-			tx := ev.Txs[0]
-			log.Debug("Attempting to commit rollup transaction", "hash", tx.Hash().Hex())
+			var err error
+			if rcfg.DeSeqBlock > 0 && w.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
+				log.Debug("Attempting to commit rollup transactions", "hash0", ev.Txs[0].Hash().Hex())
+				err = w.commitNewTxDeSeq(ev.Txs, ev.Time)
+			} else {
+				tx := ev.Txs[0]
+				log.Debug("Attempting to commit rollup transaction", "hash", tx.Hash().Hex())
+				err = w.commitNewTx(tx)
+			}
 			// Build the block with the tx and add it to the chain. This will
 			// send the block through the `taskCh` and then through the
 			// `resultCh` which ultimately adds the block to the blockchain
 			// through `bc.WriteBlockWithState`
-			if err := w.commitNewTx(tx); err == nil {
+			if err == nil {
 				// `chainHeadCh` is written to when a new block is added to the
 				// tip of the chain. Reading from the channel will block until
 				// the ethereum block is added to the chain downstream of `commitNewTx`.
@@ -586,7 +593,7 @@ func (w *worker) mainLoop() {
 				}
 				txn := txs[0]
 				height := head.Block.Number().Uint64()
-				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "txn-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
+				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "txn-hash", txn.Hash().Hex(), "tx-hash", ev.Txs[0].Hash().Hex())
 
 				// Prevent memory leak by cleaning up pending tasks
 				// This is mostly copied from the `newWorkLoop`
@@ -1110,6 +1117,63 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	transactions[acc] = types.Transactions{tx}
 	txs := types.NewTransactionsByPriceAndNonce(w.current.signer, transactions)
 	if err := w.commitTransactionsWithError(txs, w.coinbase, nil); err != nil {
+		return err
+	}
+	return w.commit(nil, w.fullTaskHook, tstart)
+}
+
+func (w *worker) commitNewTxDeSeq(txs []*types.Transaction, blockTime uint64) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	tstart := time.Now()
+
+	parent := w.chain.CurrentBlock()
+	num := parent.Number()
+
+	// Preserve liveliness as best as possible. Must panic on L1 to L2
+	// transactions as the timestamp cannot be malleated
+	if parent.Time() > blockTime {
+		log.Error("Monotonicity violation", "index", num, "parent", parent.Time(), "block", blockTime)
+	}
+	header := &types.Header{
+		ParentHash: parent.Hash(),
+		Number:     new(big.Int).Add(num, common.Big1),
+		GasLimit:   w.config.GasFloor,
+		Extra:      w.extra,
+		Time:       blockTime,
+	}
+	if err := w.engine.Prepare(w.chain, header); err != nil {
+		return fmt.Errorf("Failed to prepare header for mining: %w", err)
+	}
+	// Could potentially happen if starting to mine in an odd state.
+	err := w.makeCurrent(parent, header)
+	if err != nil {
+		return fmt.Errorf("Failed to create mining context: %w", err)
+	}
+
+	transacions := make(map[common.Address]types.Transactions)
+	for _, tx := range txs {
+		if meta := tx.GetMeta(); meta.Index != nil {
+			index := num.Uint64()
+			if *meta.Index < index {
+				log.Info("commitNewTx ", "get meta index ", *meta.Index, "parent.Number() ", index)
+				return fmt.Errorf("Failed to check meta index too small: %w, parent number: %w", *meta.Index, index)
+			}
+			// Check meta.Index again, it should be equal with index
+			if *meta.Index > index {
+				return fmt.Errorf("Failed to check meta index too large: %w, parent number: %w", *meta.Index, index)
+			}
+		}
+		if meta := tx.GetMeta(); meta.Index == nil {
+			index := num.Uint64()
+			meta.Index = &index
+			tx.SetTransactionMeta(meta)
+		}
+		acc, _ := types.Sender(w.current.signer, tx)
+		transacions[acc] = append(transacions[acc], tx)
+	}
+	txset := types.NewTransactionsByPriceAndNonce(w.current.signer, transacions)
+	if err := w.commitTransactionsWithError(txset, w.coinbase, nil); err != nil {
 		return err
 	}
 	return w.commit(nil, w.fullTaskHook, tstart)

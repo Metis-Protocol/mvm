@@ -111,6 +111,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
   private state: {
     db: TransportDB
     dbs: TransportDBMap
+    dbOfL2: TransportDB
     contracts: OptimismContracts
     l1RpcProvider: BaseProvider
     startingL1BlockNumber: number
@@ -122,6 +123,13 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       this.options.db,
       this.options.l2ChainId === 1088
     )
+    if (this.options.l2ChainId) {
+      this.state.dbOfL2 = await this.options.dbs.getTransportDbByChainId(
+        this.options.l2ChainId
+      )
+    } else {
+      this.state.dbOfL2 = this.state.db
+    }
     this.state.dbs = {}
     this.l1IngestionMetrics = registerMetrics(this.metrics)
 
@@ -244,13 +252,20 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           continue
         }
 
+        const latestBatch = await this.state.dbOfL2.getLatestTransactionBatch()
         const highestSyncedL1BatchIndex =
-          (await this.state.db.getHighestSyncedL1BatchIndex()) ||
-          this.state.startingL1BatchIndex
+          latestBatch === null ? -1 : latestBatch.index
+
+        this.logger.info('Synchronizing events from Layer 1 (Ethereum)', {
+          usingL2ChainId: this.options.l2ChainId,
+          latestBatch,
+          stateLatestBatch: await this.state.db.getLatestTransactionBatch(),
+        })
 
         const inboxAddress = this.options.batchInboxAddress
         const inboxBatchStart = this.options.batchInboxStartIndex
         const inboxSender = this.options.batchInboxSender
+        // startingL1BatchIndex is total CTC batch, batch index = total - 1
         const useBatchInbox =
           inboxAddress &&
           inboxAddress.length === 42 &&
@@ -260,12 +275,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           inboxSender.startsWith('0x') &&
           inboxBatchStart > 0 &&
           highestSyncedL1BatchIndex > 0 &&
-          inboxBatchStart <= highestSyncedL1BatchIndex + 1
+          inboxBatchStart <= highestSyncedL1BatchIndex + 1 &&
+          this.state.startingL1BatchIndex <= highestSyncedL1BatchIndex + 1
 
         this.logger.info('Synchronizing events from Layer 1 (Ethereum)', {
           highestSyncedL1Block,
           targetL1Block,
           highestSyncedL1BatchIndex,
+          startingL1BatchIndex: this.state.startingL1BatchIndex,
           inboxAddress,
           inboxSender,
           inboxBatchStart,
@@ -307,15 +324,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
             targetL1Block,
             handleEventsAppendBatchElement
           )
-        } else {
-          // TODO handleEvents
-          await this._syncInboxBatch(
-            highestSyncedL1Block,
-            targetL1Block,
-            highestSyncedL1BatchIndex,
-            handleEventsSequencerBatchInbox
-          )
         }
+
+        await this._syncInboxBatch(
+          highestSyncedL1Block,
+          targetL1Block,
+          highestSyncedL1BatchIndex,
+          handleEventsSequencerBatchInbox
+        )
 
         await this._syncEvents(
           'StateCommitmentChain',
@@ -343,18 +359,18 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
           // Different functions for getting the last good element depending on the event type.
           // Should bind to chain db
-          const dbL2ChainId = await this.options.dbs.getTransportDbByChainId(
-            this.options.l2ChainId
-          )
           const handlers = {
             SequencerBatchAppended:
-              this.state.db.getLatestTransactionBatch.bind(dbL2ChainId),
-            SequencerBatchInbox:
-              this.state.db.getLatestTransactionBatch.bind(dbL2ChainId),
-            StateBatchAppended:
-              this.state.db.getLatestStateRootBatch.bind(dbL2ChainId),
-            TransactionEnqueued:
-              this.state.db.getLatestEnqueue.bind(dbL2ChainId),
+              this.state.db.getLatestTransactionBatch.bind(this.state.dbOfL2),
+            SequencerBatchInbox: this.state.db.getLatestTransactionBatch.bind(
+              this.state.dbOfL2
+            ),
+            StateBatchAppended: this.state.db.getLatestStateRootBatch.bind(
+              this.state.dbOfL2
+            ),
+            TransactionEnqueued: this.state.db.getLatestEnqueue.bind(
+              this.state.dbOfL2
+            ),
           }
 
           // Find the last good element and reset the highest synced L1 block to go back to the
@@ -422,6 +438,12 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
     // Just making sure that the blocks will come back in increasing order.
     let blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
+    this.logger.info('_syncInboxBatch get blocks', {
+      blocks,
+      fromL1Block,
+      toL1Block,
+      highestSyncedL1BatchIndex,
+    })
 
     const extraDatas: any[] = []
     let minBatchIndex = 0
@@ -433,8 +455,11 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       for (const block of blocksReversed) {
         for (const tx of block.transactions) {
           if (
-            tx.to === this.options.batchInboxAddress &&
-            tx.from === this.options.batchInboxSender &&
+            tx.to &&
+            tx.to.toLowerCase() ===
+              this.options.batchInboxAddress.toLowerCase() &&
+            tx.from.toLowerCase() ===
+              this.options.batchInboxSender.toLowerCase() &&
             tx.data.length >= 140
           ) {
             // verfiy data
@@ -495,9 +520,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
     }
     if (extraDatas.length > 0) {
-      const db = await this.options.dbs.getTransportDbByChainId(
-        this.options.l2ChainId
-      )
       const extraDatasReversed = extraDatas.reverse()
       const tick = Date.now()
       for (const extraData of extraDatasReversed) {
@@ -511,9 +533,17 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           chainId: this.options.l2ChainId,
           parsedEvent,
         })
-        await handlers.storeEvent(parsedEvent, db, this.options)
-        await this.state.db.setHighestSyncedL1BatchIndex(extraData.batchIndex)
+        await handlers.storeEvent(parsedEvent, this.state.dbOfL2, this.options)
+        // await this.state.db.setHighestSyncedL1BatchIndex(extraData.batchIndex)
       }
+
+      const tock = Date.now()
+
+      this.logger.info('Processed events', {
+        eventName: 'SequencerBatchAppended',
+        numEvents: extraDatasReversed.length,
+        durationMs: tock - tick,
+      })
     }
   }
 

@@ -101,7 +101,7 @@ export const handleDeSequencerBlock = {
     const blockEntry: BlockEntry = {
       index: block.number - 1, // keep same rule as single tx index
       batchIndex: null,
-      timestamp: block.timestamp,
+      timestamp: BigNumber.from(block.timestamp).toNumber(),
       transactions: txEntryList,
       confirmed: false,
     }

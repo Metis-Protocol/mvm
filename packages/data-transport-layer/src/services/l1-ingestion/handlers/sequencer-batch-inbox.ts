@@ -53,7 +53,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
         calldata.slice(offset, offset + 32)
       )
       batchSubmissionData.batchSize = BigNumber.from(
-        calldata.slice(offset + 66, offset + 70)
+        calldata.slice(offset + 64, offset + 68)
       )
       batchSubmissionVerified = true
     }
@@ -103,14 +103,16 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
     const l2Start = BigNumber.from(calldata.slice(2 + 32, 2 + 64)).toNumber()
     let pointerEnd = false
     while (!pointerEnd) {
-      const txCount = BigNumber.from(contextData.slice(offset, 3)).toNumber()
+      const txCount = BigNumber.from(
+        contextData.slice(offset, offset + 3)
+      ).toNumber()
       offset += 3
       const blockTimestamp = BigNumber.from(
-        contextData.slice(offset, 5)
+        contextData.slice(offset, offset + 5)
       ).toNumber()
       offset += 5
       const l1BlockNumber = BigNumber.from(
-        contextData.slice(offset, 32)
+        contextData.slice(offset, offset + 32)
       ).toNumber()
       offset += 32
 
@@ -124,13 +126,15 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
       blockIndex++
 
       for (let i = 0; i < txCount; i++) {
-        const txType = BigNumber.from(contextData.slice(offset, 1)).toNumber()
+        const txType = BigNumber.from(
+          contextData.slice(offset, offset + 1)
+        ).toNumber()
         offset += 1
         const txDataLen = BigNumber.from(
-          contextData.slice(offset, 3)
+          contextData.slice(offset, offset + 3)
         ).toNumber()
         offset += 3
-        const txData: Buffer = contextData.slice(offset, txDataLen)
+        const txData: Buffer = contextData.slice(offset, offset + txDataLen)
         offset += txDataLen
 
         const decoded = decodeSequencerBatchTransaction(txData, l2ChainId)
@@ -153,12 +157,12 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
         let signData = null
         if (txType === 0) {
           const signLen = BigNumber.from(
-            contextData.slice(offset, 3)
+            contextData.slice(offset, offset + 3)
           ).toNumber()
           offset += 3
           if (signLen > 0) {
             const decodedSign = remove0x(
-              toHexString(contextData.slice(offset, signLen))
+              toHexString(contextData.slice(offset, offset + signLen))
             )
             offset += signLen
 
@@ -187,7 +191,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
             transactionEntry.seqSign = signData
           }
         } else {
-          const l1Origin = toHexString(contextData.slice(offset, 32))
+          const l1Origin = toHexString(contextData.slice(offset, offset + 32))
           offset += 32
 
           transactionEntry.origin = l1Origin
@@ -198,6 +202,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
           transactionEntry.decoded = null
         }
         blockEntry.transactions.push(transactionEntry)
+        blockEntries.push(blockEntry)
       }
 
       if (offset >= contextData.length) {
@@ -301,28 +306,6 @@ const parseSequencerBatchContext = (
       calldata.slice(offset + 11, offset + 16)
     ).toNumber(),
   }
-}
-
-const parseMerkleLeafFromSequencerBatchTransaction = (
-  calldata: Buffer,
-  offset: number
-): Buffer => {
-  const transactionLength = BigNumber.from(
-    calldata.slice(offset, offset + 3)
-  ).toNumber()
-
-  return calldata.slice(offset, offset + 3 + transactionLength)
-}
-
-const parseSequencerBatchTransaction = (
-  calldata: Buffer,
-  offset: number
-): Buffer => {
-  const transactionLength = BigNumber.from(
-    calldata.slice(offset, offset + 3)
-  ).toNumber()
-
-  return calldata.slice(offset + 3, offset + 3 + transactionLength)
 }
 
 const decodeSequencerBatchTransaction = (

@@ -272,7 +272,7 @@ export class L1TransportServer extends BaseService<L1TransportServerOptions> {
       inboxSender.startsWith('0x') &&
       inboxBatchStart > 0 &&
       batchIndex > 0 &&
-      inboxBatchStart <= batchIndex + 1
+      inboxBatchStart <= batchIndex
     return useBatchInbox
   }
 

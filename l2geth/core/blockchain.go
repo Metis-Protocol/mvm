@@ -1205,8 +1205,13 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 			rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receiptChain[i])
 			rawdb.WriteTxLookupEntries(batch, block)
+			txsCount := len(block.Transactions())
 			for _, tx := range block.Transactions() {
-				rawdb.WriteTransactionMeta(batch, block.NumberU64(), tx.GetMeta())
+				if txsCount == 1 {
+					rawdb.WriteTransactionMeta(batch, block.NumberU64(), tx.GetMeta())
+				} else {
+					rawdb.WriteTransactionMetaHash(batch, tx.Hash(), tx.GetMeta())
+				}
 			}
 
 			// Write everything belongs to the blocks into the database. So that
@@ -1330,8 +1335,13 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	blockBatch := bc.db.NewBatch()
 	rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 	rawdb.WriteBlock(blockBatch, block)
+	txsCount := len(block.Transactions())
 	for _, tx := range block.Transactions() {
-		rawdb.WriteTransactionMeta(blockBatch, block.NumberU64(), tx.GetMeta())
+		if txsCount == 1 {
+			rawdb.WriteTransactionMeta(blockBatch, block.NumberU64(), tx.GetMeta())
+		} else {
+			rawdb.WriteTransactionMetaHash(blockBatch, tx.Hash(), tx.GetMeta())
+		}
 	}
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	rawdb.WritePreimages(blockBatch, state.Preimages())

@@ -649,7 +649,7 @@ func (s *SyncService) syncTransactionsToTip() error {
 		return s.syncTransactions(s.backend)
 	}
 	check := func() (*uint64, error) {
-		if rcfg.DeSeqBlock > 0 && s.bc.CurrentBlock().NumberU64() >= rcfg.DeSeqBlock {
+		if rcfg.DeSeqBlock > 0 && s.bc.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
 			return s.client.GetLatestBlockIndex(s.backend)
 		}
 		return s.client.GetLatestTransactionIndex(s.backend)
@@ -980,6 +980,7 @@ func (s *SyncService) applyBlock(block *types.Block) error {
 	s.txFeed.Send(core.NewTxsEvent{
 		Txs:   txs,
 		ErrCh: nil,
+		Time:  block.Time(),
 	})
 	// Block until the transaction has been added to the chain
 	log.Trace("Waiting for block transactions to be added to chain", "hash tx0", txs[0].Hash().Hex())
@@ -994,6 +995,15 @@ func (s *SyncService) applyBlock(block *types.Block) error {
 			if err := s.updateGasPriceOracleCache(nil); err != nil {
 				log.Error("chainHeadCh got applyBlock finish but update gasPriceOracleCache failed", "current latest", *s.GetLatestIndex())
 				return err
+			}
+		}
+		s.SetLatestIndex(&index)
+		s.SetLatestIndexTime(time.Now().Unix())
+		s.SetLatestVerifiedIndex(&index)
+		if queueIndex := txs[0].GetMeta().QueueIndex; queueIndex != nil {
+			latestEnqueue := s.GetLatestEnqueueIndex()
+			if latestEnqueue == nil || *latestEnqueue < *queueIndex {
+				s.SetLatestEnqueueIndex(queueIndex)
 			}
 		}
 		log.Info("chainHeadCh got applyBlock finish", "current latest", *s.GetLatestIndex())
@@ -1866,7 +1876,7 @@ func (s *SyncService) syncBlockBatch(index uint64) error {
 func (s *SyncService) syncTransactionBatchRange(start, end uint64) error {
 	log.Info("Syncing transaction batch range", "start", start, "end", end)
 	for i := start; i <= end; i++ {
-		if rcfg.DeSeqBlock > 0 && s.bc.CurrentBlock().NumberU64() >= rcfg.DeSeqBlock {
+		if rcfg.DeSeqBlock > 0 && s.bc.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
 			err := s.syncBlockBatch(i)
 			if err != nil {
 				return fmt.Errorf("Cannot get block batch: %w", err)
@@ -1985,6 +1995,10 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 // backend
 func (s *SyncService) syncTransactions(backend Backend) (*uint64, error) {
 	getLatest := func() (*uint64, error) {
+		blockIndex, err := s.client.GetLatestBlockIndex(backend)
+		if err == nil {
+			return blockIndex, nil
+		}
 		return s.client.GetLatestTransactionIndex(backend)
 	}
 	sync := func(start, end uint64) error {

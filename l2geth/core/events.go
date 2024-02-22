@@ -25,6 +25,7 @@ import (
 type NewTxsEvent struct {
 	Txs   []*types.Transaction
 	ErrCh chan error
+	Time  uint64
 }
 
 // NewMinedBlockEvent is posted when a block has been imported.
