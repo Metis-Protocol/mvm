@@ -396,6 +396,10 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			if rcfg.DeSeqBlock > 0 && nextBN >= rcfg.DeSeqBlock {
 				resubmit = true
 			}
+			if !resubmit {
+				// always enable timer
+				timer.Reset(recommit)
+			}
 			log.Debug("Special info in worker: newWorkLoop timer.C", "resubmit", resubmit, "cmp to DeSeqBlock", w.chain.CurrentBlock().NumberU64()+1)
 			seqModel, mpcEnabled := w.eth.SyncService().GetSeqAndMpcStatus()
 			if !seqModel {
