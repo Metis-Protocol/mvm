@@ -289,6 +289,14 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           useBatchInbox,
         })
 
+        // TODO add start upgradeL1Block, when highestSyncedL1BatchIndex + 1 < inboxBatchStart, sync first
+        // await this._syncInboxBatch(
+        //   upgradeL1Block,
+        //   highestSyncedL1Block,
+        //   highestSyncedL1BatchIndex,
+        //   handleEventsSequencerBatchInbox
+        // )
+
         // I prefer to do this in serial to avoid non-determinism. We could have a discussion about
         // using Promise.all if necessary, but I don't see a good reason to do so unless parsing is
         // really, really slow for all event types.
@@ -431,13 +439,13 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     highestSyncedL1BatchIndex: number,
     handlers: EventHandlerSetAny<any, any>
   ): Promise<void> {
-    let blockPromises = []
+    const blockPromises = []
     for (let i = fromL1Block; i <= toL1Block; i++) {
       blockPromises.push(this.state.l1RpcProvider.getBlockWithTransactions(i))
     }
 
     // Just making sure that the blocks will come back in increasing order.
-    let blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
+    const blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
     this.logger.info('_syncInboxBatch get blocks', {
       blocks,
       fromL1Block,
@@ -445,80 +453,54 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       highestSyncedL1BatchIndex,
     })
 
-    const extraDatas: any[] = []
-    let minBatchIndex = 0
-    let maxBatchIndex = 0
-    let shouldLoopBlocks = true
-    let fromBlockLoop = fromL1Block
-    while (shouldLoopBlocks) {
-      const blocksReversed = blocks.reverse()
-      for (const block of blocksReversed) {
-        for (const tx of block.transactions) {
+    // use map[index] = extra
+    const extraMap: Record<number, any> = {}
+    for (const block of blocks) {
+      for (const tx of block.transactions) {
+        if (
+          tx.to &&
+          tx.to.toLowerCase() ===
+            this.options.batchInboxAddress.toLowerCase() &&
+          tx.from.toLowerCase() ===
+            this.options.batchInboxSender.toLowerCase() &&
+          tx.data.length >= 140
+        ) {
+          // check receipt status, 0 fail
+          const receipt = await this.state.l1RpcProvider.getTransactionReceipt(
+            tx.hash
+          )
           if (
-            tx.to &&
-            tx.to.toLowerCase() ===
-              this.options.batchInboxAddress.toLowerCase() &&
-            tx.from.toLowerCase() ===
-              this.options.batchInboxSender.toLowerCase() &&
-            tx.data.length >= 140
+            !receipt ||
+            (receipt.status !== undefined && receipt.status === 0)
           ) {
-            // verfiy data
-            const makeEvent = {
-              transaction: tx,
-              block,
-            }
-            try {
-              const extraData = await handlers.getExtraData(
-                makeEvent,
-                this.state.l1RpcProvider
-              )
-              const batchIndex = extraData.batchIndex
-              // do not save when found
-              if (batchIndex <= highestSyncedL1BatchIndex) {
-                break
-              }
-              // this means submit batches with lower index, ignore
-              if (maxBatchIndex !== 0 && batchIndex >= maxBatchIndex) {
-                break
-              }
-              // duplicate batch
-              if (minBatchIndex !== 0 && batchIndex >= minBatchIndex) {
-                break
-              }
-              minBatchIndex = batchIndex
-              if (maxBatchIndex === 0) {
-                maxBatchIndex = batchIndex
-              }
-              extraDatas.push(extraData)
-            } catch (err) {
-              this.logger.warn('Verify inbox batch failed:', {
-                tx,
-              })
-            }
+            continue
+          }
+          // verfiy data
+          const makeEvent = {
+            transaction: tx,
+            block,
+          }
+          try {
+            const extraData = await handlers.getExtraData(
+              makeEvent,
+              this.state.l1RpcProvider
+            )
+            extraMap[extraData.batchIndex] = extraMap
+          } catch (err) {
+            this.logger.warn('Verify inbox batch failed:', {
+              tx,
+            })
           }
         }
       }
-      if (
-        fromBlockLoop <= this.options.l1StartHeight ||
-        minBatchIndex === 0 ||
-        minBatchIndex <= highestSyncedL1BatchIndex + 1
-      ) {
-        shouldLoopBlocks = false
-        break
-      }
-
-      // reload prevent blocks, this may happend when CTC update to Inbox
-      blockPromises = []
-      const toBlockLoop = fromBlockLoop
-      fromBlockLoop = Math.max(
-        fromL1Block - this.options.logsPerPollingInterval,
-        this.options.l1StartHeight
-      )
-      for (let i = fromBlockLoop; i <= toBlockLoop; i++) {
-        blockPromises.push(this.state.l1RpcProvider.getBlockWithTransactions(i))
-      }
-      blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
     }
+    const extraDatas: any[] = []
+    const sortedKeys = Object.keys(extraMap)
+      .map(Number)
+      .sort((a, b) => a - b)
+    sortedKeys.forEach((key) => {
+      extraDatas.push(extraMap[key])
+    })
     if (extraDatas.length > 0) {
       const extraDatasReversed = extraDatas.reverse()
       const tick = Date.now()
