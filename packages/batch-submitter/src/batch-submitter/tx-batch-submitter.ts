@@ -21,8 +21,6 @@ import {
   toHexString,
 } from '@metis.io/core-utils'
 import { Logger, Metrics } from '@eth-optimism/common-ts'
-import { hrtime } from 'process'
-import { randomUUID } from 'crypto'
 
 /* Internal Imports */
 import {
@@ -464,42 +462,17 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         data: tx.data,
       })
       tx.value = ethers.utils.parseEther('0')
-      // mpc model can't use ynatm, set more gas price?
-      const gasPrice = await this.signer.provider.getGasPrice()
-      // TODO
-      // gasPrice.add()
-      tx.gasPrice = gasPrice
-      // call mpc to sign tx
-      const serializedTransaction = JSON.stringify({
-        nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
-        gasPrice: mpcClient.removeHexLeadingZero(tx.gasPrice.toHexString()),
-        gasLimit: mpcClient.removeHexLeadingZero(tx.gasLimit.toHexString()),
-        to: tx.to,
-        value: mpcClient.removeHexLeadingZero(tx.value.toHexString(), true),
-        data: tx.data,
-      })
-      const signId = randomUUID()
-      const postData = {
-        sign_id: signId,
-        mpc_id: mpcInfo.mpc_id,
-        sign_type: '0',
-        sign_data: serializedTransaction,
-        sign_msg: '',
-      }
-      const signResp = await mpcClient.proposeMpcSign(postData)
-      if (!signResp) {
-        throw new Error('MPC propose sign failed')
-      }
-
-      const signedTx = await mpcClient.getMpcSign(signId)
-      if (!signedTx) {
-        throw new Error('MPC get sign failed')
-      }
+      // mpc model can use ynatm
+      // tx.gasPrice = gasPrice
+      // mpcInfo.mpc_id
 
       const submitSignedTransaction = (): Promise<TransactionReceipt> => {
         return this.transactionSubmitter.submitSignedTransaction(
           tx,
-          signedTx,
+          async (gasPrice) => {
+            tx.gasPrice = gasPrice
+            return await mpcClient.signTx(tx, mpcInfo.mpc_id)
+          },
           this._makeHooks('appendSequencerBatch')
         )
       }

@@ -1,6 +1,8 @@
 import * as http from 'http'
 import * as https from 'https'
 import { URL } from 'url'
+import { ethers } from 'ethers'
+import { randomUUID } from 'crypto'
 
 export class MpcClient {
   protected url: string
@@ -149,5 +151,36 @@ export class MpcClient {
     // Decode Base64 to binary
     const binaryData = Buffer.from(base64String, 'base64')
     return '0x' + binaryData.toString('hex')
+  }
+
+  // call this
+  public async signTx(tx: any, mpcId: any): Promise<string> {
+    // call mpc to sign tx
+    const serializedTransaction = JSON.stringify({
+      nonce: this.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
+      gasPrice: this.removeHexLeadingZero(tx.gasPrice.toHexString()),
+      gasLimit: this.removeHexLeadingZero(tx.gasLimit.toHexString()),
+      to: tx.to,
+      value: this.removeHexLeadingZero(tx.value.toHexString(), true),
+      data: tx.data,
+    })
+    const signId = randomUUID()
+    const postData = {
+      sign_id: signId,
+      mpc_id: mpcId,
+      sign_type: '0',
+      sign_data: serializedTransaction,
+      sign_msg: '',
+    }
+    const signResp = await this.proposeMpcSign(postData)
+    if (!signResp) {
+      throw new Error(`MPC ${mpcId} propose sign failed`)
+    }
+
+    const signedTx = await this.getMpcSign(signId)
+    if (!signedTx) {
+      throw new Error(`MPC ${mpcId} get sign failed`)
+    }
+    return signedTx
   }
 }

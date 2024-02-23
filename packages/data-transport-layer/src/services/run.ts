@@ -63,6 +63,7 @@ type ethNetwork = 'mainnet' | 'kovan' | 'goerli'
       batchInboxAddress: config.str('batch-inbox-address'),
       batchInboxSender: config.str('batch-inbox-sender'),
       batchInboxStartIndex: config.uint('batch-inbox-start-index', 0),
+      batchInboxL1Height: config.uint('batch-inbox-l1-height', 0),
     })
 
     const stop = async (signal) => {

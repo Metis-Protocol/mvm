@@ -6,6 +6,8 @@ import {
 } from '@ethersproject/abstract-provider'
 import * as ynatm from '@eth-optimism/ynatm'
 
+import { YnatmAsync } from '../utils'
+
 export interface ResubmissionConfig {
   resubmissionTimeout: number
   minGasPriceInGwei: number
@@ -62,21 +64,32 @@ export const submitTransactionWithYNATM = async (
 
 export const submitSignedTransactionWithYNATM = async (
   tx: PopulatedTransaction,
-  txSigned: string,
-  provider: Provider,
+  signFunction: Function,
+  signer: Signer,
   config: ResubmissionConfig,
   numConfirmations: number,
   hooks: TxSubmissionHooks
 ): Promise<TransactionReceipt> => {
-  // TODO config.maxGasPriceInGwei compare to tx.gasPrice
-  const sendTxAndWaitForReceipt = async (): Promise<TransactionReceipt> => {
+  const sendTxAndWaitForReceipt = async (
+    signedTx
+  ): Promise<TransactionReceipt> => {
     hooks.beforeSendTransaction(tx)
-    const txResponse = await provider.sendTransaction(txSigned)
+    const txResponse = await signer.provider.sendTransaction(signedTx)
     hooks.onTransactionResponse(txResponse)
-    return provider.waitForTransaction(txResponse.hash, numConfirmations)
+    return signer.provider.waitForTransaction(txResponse.hash, numConfirmations)
   }
 
-  return sendTxAndWaitForReceipt()
+  const ynatmAsync = new YnatmAsync()
+  const minGasPrice = await getGasPriceInGwei(signer)
+  const receipt = await ynatmAsync.sendAfterSign({
+    sendSignedTransactionFunction: sendTxAndWaitForReceipt,
+    signFunction,
+    minGasPrice: ynatmAsync.toGwei(minGasPrice),
+    maxGasPrice: ynatmAsync.toGwei(config.maxGasPriceInGwei),
+    gasPriceScalingFunction: ynatm.LINEAR(config.gasRetryIncrement),
+    delay: config.resubmissionTimeout,
+  })
+  return receipt
 }
 
 export interface TransactionSubmitter {
@@ -87,7 +100,7 @@ export interface TransactionSubmitter {
 
   submitSignedTransaction(
     tx: PopulatedTransaction,
-    txSigned: string,
+    signFunction: Function,
     hooks?: TxSubmissionHooks
   ): Promise<TransactionReceipt>
 }
@@ -120,7 +133,7 @@ export class YnatmTransactionSubmitter implements TransactionSubmitter {
 
   public async submitSignedTransaction(
     tx: PopulatedTransaction,
-    txSigned: string,
+    signFunction: Function,
     hooks?: TxSubmissionHooks
   ): Promise<TransactionReceipt> {
     if (!hooks) {
@@ -131,8 +144,8 @@ export class YnatmTransactionSubmitter implements TransactionSubmitter {
     }
     return submitSignedTransactionWithYNATM(
       tx,
-      txSigned,
-      this.signer.provider,
+      signFunction,
+      this.signer,
       this.ynatmConfig,
       this.numConfirmations,
       hooks

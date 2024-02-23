@@ -18,7 +18,6 @@ import {
   L2Transaction,
   zlibCompressHexString,
 } from '@metis.io/core-utils'
-import { randomUUID } from 'crypto'
 
 /* Internal Imports */
 import { TransactionSubmitter, MpcClient } from '../utils'
@@ -157,40 +156,18 @@ export class TransactionBatchSubmitterInbox {
         from: mpcAddress,
         data: tx.data,
       })
-      // mpc model can't use ynatm, set more gas price?
-      const gasPrice = await signer.provider.getGasPrice()
-      // TODO
-      // gasPrice.add()
-      tx.gasPrice = gasPrice
-      // call mpc to sign tx
-      const serializedTransaction = JSON.stringify({
-        nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
-        gasPrice: mpcClient.removeHexLeadingZero(tx.gasPrice.toHexString()),
-        gasLimit: mpcClient.removeHexLeadingZero(tx.gasLimit.toHexString()),
-        to: tx.to,
-        value: mpcClient.removeHexLeadingZero(tx.value.toHexString(), true),
-        data: tx.data,
-      })
-      const signId = randomUUID()
-      const postData = {
-        sign_id: signId,
-        mpc_id: mpcInfo.mpc_id,
-        sign_type: '0',
-        sign_data: serializedTransaction,
-        sign_msg: '',
-      }
-      const signResp = await mpcClient.proposeMpcSign(postData)
-      if (!signResp) {
-        throw new Error('MPC propose sign failed')
-      }
-
-      const signedTx = await mpcClient.getMpcSign(signId)
-      if (!signedTx) {
-        throw new Error('MPC get sign failed')
-      }
+      // mpc model can use ynatm
+      // tx.gasPrice = gasPrice
 
       const submitSignedTransaction = (): Promise<TransactionReceipt> => {
-        return transactionSubmitter.submitSignedTransaction(tx, signedTx, hooks)
+        return transactionSubmitter.submitSignedTransaction(
+          tx,
+          async (gasPrice) => {
+            tx.gasPrice = gasPrice
+            return await mpcClient.signTx(tx, mpcInfo.mpc_id)
+          },
+          hooks
+        )
       }
       return submitAndLogTx(
         submitSignedTransaction,

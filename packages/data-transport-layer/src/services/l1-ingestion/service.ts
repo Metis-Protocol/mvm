@@ -266,14 +266,16 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
         const inboxBatchStart = this.options.batchInboxStartIndex
         const inboxSender = this.options.batchInboxSender
         // startingL1BatchIndex is total CTC batch, batch index = total - 1
-        const useBatchInbox =
+        const hasInboxConfig =
           inboxAddress &&
           inboxAddress.length === 42 &&
           inboxAddress.startsWith('0x') &&
           inboxSender &&
           inboxSender.length === 42 &&
           inboxSender.startsWith('0x') &&
-          inboxBatchStart > 0 &&
+          inboxBatchStart > 0
+        const useBatchInbox =
+          hasInboxConfig &&
           highestSyncedL1BatchIndex > 0 &&
           inboxBatchStart <= highestSyncedL1BatchIndex + 1 &&
           this.state.startingL1BatchIndex <= highestSyncedL1BatchIndex + 1
@@ -289,13 +291,33 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
           useBatchInbox,
         })
 
-        // TODO add start upgradeL1Block, when highestSyncedL1BatchIndex + 1 < inboxBatchStart, sync first
-        // await this._syncInboxBatch(
-        //   upgradeL1Block,
-        //   highestSyncedL1Block,
-        //   highestSyncedL1BatchIndex,
-        //   handleEventsSequencerBatchInbox
-        // )
+        // add start batchInboxL1Height, when highestSyncedL1BatchIndex + 1 < inboxBatchStart, sync first
+        if (
+          hasInboxConfig &&
+          this.options.batchInboxL1Height &&
+          this.options.batchInboxL1Height > 0 &&
+          this.options.batchInboxL1Height < highestSyncedL1Block &&
+          inboxBatchStart > highestSyncedL1BatchIndex + 1
+        ) {
+          for (
+            let i = this.options.batchInboxL1Height;
+            i <
+            Math.min(
+              highestSyncedL1Block,
+              i + this.options.logsPerPollingInterval
+            );
+            i += this.options.logsPerPollingInterval
+          ) {
+            await this._syncInboxBatch(
+              i,
+              Math.min(
+                highestSyncedL1Block,
+                i + this.options.logsPerPollingInterval
+              ),
+              handleEventsSequencerBatchInbox
+            )
+          }
+        }
 
         // I prefer to do this in serial to avoid non-determinism. We could have a discussion about
         // using Promise.all if necessary, but I don't see a good reason to do so unless parsing is
@@ -337,7 +359,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
         await this._syncInboxBatch(
           highestSyncedL1Block,
           targetL1Block,
-          highestSyncedL1BatchIndex,
           handleEventsSequencerBatchInbox
         )
 
@@ -436,7 +457,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
   private async _syncInboxBatch(
     fromL1Block: number,
     toL1Block: number,
-    highestSyncedL1BatchIndex: number,
     handlers: EventHandlerSetAny<any, any>
   ): Promise<void> {
     const blockPromises = []
@@ -450,7 +470,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       blocks,
       fromL1Block,
       toL1Block,
-      highestSyncedL1BatchIndex,
     })
 
     // use map[index] = extra
