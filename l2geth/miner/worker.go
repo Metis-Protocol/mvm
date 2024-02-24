@@ -1305,6 +1305,28 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		receipts[i] = new(types.Receipt)
 		*receipts[i] = *l
 	}
+
+	// Make sure txs.L1Timestamp set to block
+	pn := w.current.header.Number.Uint64() - 1
+	l1BN := uint64(0)
+	deSeqModel := false
+	blockTime := w.current.header.Time
+	log.Debug("Special info in worker: commit", "cmp to DeSeqBlock", pn+1)
+	if rcfg.DeSeqBlock > 0 && pn+1 >= rcfg.DeSeqBlock {
+		deSeqModel = true
+	}
+	if deSeqModel {
+		for index, tx := range w.current.txs {
+			tx.SetIndex(pn)
+			tx.SetL1Timestamp(blockTime)
+			if index == 0 {
+				l1BN = tx.L1BlockNumber().Uint64()
+			} else {
+				tx.SetL1BlockNumber(l1BN)
+			}
+		}
+	}
+
 	s := w.current.state.Copy()
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
@@ -1321,6 +1343,8 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		if len(txs) != 1 {
 			return fmt.Errorf("Block created with %d transactions rather than 1 at %d", len(txs), block.NumberU64())
 		}
+	} else if len(txs) == 0 {
+		return fmt.Errorf("Block created with %d transactions at %d", len(txs), block.NumberU64())
 	}
 
 	if w.isRunning() {
