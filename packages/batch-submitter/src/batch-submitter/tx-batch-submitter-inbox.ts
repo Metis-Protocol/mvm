@@ -204,7 +204,7 @@ export class TransactionBatchSubmitterInbox {
     batchIndex: number
   ): Promise<boolean> {
     let saveStatus = false
-    if (receipt) {
+    if (receipt && (receipt.status === undefined || receipt.status === 1)) {
       saveStatus = await this.inboxStorage.recordConfirmedTx({
         batchIndex,
         blockNumber: receipt.blockNumber,

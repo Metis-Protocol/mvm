@@ -509,7 +509,9 @@ export const run = async () => {
     logger.child({ name: STATE_BATCH_SUBMITTER_LOG_TAG }),
     metrics,
     FRAUD_SUBMISSION_ADDRESS,
-    requiredEnvVars.MPC_URL
+    requiredEnvVars.MPC_URL,
+    requiredEnvVars.BATCH_INBOX_ADDRESS,
+    requiredEnvVars.BATCH_INBOX_STORAGE_PATH
   )
 
   // Loops infinitely!

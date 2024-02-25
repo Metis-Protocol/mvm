@@ -1,6 +1,6 @@
 /* External Imports */
 import { Promise as bPromise } from 'bluebird'
-import { Contract, ethers, Signer, providers } from 'ethers'
+import { Contract, ethers, Signer, providers, BigNumber } from 'ethers'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import { getContractFactory } from '@metis.io/contracts'
 import { L2Block, RollupInfo, Bytes32, remove0x } from '@metis.io/core-utils'
@@ -9,6 +9,7 @@ import { Logger, Metrics } from '@eth-optimism/common-ts'
 /* Internal Imports */
 import { BlockRange, BatchSubmitter } from '.'
 import { TransactionSubmitter, MpcClient } from '../utils'
+import { InboxStorage } from '../storage'
 
 export class StateBatchSubmitter extends BatchSubmitter {
   // TODO: Change this so that we calculate start = scc.totalElements() and end = ctc.totalElements()!
@@ -21,6 +22,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
   private fraudSubmissionAddress: string
   private transactionSubmitter: TransactionSubmitter
   private mpcUrl: string
+  private inboxAddress: string
+  private inboxStorage: InboxStorage
 
   constructor(
     signer: Signer,
@@ -39,7 +42,9 @@ export class StateBatchSubmitter extends BatchSubmitter {
     logger: Logger,
     metrics: Metrics,
     fraudSubmissionAddress: string,
-    mpcUrl: string
+    mpcUrl: string,
+    batchInboxAddress: string,
+    batchInboxStoragePath: string
   ) {
     super(
       signer,
@@ -60,6 +65,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
     this.fraudSubmissionAddress = fraudSubmissionAddress
     this.transactionSubmitter = transactionSubmitter
     this.mpcUrl = mpcUrl
+    this.inboxAddress = batchInboxAddress
+    this.inboxStorage = new InboxStorage(batchInboxStoragePath, logger)
   }
 
   /*****************************
@@ -121,13 +128,51 @@ export class StateBatchSubmitter extends BatchSubmitter {
     })
 
     // We will submit state roots for txs which have been in the tx chain for a while.
-    const totalElements: number =
+    let totalElements: number =
       (
         await this.ctcContract.getTotalElementsByChainId(this.l2ChainId)
       ).toNumber() + this.blockOffset
-    //this.logger.info('Retrieved total elements from CTC', {
-    //  totalElements,
-    //})
+    const useBatchInbox =
+      this.inboxAddress &&
+      this.inboxAddress.length === 42 &&
+      this.inboxAddress.startsWith('0x')
+    const localInboxRecord = await this.inboxStorage.getLatestConfirmedTx()
+    if (useBatchInbox && localInboxRecord) {
+      // read total elements
+      const inboxTx = await this.signer.provider.getTransaction(
+        localInboxRecord.txHash
+      )
+      if (
+        inboxTx.blockNumber &&
+        inboxTx.blockNumber > 0 &&
+        inboxTx.data &&
+        inboxTx.data !== '0x' &&
+        inboxTx.data.length > 142
+      ) {
+        // set start block from raw data
+        // 0x[2: DA type] [2: compress type] [64: batch index] [64: L2 start] [8: total blocks]
+        //  > 142 ( 2 + 2 + 2 + 64 + 64 + 8 )
+        const inboxTxStartBlock = BigNumber.from(
+          '0x' + inboxTx.data.substring(70, 134)
+        ).toNumber()
+        const inboxTxTotal = BigNumber.from(
+          '0x' + inboxTx.data.substring(134, 142)
+        ).toNumber()
+        totalElements = inboxTxStartBlock + inboxTxTotal
+
+        this.logger.info('Retrieved total elements from BatchInbox', {
+          totalElements,
+        })
+      } else {
+        this.logger.info('Retrieved total elements from CTC', {
+          totalElements,
+        })
+      }
+    } else {
+      this.logger.info('Retrieved total elements from CTC', {
+        totalElements,
+      })
+    }
 
     const endBlock: number = Math.min(
       startBlock + this.maxBatchSize,
