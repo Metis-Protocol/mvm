@@ -371,7 +371,14 @@ func (c *Client) GetLatestTransactionIndex(backend Backend) (*uint64, error) {
 func (c *Client) GetLatestTransactionBatchIndex() (*uint64, error) {
 	batch, _, err := c.GetLatestTransactionBatch()
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "USE_INBOX_BATCH_INDEX") {
+			batch, _, err = c.GetLatestBlockBatch()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	index := batch.Index
 	return &index, nil
@@ -685,7 +692,11 @@ func (c *Client) GetLatestTransactionBatch() (*Batch, []*types.Transaction, erro
 		Get("/batch/transaction/latest/{chainId}")
 
 	if err != nil {
-		return nil, nil, errors.New("Cannot get latest transaction batch")
+		errStr := err.Error()
+		if response != nil {
+			errStr = response.String()
+		}
+		return nil, nil, fmt.Errorf("Cannot get latest transaction batch: %s", errStr)
 	}
 	txBatch, ok := response.Result().(*TransactionBatchResponse)
 	if !ok {
@@ -706,7 +717,11 @@ func (c *Client) GetTransactionBatch(index uint64) (*Batch, []*types.Transaction
 		Get("/batch/transaction/index/{index}/{chainId}")
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("Cannot get transaction batch %d: %w", index, err)
+		errStr := err.Error()
+		if response != nil {
+			errStr = response.String()
+		}
+		return nil, nil, fmt.Errorf("Cannot get transaction batch %d: %s", index, errStr)
 	}
 	txBatch, ok := response.Result().(*TransactionBatchResponse)
 	if !ok {

@@ -472,7 +472,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       toL1Block,
     })
 
-    // use map[index] = extra
     const extraMap: Record<number, any> = {}
     for (const block of blocks) {
       for (const tx of block.transactions) {
@@ -504,7 +503,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
               makeEvent,
               this.state.l1RpcProvider
             )
-            extraMap[extraData.batchIndex] = extraMap
+            extraMap[extraData.batchIndex] = extraData
           } catch (err) {
             this.logger.warn('Verify inbox batch failed:', {
               tx,
@@ -521,9 +520,8 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       extraDatas.push(extraMap[key])
     })
     if (extraDatas.length > 0) {
-      const extraDatasReversed = extraDatas.reverse()
       const tick = Date.now()
-      for (const extraData of extraDatasReversed) {
+      for (const extraData of extraDatas) {
         const parsedEvent = await handlers.parseEvent(
           null,
           extraData,
@@ -542,7 +540,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
 
       this.logger.info('Processed events', {
         eventName: 'SequencerBatchAppended',
-        numEvents: extraDatasReversed.length,
+        numEvents: extraDatas.length,
         durationMs: tock - tick,
       })
     }

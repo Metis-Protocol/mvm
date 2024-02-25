@@ -1058,6 +1058,11 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     }
 
     if (this._isSequencerTx(block)) {
+      if (block.transactions.length > 1) {
+        throw new Error(
+          `Not allowed, block ${block.number} has more than 1 transaction, if the block is right, please use inbox submitter by config BATCH_INBOX_START_INDEX`
+        )
+      }
       batchElement.isSequencerTx = true
       batchElement.rawTransaction = block.transactions[0].rawTransaction
       if (!block.transactions[0].seqR) {

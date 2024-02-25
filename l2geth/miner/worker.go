@@ -400,7 +400,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				// always enable timer
 				timer.Reset(recommit)
 			}
-			log.Debug("Special info in worker: newWorkLoop timer.C", "resubmit", resubmit, "cmp to DeSeqBlock", w.chain.CurrentBlock().NumberU64()+1)
+			// log.Debug("Special info in worker: newWorkLoop timer.C", "resubmit", resubmit, "cmp to DeSeqBlock", w.chain.CurrentBlock().NumberU64()+1)
 			seqModel, mpcEnabled := w.eth.SyncService().GetSeqAndMpcStatus()
 			if !seqModel {
 				continue
@@ -527,15 +527,7 @@ func (w *worker) mainLoop() {
 			// Read chainHeadCh which pushed by p2p block inserted
 			if len(ev.Txs) == 0 {
 				log.Warn("No transaction sent to miner from syncservice rollupOtherTxCh")
-				// if ev.ErrCh != nil {
-				// 	ev.ErrCh <- errors.New("no transaction sent to miner from syncservice")
-				// } else {
-				// 	w.handleErrInTask(errors.New("no transaction sent to miner from syncservice rollupOtherTxCh"), false)
-				// }
-				// continue
 			}
-			// tx := ev.Txs[0]
-			// log.Debug("Attempting to commit rollupOtherTxCh transaction", "hash", tx.Hash().Hex())
 			if len(w.chainHeadCh) > 0 {
 				head := <-w.chainHeadCh
 				txs := head.Block.Transactions()
@@ -547,13 +539,6 @@ func (w *worker) mainLoop() {
 				height := head.Block.Number().Uint64()
 				log.Debug("Miner got new head rollupOtherTxCh", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex())
 			}
-
-			// TODO check it needs to delete?
-			// w.pendingMu.Lock()
-			// for h := range w.pendingTasks {
-			// 	delete(w.pendingTasks, h)
-			// }
-			// w.pendingMu.Unlock()
 		// Read from the sync service and mine single txs
 		// as they come. Wait for the block to be mined before
 		// reading the next tx from the channel when there is
@@ -582,34 +567,7 @@ func (w *worker) mainLoop() {
 			// `resultCh` which ultimately adds the block to the blockchain
 			// through `bc.WriteBlockWithState`
 			if err == nil {
-				// `chainHeadCh` is written to when a new block is added to the
-				// tip of the chain. Reading from the channel will block until
-				// the ethereum block is added to the chain downstream of `commitNewTx`.
-				// This will result in a deadlock if we call `commitNewTx` with
-				// a transaction that cannot be added to the chain, so this
-				// should be updated to a select statement that can also listen
-				// for errors.
-				head := <-w.chainHeadCh
-				txs := head.Block.Transactions()
-				if len(txs) == 0 {
-					log.Warn("No transactions in block")
-					continue
-				}
-				txn := txs[0]
-				height := head.Block.Number().Uint64()
-				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "txn-hash", txn.Hash().Hex(), "tx-hash", ev.Txs[0].Hash().Hex())
-
-				// Prevent memory leak by cleaning up pending tasks
-				// This is mostly copied from the `newWorkLoop`
-				// `clearPending` function and must be called
-				// periodically to clean up pending tasks. This
-				// function was originally called in `newWorkLoop`
-				// but the OVM implementation no longer uses that code path.
-				w.pendingMu.Lock()
-				for h := range w.pendingTasks {
-					delete(w.pendingTasks, h)
-				}
-				w.pendingMu.Unlock()
+				log.Debug("Success committing transaction", "tx-hash", ev.Txs[0].Hash().Hex())
 			} else {
 				log.Error("Problem committing transaction", "msg", err)
 				if ev.ErrCh != nil {
@@ -783,6 +741,37 @@ func (w *worker) resultLoop() {
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
+
+			// Move this from rollupCh select to make sure deSeqModel can read chainHeadCh too
+
+			// `chainHeadCh` is written to when a new block is added to the
+			// tip of the chain. Reading from the channel will block until
+			// the ethereum block is added to the chain downstream of `commitNewTx`.
+			// This will result in a deadlock if we call `commitNewTx` with
+			// a transaction that cannot be added to the chain, so this
+			// should be updated to a select statement that can also listen
+			// for errors.
+			head := <-w.chainHeadCh
+			txs := head.Block.Transactions()
+			if len(txs) == 0 {
+				log.Warn("No transactions in block")
+				continue
+			}
+			txn := txs[0]
+			height := head.Block.Number().Uint64()
+			log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "txn-hash", txn.Hash().Hex())
+
+			// Prevent memory leak by cleaning up pending tasks
+			// This is mostly copied from the `newWorkLoop`
+			// `clearPending` function and must be called
+			// periodically to clean up pending tasks. This
+			// function was originally called in `newWorkLoop`
+			// but the OVM implementation no longer uses that code path.
+			w.pendingMu.Lock()
+			for h := range w.pendingTasks {
+				delete(w.pendingTasks, h)
+			}
+			w.pendingMu.Unlock()
 
 			// Broadcast the block and announce chain insertion event
 			w.mux.Post(core.NewMinedBlockEvent{Block: block})
@@ -1347,6 +1336,12 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		return fmt.Errorf("Block created with %d transactions at %d", len(txs), block.NumberU64())
 	}
 
+	if deSeqModel {
+		// Update Sync Index
+		w.eth.SyncService().SetLatestIndex(&pn)
+		w.eth.SyncService().SetLatestIndexTime(int64(blockTime))
+	}
+
 	if w.isRunning() {
 		if interval != nil {
 			interval()
@@ -1395,15 +1390,6 @@ func updateTransactionStateMetrics(start time.Time, state *state.StateDB) {
 
 	triehash := state.AccountHashes + state.StorageHashes
 	txExecutionTimer.Update(time.Since(start) - triehash)
-}
-
-// make empty chainheadevent to prevent rollupCh deadlock
-func (w *worker) makeEmptyChainHeadEvent() {
-	// not push if exists
-	if len(w.chainHeadCh) > 0 {
-		return
-	}
-	w.chainHeadCh <- core.ChainHeadEvent{Block: types.NewBlock(&types.Header{Number: big.NewInt(0)}, nil, nil, nil)}
 }
 
 func (w *worker) handleErrInTask(err error, headFlag bool) {

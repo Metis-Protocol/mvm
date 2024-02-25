@@ -1153,9 +1153,65 @@ func (s *SyncService) IsAboveStartHeight(num uint64) bool {
 	return num > s.startSeqHeight
 }
 
-func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bool) error {
+// Only call when fromLocal tx, verifier or replica
+func (s *SyncService) makeOrVerifySequencerSign(tx *types.Transaction, blockNumber uint64, expectSeq common.Address) (bool, error) {
 	seqModel, mpcEnabled := s.GetSeqAndMpcStatus()
-	var expectSeq common.Address
+	var err error
+	isRespan := false
+	if seqModel && mpcEnabled && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
+		// mpc status 1. when in mpc sequencer model, enqueue or other rollup L1 tx is not acceptable
+		err = errors.New("current sequencer incorrect")
+		log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "expectSeq", expectSeq.String(), "selfSeq", s.SeqAddress)
+		return isRespan, err
+	}
+	if seqModel && mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+		// mpc status 2. add sequencer signature to tx in sequencer model, QueueOriginL1ToL2 always give 0 to sign
+		err = s.addSeqSignature(tx)
+		if err != nil {
+			log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
+			return isRespan, err
+		}
+	}
+	if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
+		isRespan = s.RollupAdapter().IsRespanCall(tx)
+		// when block number >= seqValidHeight && !QueueOriginL1ToL2
+		if seqModel {
+			// check pre-respan first
+			if s.seqAdapter.IsNotNextRespanSequencer(s.SeqAddress, blockNumber) {
+				err = errors.New("pre-respan to other sequencer")
+				log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "blockNumber", blockNumber, "selfSeq", s.SeqAddress)
+				return isRespan, err
+			}
+			// mpc status 2. add sequencer signature to tx in sequencer model
+			err = s.addSeqSignature(tx)
+			if err != nil {
+				log.Error("addSeqSignature err QueueOriginSequencer", "err", err)
+				return isRespan, err
+			}
+		} else {
+			// mpc status 3. check sequencer signature in verifier model or BackendL2
+			signature := tx.GetSeqSign()
+			if signature == nil {
+				errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
+				log.Info(errInfo)
+				return isRespan, errors.New(errInfo)
+			}
+			recoverSeq, err := s.recoverSeqAddress(tx)
+			if err != nil {
+				log.Error("recoverSeqAddress err ", err)
+				return isRespan, err
+			}
+			if !strings.EqualFold(expectSeq.String(), recoverSeq) {
+				errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
+				log.Error(errInfo)
+				return isRespan, errors.New(errInfo)
+			}
+		}
+	}
+	return isRespan, nil
+}
+
+func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bool) error {
 	blockNumber := s.bc.CurrentBlock().NumberU64()
 	if fromLocal {
 		blockNumber = blockNumber + 1
@@ -1167,55 +1223,9 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 	}
 	isRespan := false
 	if fromLocal {
-		if seqModel && mpcEnabled && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
-			// mpc status 1. when in mpc sequencer model, enqueue or other rollup L1 tx is not acceptable
-			err = errors.New("current sequencer incorrect")
-			log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "expectSeq", expectSeq.String(), "selfSeq", s.SeqAddress)
+		isRespan, err = s.makeOrVerifySequencerSign(tx, blockNumber, expectSeq)
+		if err != nil {
 			return err
-		}
-		if seqModel && mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() == types.QueueOriginL1ToL2 {
-			// mpc status 2. add sequencer signature to tx in sequencer model, QueueOriginL1ToL2 always give 0 to sign
-			err = s.addSeqSignature(tx)
-			if err != nil {
-				log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
-				return err
-			}
-			isRespan = s.RollupAdapter().IsRespanCall(tx)
-		}
-		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
-			// when block number >= seqValidHeight && !QueueOriginL1ToL2
-			if seqModel {
-				// check pre-respan first
-				if s.seqAdapter.IsNotNextRespanSequencer(s.SeqAddress, blockNumber) {
-					err = errors.New("pre-respan to other sequencer")
-					log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "blockNumber", blockNumber, "selfSeq", s.SeqAddress)
-					return err
-				}
-				// mpc status 2. add sequencer signature to tx in sequencer model
-				err = s.addSeqSignature(tx)
-				if err != nil {
-					log.Error("addSeqSignature err QueueOriginSequencer", "err", err)
-					return err
-				}
-			} else {
-				// mpc status 3. check sequencer signature in verifier model or BackendL2
-				signature := tx.GetSeqSign()
-				if signature == nil {
-					errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
-					log.Info(errInfo)
-					return errors.New(errInfo)
-				}
-				recoverSeq, err := s.recoverSeqAddress(tx)
-				if err != nil {
-					log.Error("recoverSeqAddress err ", err)
-					return err
-				}
-				if !strings.EqualFold(expectSeq.String(), recoverSeq) {
-					errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
-					log.Error(errInfo)
-					return errors.New(errInfo)
-				}
-			}
 		}
 
 		if len(s.txApplyErrCh) > 0 {
@@ -1345,8 +1355,6 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	ts := s.GetLatestL1Timestamp()
 	bn := s.GetLatestL1BlockNumber()
 
-	seqModel, mpcEnabled := s.GetSeqAndMpcStatus()
-
 	// check is current address is sequencer
 	var expectSeq common.Address
 	index := s.GetLatestIndex()
@@ -1364,54 +1372,9 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 		return err
 	}
 	if fromLocal {
-		if seqModel && mpcEnabled && !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
-			// mpc status 1. when in mpc sequencer model, enqueue or other rollup L1 tx is not acceptable
-			err = errors.New("current sequencer incorrect")
-			log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "expectSeq", expectSeq.String(), "selfSeq", s.SeqAddress)
+		_, err = s.makeOrVerifySequencerSign(tx, blockNumber, expectSeq)
+		if err != nil {
 			return err
-		}
-		if seqModel && mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() == types.QueueOriginL1ToL2 {
-			// mpc status 2. add sequencer signature to tx in sequencer model, QueueOriginL1ToL2 always give 0 to sign
-			err = s.addSeqSignature(tx)
-			if err != nil {
-				log.Error("addSeqSignature err QueueOriginL1ToL2", "err", err)
-				return err
-			}
-		}
-		if mpcEnabled && blockNumber >= s.seqAdapter.GetSeqValidHeight() && tx.QueueOrigin() != types.QueueOriginL1ToL2 {
-			// when block number >= seqValidHeight && !QueueOriginL1ToL2
-			if seqModel {
-				// check pre-respan first
-				if s.seqAdapter.IsNotNextRespanSequencer(s.SeqAddress, blockNumber) {
-					err = errors.New("pre-respan to other sequencer")
-					log.Error("applyTransactionToTip with sequencer set enabled", "err", err, "blockNumber", blockNumber, "selfSeq", s.SeqAddress)
-					return err
-				}
-				// mpc status 2. add sequencer signature to tx in sequencer model
-				err = s.addSeqSignature(tx)
-				if err != nil {
-					log.Error("addSeqSignature err QueueOriginSequencer", "err", err)
-					return err
-				}
-			} else {
-				// mpc status 3. check sequencer signature in verifier model or BackendL2
-				signature := tx.GetSeqSign()
-				if signature == nil {
-					errInfo := fmt.Sprintf("current node %v, is not expect seq %v, so don't sequence it", s.SeqAddress, expectSeq.String())
-					log.Info(errInfo)
-					return errors.New(errInfo)
-				}
-				recoverSeq, err := s.recoverSeqAddress(tx)
-				if err != nil {
-					log.Error("recoverSeqAddress err ", err)
-					return err
-				}
-				if !strings.EqualFold(expectSeq.String(), recoverSeq) {
-					errInfo := fmt.Sprintf("tx seq %v, is not expect seq %v", recoverSeq, expectSeq.String())
-					log.Error(errInfo)
-					return errors.New(errInfo)
-				}
-			}
 		}
 
 		// Check if it has txApplyErr, perhaps LatestIndex is not right
@@ -1823,7 +1786,7 @@ func (s *SyncService) sync(getLatest indexGetter, getNext nextGetter, syncer ran
 	}
 
 	nextIndex := getNext()
-	if nextIndex == *latestIndex+1 {
+	if nextIndex >= *latestIndex+1 {
 		return latestIndex, nil
 	}
 	if err := syncer(nextIndex, *latestIndex); err != nil {
