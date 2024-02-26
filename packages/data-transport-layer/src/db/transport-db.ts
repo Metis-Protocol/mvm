@@ -215,7 +215,11 @@ export class TransportDB {
   }
 
   public async getBlockByIndex(index: number): Promise<BlockEntry> {
-    return this._getEntryByIndex(TRANSPORT_DB_KEYS.BLOCK, index)
+    const block = await this._getEntryByIndex<BlockEntry>(
+      TRANSPORT_DB_KEYS.BLOCK,
+      index
+    )
+    return this._getFullBlock(block)
   }
 
   public async getUnconfirmedBlockByIndex(index: number): Promise<BlockEntry> {
@@ -226,7 +230,17 @@ export class TransportDB {
     start: number,
     end: number
   ): Promise<BlockEntry[]> {
-    return this._getEntries(TRANSPORT_DB_KEYS.BLOCK, start, end)
+    const blocks = await this._getEntries<BlockEntry>(
+      TRANSPORT_DB_KEYS.BLOCK,
+      start,
+      end
+    )
+    const fullBlocks = []
+    for (const block of blocks) {
+      const fullBlock = await this._getFullBlock(block)
+      fullBlocks.push(fullBlock)
+    }
+    return fullBlocks
   }
 
   public async getTransactionByIndex(index: number): Promise<TransactionEntry> {
@@ -298,7 +312,10 @@ export class TransportDB {
   }
 
   public async getLatestBlock(): Promise<BlockEntry> {
-    return this._getLatestEntry(TRANSPORT_DB_KEYS.BLOCK)
+    const block = await this._getLatestEntry<BlockEntry>(
+      TRANSPORT_DB_KEYS.BLOCK
+    )
+    return this._getFullBlock(block)
   }
 
   public async getLatestUnconfirmedBlock(): Promise<BlockEntry> {
@@ -522,6 +539,42 @@ export class TransportDB {
     }
 
     return fullTransactions
+  }
+
+  private async _getFullBlock(block: BlockEntry): Promise<BlockEntry> {
+    const fullTransactions = []
+    for (const transaction of block.transactions) {
+      if (transaction.queueOrigin === 'l1') {
+        // Andromeda failed 20397 queue, skip one for verifier batch only
+        let queueIndex = transaction.queueIndex
+        if (queueIndex >= 20397) {
+          queueIndex++
+        }
+        const enqueue = await this.getEnqueueByIndex(queueIndex)
+        if (enqueue === null) {
+          return null
+        }
+
+        fullTransactions.push({
+          ...transaction,
+          ...{
+            blockNumber: enqueue.blockNumber,
+            timestamp: transaction.timestamp || enqueue.timestamp,
+            gasLimit: enqueue.gasLimit,
+            target: enqueue.target,
+            origin: enqueue.origin,
+            data: enqueue.data,
+            queueIndex,
+          },
+        })
+      } else {
+        transaction.origin =
+          transaction.origin || '0x0000000000000000000000000000000000000000'
+        fullTransactions.push(transaction)
+      }
+    }
+    block.transactions = fullTransactions
+    return block
   }
 
   private async _getLatestEntryIndex(key: string): Promise<number> {

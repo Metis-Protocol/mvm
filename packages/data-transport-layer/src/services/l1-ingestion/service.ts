@@ -539,7 +539,7 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
       const tock = Date.now()
 
       this.logger.info('Processed events', {
-        eventName: 'SequencerBatchAppended',
+        eventName: 'SequencerBatchInbox',
         numEvents: extraDatas.length,
         durationMs: tock - tick,
       })

@@ -141,6 +141,8 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 			l1FeeInL2, _ = fees.CalculateL1MsgFeeInL2(msg, evm.StateDB, nil, msg.CheckNonce() == false)
 			l1Fee, _ = fees.CalculateL1MsgFee(msg, evm.StateDB, nil)
 			// log.Debug("Current L1FeeInL2", "fee", l1FeeInL2)
+		} else {
+			l1Fee = common.Big0
 		}
 	}
 

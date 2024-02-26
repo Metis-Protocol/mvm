@@ -425,15 +425,21 @@ contract L1StandardBridgeLocal is IL1StandardBridge, CrossDomainEnabled {
         uint256 _amount,
         bytes calldata _data
     ) external override onlyFromCrossDomainAccount(l2TokenBridge) {
-        _finalizeERC20WithdrawalByChainId(
-            _chainid,
-            metis,
-            Lib_PredeployAddresses.MVM_COINBASE,
-            _from,
-            _to,
-            _amount,
-            _data
-        );
+        // _finalizeERC20WithdrawalByChainId(
+        //     _chainid,
+        //     metis,
+        //     Lib_PredeployAddresses.MVM_COINBASE,
+        //     _from,
+        //     _to,
+        //     _amount,
+        //     _data
+        // );
+
+        //MVM: only for local dev environment for easier funding
+        (bool success, ) = _to.call{ value: _amount }(new bytes(0));
+        require(success, "TransferHelper::safeTransferETH: ETH transfer failed");
+
+        emit ETHWithdrawalFinalized(_from, _to, _amount, _data, _chainid);
     }
 
     /**

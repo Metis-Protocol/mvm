@@ -382,14 +382,29 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 	} else {
 		// Recover from accidentally skipped batches if necessary.
 		if s.verifier && s.backend == BackendL1 {
-			tx, err := s.client.GetRawTransaction(*index, s.backend)
-			if err != nil {
-				return fmt.Errorf("Cannot fetch transaction from dtl at index %d: %w", *index, err)
+			var newBatchIndex uint64
+			if rcfg.DeSeqBlock > 0 && *index+1 >= rcfg.DeSeqBlock {
+				block, err := s.client.GetRawBlock(*index, s.backend)
+				if err != nil {
+					return fmt.Errorf("Cannot fetch block from dtl at index %d: %w", *index, err)
+				}
+				newBatchIndex = block.Block.BatchIndex
+			} else {
+				tx, err := s.client.GetRawTransaction(*index, s.backend)
+				if err != nil {
+					// if inbox batch contains old blocks and new blocks, try get block again
+					block, err2 := s.client.GetRawBlock(*index, s.backend)
+					if err2 != nil {
+						return fmt.Errorf("Cannot fetch transaction from dtl at index %d: %w", *index, err)
+					}
+					newBatchIndex = block.Block.BatchIndex
+				} else {
+					newBatchIndex = tx.Transaction.BatchIndex
+				}
 			}
 
 			oldbatchIndex := s.GetLatestBatchIndex()
-			newBatchIndex := tx.Transaction.BatchIndex
-			if tx.Transaction.BatchIndex > 0 {
+			if newBatchIndex > 0 {
 				newBatchIndex -= 1
 			}
 
@@ -972,7 +987,22 @@ func (s *SyncService) applyBlock(block *types.Block) error {
 		return nil
 	}
 
-	// TODO verify sequencer sign of txs[0]
+	// verify sequencer sign of txs[0]blockNumber := s.bc.CurrentBlock().NumberU64()
+	tx := txs[0]
+	expectSeq, err := s.GetTxSequencer(tx, block.NumberU64())
+	if err != nil {
+		log.Error("GetTxSequencer err ", err)
+		return err
+	}
+	_, err = s.makeOrVerifySequencerSign(tx, block.NumberU64(), expectSeq)
+	if err != nil {
+		return err
+	}
+
+	if len(s.txApplyErrCh) > 0 {
+		applyErr := <-s.txApplyErrCh
+		log.Error("Found txApplyErr when applyTransactionToPool", "err", applyErr)
+	}
 
 	sender, _ := types.Sender(s.signer, txs[0])
 	owner := s.GasPriceOracleOwnerAddress()
@@ -982,6 +1012,7 @@ func (s *SyncService) applyBlock(block *types.Block) error {
 		ErrCh: nil,
 		Time:  block.Time(),
 	})
+
 	// Block until the transaction has been added to the chain
 	log.Trace("Waiting for block transactions to be added to chain", "hash tx0", txs[0].Hash().Hex())
 	select {
@@ -1229,10 +1260,8 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 		}
 
 		if len(s.txApplyErrCh) > 0 {
-			if len(s.txApplyErrCh) > 0 {
-				applyErr := <-s.txApplyErrCh
-				log.Error("Found txApplyErr when applyTransactionToPool", "err", applyErr)
-			}
+			applyErr := <-s.txApplyErrCh
+			log.Error("Found txApplyErr when applyTransactionToPool", "err", applyErr)
 		}
 
 		// should set L1BlockNumber and L1Timestamp, but miner will set all txs of a block to first item
@@ -1298,9 +1327,14 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 	// mpc status 4: default txFeed
 	txs := types.Transactions{tx}
 	// send to handle the new tx
+	eventTime := tx.L1Timestamp()
+	if eventTime == 0 {
+		eventTime = uint64(time.Now().Unix())
+	}
 	s.txFeed.Send(core.NewTxsEvent{
 		Txs:   txs,
 		ErrCh: nil,
+		Time:  eventTime,
 	})
 	// Block until the transaction has been added to the chain
 	log.Trace("Waiting for transaction to be added to chain", "hash", tx.Hash().Hex())
@@ -1789,6 +1823,7 @@ func (s *SyncService) sync(getLatest indexGetter, getNext nextGetter, syncer ran
 	if nextIndex >= *latestIndex+1 {
 		return latestIndex, nil
 	}
+	log.Debug("Special info: sync_service.sync", "nextIndex", nextIndex, "latestIndex", *latestIndex, "syncer", syncer)
 	if err := syncer(nextIndex, *latestIndex); err != nil {
 		return nil, err
 	}

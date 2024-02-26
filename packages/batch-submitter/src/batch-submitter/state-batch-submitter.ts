@@ -256,7 +256,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
           tx,
           async (gasPrice) => {
             tx.gasPrice = gasPrice
-            return await mpcClient.signTx(tx, mpcInfo.mpc_id)
+            const signedTx = await mpcClient.signTx(tx, mpcInfo.mpc_id)
+            return signedTx
           },
           this._makeHooks('appendSequencerBatch')
         )

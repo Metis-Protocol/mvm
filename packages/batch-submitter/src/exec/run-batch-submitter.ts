@@ -585,6 +585,15 @@ export const run = async () => {
             })
             break
         }
+        if (
+          err.message &&
+          (err.message.indexOf('Error writing to ok_tx file') >= 0 ||
+            err.message.indexOf('Error writing to failed tx file') >= 0 ||
+            err.message.indexOf('Error reading ok_tx file') >= 0)
+        ) {
+          logger.error('Break this loop by storage RW error.')
+          break
+        }
         logger.info('Retrying...')
       }
       // Sleep

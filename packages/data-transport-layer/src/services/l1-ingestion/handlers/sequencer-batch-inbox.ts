@@ -41,7 +41,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
     const batchSubmissionData: any = {}
     let batchSubmissionVerified = false
 
-    // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [32 l1Origin *enqueue*].. } ...]
+    // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [20 l1Origin *enqueue*] [32 queueIndex *enqueue*].. } ...]
     const calldata = fromHexString(l1Transaction.data)
     if (calldata.length > 70) {
       const offset = 2
@@ -82,7 +82,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
   parseEvent: async (event, extraData, l2ChainId, options) => {
     const blockEntries: BlockEntry[] = []
 
-    // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [32 l1Origin *enqueue*].. } ...]
+    // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [20 l1Origin *enqueue*] [32 queueIndex *enqueue*].. } ...]
     const calldata = fromHexString(extraData.l1TransactionData)
     if (calldata.length < 70) {
       throw new Error(
@@ -134,10 +134,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
           contextData.slice(offset, offset + 3)
         ).toNumber()
         offset += 3
-        const txData: Buffer = contextData.slice(offset, offset + txDataLen)
-        offset += txDataLen
 
-        const decoded = decodeSequencerBatchTransaction(txData, l2ChainId)
         const transactionEntry: TransactionEntry = {
           index: blockEntry.index,
           batchIndex: extraData.batchIndex.toNumber(),
@@ -146,16 +143,22 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
           gasLimit: BigNumber.from(0).toString(),
           target: constants.AddressZero,
           origin: null,
-          data: toHexString(txData),
+          data: '0x',
           queueOrigin: 'sequencer',
-          value: decoded.value,
+          value: '0x0',
           queueIndex: null,
-          decoded,
+          decoded: null,
           confirmed: true,
           seqSign: null,
         }
         let signData = null
         if (txType === 0) {
+          const txData: Buffer = contextData.slice(offset, offset + txDataLen)
+          offset += txDataLen
+          const decoded = decodeSequencerBatchTransaction(txData, l2ChainId)
+          transactionEntry.data = toHexString(txData)
+          transactionEntry.value = decoded.value
+          transactionEntry.decoded = decoded
           const signLen = BigNumber.from(
             contextData.slice(offset, offset + 3)
           ).toNumber()
@@ -191,15 +194,13 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
             transactionEntry.seqSign = signData
           }
         } else {
-          const l1Origin = toHexString(contextData.slice(offset, offset + 32))
+          const l1Origin = toHexString(contextData.slice(offset, offset + 20))
+          offset += 20
+          const queueIndex = toHexString(contextData.slice(offset, offset + 32))
           offset += 32
-
           transactionEntry.origin = l1Origin
-          transactionEntry.queueIndex = BigNumber.from(decoded.nonce).toNumber()
+          transactionEntry.queueIndex = BigNumber.from(queueIndex).toNumber()
           transactionEntry.queueOrigin = 'l1'
-          transactionEntry.value = '0x0'
-          // reset to null, looks like rollup client use it
-          transactionEntry.decoded = null
         }
         blockEntry.transactions.push(transactionEntry)
         blockEntries.push(blockEntry)
@@ -241,28 +242,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
       }
     }
 
-    // Compatible with rollup client data before deSeqBlock
-    let foundIndex = -1
-    for (let i = 0; i < entry.blockEntries.length; i++) {
-      const blockNumber = entry.blockEntries[i].index + 1
-      if (
-        (!options.deSeqBlock || options.deSeqBlock < blockNumber) &&
-        entry.blockEntries[i].transactions.length === 1
-      ) {
-        foundIndex = i
-        await db.putTransactionEntries(entry.blockEntries[i].transactions)
-      } else {
-        break
-      }
-    }
-
-    if (foundIndex >= 0) {
-      if (foundIndex < entry.blockEntries.length - 1) {
-        await db.putBlockEntries(entry.blockEntries.slice(foundIndex + 1))
-      }
-    } else {
-      await db.putBlockEntries(entry.blockEntries)
-    }
+    await db.putBlockEntries(entry.blockEntries)
 
     // Add an additional field to the enqueued transactions in the database
     // if they have already been confirmed
