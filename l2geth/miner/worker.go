@@ -1144,8 +1144,8 @@ func (w *worker) commitNewTxDeSeq(txs []*types.Transaction, blockTime uint64) er
 		return fmt.Errorf("Failed to create mining context: %w", err)
 	}
 
-	transacions := make(map[common.Address]types.Transactions)
 	for _, tx := range txs {
+		transacions := make(map[common.Address]types.Transactions)
 		if meta := tx.GetMeta(); meta.Index != nil {
 			index := num.Uint64()
 			if *meta.Index < index {
@@ -1164,10 +1164,10 @@ func (w *worker) commitNewTxDeSeq(txs []*types.Transaction, blockTime uint64) er
 		}
 		acc, _ := types.Sender(w.current.signer, tx)
 		transacions[acc] = append(transacions[acc], tx)
-	}
-	txset := types.NewTransactionsByPriceAndNonce(w.current.signer, transacions)
-	if err := w.commitTransactionsWithError(txset, w.coinbase, nil); err != nil {
-		return err
+		txset := types.NewTransactionsByPriceAndNonce(w.current.signer, transacions)
+		if err := w.commitTransactionsWithError(txset, w.coinbase, nil); err != nil {
+			return err
+		}
 	}
 	return w.commit(nil, w.fullTaskHook, tstart)
 }
