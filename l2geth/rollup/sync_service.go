@@ -697,7 +697,7 @@ func (s *SyncService) waitingSequencerTip() (bool, error) {
 	}
 	expectSeq, err := s.GetTxSequencer(nil, blockNumber)
 	if err != nil {
-		log.Error("GetTxSequencer err in waitingSequencerTip", err)
+		log.Error("GetTxSequencer in waitingSequencerTip", "err", err)
 		return false, err
 	}
 	if !strings.EqualFold(expectSeq.String(), s.SeqAddress) {
@@ -1402,7 +1402,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	}
 	expectSeq, err := s.GetTxSequencer(tx, blockNumber)
 	if err != nil {
-		log.Error("GetTxSequencer err ", err)
+		log.Error("GetTxSequencer", "err", err)
 		return err
 	}
 	if fromLocal {

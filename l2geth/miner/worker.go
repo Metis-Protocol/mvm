@@ -1072,11 +1072,11 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 		index := num.Uint64()
 		if *meta.Index < index {
 			log.Info("commitNewTx ", "get meta index ", *meta.Index, "parent.Number() ", index)
-			return fmt.Errorf("Failed to check meta index too small: %w, parent number: %w", *meta.Index, index)
+			return fmt.Errorf("Failed to check meta index too small: %d, parent number: %d", *meta.Index, index)
 		}
 		// Check meta.Index again, it should be equal with index
 		if *meta.Index > index {
-			return fmt.Errorf("Failed to check meta index too large: %w, parent number: %w", *meta.Index, index)
+			return fmt.Errorf("Failed to check meta index too large: %d, parent number: %d", *meta.Index, index)
 		}
 	}
 	// Fill in the index field in the tx meta if it is `nil`.
