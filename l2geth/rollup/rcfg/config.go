@@ -43,7 +43,7 @@ var (
 	// holds the number of decimals in the fee scalar
 	DecimalsSlot = common.BigToHash(big.NewInt(5))
 	// DefaultSeqAdderss refers to the sequencer address before MPC enabled
-	DefaultSeqAdderss = common.HexToAddress("0x1267397fb5BF6f6Dcc3d18d673616D512dbcd8F0")
+	DefaultSeqAdderss = common.HexToAddress("0xfE3A111F4ab6bd63B11A0387fd99195ED3411c83")
 )
 
 func init() {
@@ -93,5 +93,14 @@ func init() {
 		SeqValidHeight = parsed
 	}
 
-	fmt.Println("rcfg UsingOVM ", UsingOVM, " envChainID ", envChainID, "envSeqValidHeight", envSvh)
+	envDefaultSeqAddr := os.Getenv("SEQSET_INIT_ADDR")
+	if envDefaultSeqAddr != "" {
+		addr := common.HexToAddress(envDefaultSeqAddr)
+		if addr.Hex() != "0x0000000000000000000000000000000000000000" {
+			DefaultSeqAdderss = addr
+		}
+	}
+
+	fmt.Println("rcfg UsingOVM ", UsingOVM, " envChainID ", envChainID,
+		"envSeqValidHeight", envSvh, "InitSeq", DefaultSeqAdderss.Hex())
 }
