@@ -467,7 +467,6 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     // Just making sure that the blocks will come back in increasing order.
     const blocks = (await Promise.all(blockPromises)) as BlockWithTransactions[]
     this.logger.info('_syncInboxBatch get blocks', {
-      blocks,
       fromL1Block,
       toL1Block,
     })

@@ -138,8 +138,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64(), "ctc-deploy-height", cfg.CanonicalTransactionChainDeployHeight)
 
 	seqAdapter := NewSeqAdapter(cfg.SeqsetContract, cfg.SeqsetValidHeight, cfg.PosClientHttp, cfg.LocalL2ClientHttp, bc)
-	log.Info("Configured seqAdapter", "url", cfg.PosClientHttp, "SeqsetContract", cfg.SeqsetContract, "SeqsetValidHeight", cfg.SeqsetValidHeight)
-	log.Info("Configured seqAdapter", "SeqAddress", cfg.SeqAddress, "seqPriv", cfg.SeqPriv, "LocalL2ClientHttp", cfg.LocalL2ClientHttp)
+	log.Info("Configured seqAdapter", "url", cfg.PosClientHttp, "SeqsetContract", cfg.SeqsetContract, "SeqsetValidHeight", cfg.SeqsetValidHeight, "SeqAddress", cfg.SeqAddress, "LocalL2ClientHttp", cfg.LocalL2ClientHttp)
 	// Ensure sane values for the fee thresholds
 	if cfg.FeeThresholdDown != nil {
 		// The fee threshold down should be less than 1
