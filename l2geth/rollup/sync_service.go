@@ -1072,6 +1072,10 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction, fromLocal b
 	if *index == next {
 		return s.applyTransactionToTip(tx, fromLocal)
 	}
+	// from p2p tx, when after DeSeqBlock, one block contains multiple transactions
+	if !fromLocal && *index+1 == next && rcfg.DeSeqBlock > 0 && *index+1 >= rcfg.DeSeqBlock {
+		return s.applyTransactionToTip(tx, fromLocal)
+	}
 	if *index < next {
 		log.Trace("applyHistoricalTransaction", "index", *index, "next", next)
 		return s.applyHistoricalTransaction(tx, fromLocal)
@@ -1101,7 +1105,10 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction, fromLoca
 	// Handle the off by one
 	block := s.bc.GetBlockByNumber(*index + 1)
 	if block == nil {
-		return fmt.Errorf("Block %d is not found", *index+1)
+		return fmt.Errorf("Block %d is not found", *index+1, "fromLocal", fromLocal)
+	}
+	if rcfg.DeSeqBlock > 0 && *index+1 >= rcfg.DeSeqBlock {
+		return nil
 	}
 	txs := block.Transactions()
 	if len(txs) != 1 {
