@@ -554,7 +554,7 @@ func (w *worker) mainLoop() {
 				continue
 			}
 			var err error
-			if rcfg.DeSeqBlock > 0 && w.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock {
+			if rcfg.DeSeqBlock > 0 && w.chain.CurrentBlock().NumberU64()+1 >= rcfg.DeSeqBlock && (ev.Time > 0 || len(ev.Txs) > 1) {
 				log.Debug("Attempting to commit rollup transactions", "hash0", ev.Txs[0].Hash().Hex())
 				err = w.commitNewTxDeSeq(ev.Txs, ev.Time)
 			} else {

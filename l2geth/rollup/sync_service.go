@@ -1265,10 +1265,10 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 
 		// should set L1BlockNumber and L1Timestamp, but miner will set all txs of a block to first item
 		// should set LatestIndex
-		ts := s.GetLatestL1Timestamp()
+		// ts := s.GetLatestL1Timestamp()
 		bn := s.GetLatestL1BlockNumber()
 		if tx.L1Timestamp() == 0 {
-			tx.SetL1Timestamp(ts)
+			tx.SetL1Timestamp(uint64(time.Now().Unix()))
 		}
 		l1BlockNumber := tx.L1BlockNumber()
 		// Set the L1 blocknumber
@@ -1326,14 +1326,9 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 	// mpc status 4: default txFeed
 	txs := types.Transactions{tx}
 	// send to handle the new tx
-	eventTime := tx.L1Timestamp()
-	if eventTime == 0 {
-		eventTime = uint64(time.Now().Unix())
-	}
 	s.txFeed.Send(core.NewTxsEvent{
 		Txs:   txs,
 		ErrCh: nil,
-		Time:  eventTime,
 	})
 	// Block until the transaction has been added to the chain
 	log.Trace("Waiting for transaction to be added to chain", "hash", tx.Hash().Hex())
@@ -1468,21 +1463,11 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction, fromLocal boo
 	// NOTE 20220703: metis Andromeda adds the l1timestamp in DTL, keeps it
 	// log.Info("applying tx", "l1Timestamp", tx.L1Timestamp(), "queueOrigin", tx.QueueOrigin())
 	if tx.L1Timestamp() == 0 {
-		tx.SetL1Timestamp(ts)
-		// shouldMalleateTimestamp := !s.verifier && tx.QueueOrigin() == types.QueueOriginL1ToL2
-		// if tx.L1Timestamp() == 0 || shouldMalleateTimestamp {
-		// 	// Get the latest known timestamp
-		// 	current := time.Unix(int64(ts), 0)
-		// 	// Get the current clocktime
-		// 	now := time.Now()
-		// 	// If enough time has passed, then assign the
-		// 	// transaction to have the timestamp now. Otherwise,
-		// 	// use the current timestamp
-		// 	if now.Sub(current) > s.timestampRefreshThreshold {
-		// 		current = now
-		// 	}
-		// 	log.Info("Updating latest timestamp", "timestamp", current, "unix", current.Unix())
-		// 	tx.SetL1Timestamp(uint64(current.Unix()))
+		if ts == 0 {
+			tx.SetL1Timestamp(uint64(time.Now().Unix()))
+		} else {
+			tx.SetL1Timestamp(ts)
+		}
 	} else if tx.L1Timestamp() == 0 && s.verifier {
 		// This should never happen
 		log.Error("No tx timestamp found when running as verifier", "hash", tx.Hash().Hex())
