@@ -43,7 +43,7 @@ var (
 	// holds the number of decimals in the fee scalar
 	DecimalsSlot = common.BigToHash(big.NewInt(5))
 	// DefaultSeqAdderss refers to the sequencer address before MPC enabled
-	DefaultSeqAdderss = common.HexToAddress("0x1267397fb5BF6f6Dcc3d18d673616D512dbcd8F0")
+	DefaultSeqAdderss = common.HexToAddress("0x1EF79F22EcC2127b5227B3898572B882234dFD31")
 )
 
 func init() {
