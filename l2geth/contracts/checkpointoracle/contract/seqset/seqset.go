@@ -27,8 +27,16 @@ var (
 	_ = event.NewSubscription
 )
 
+// MetisSequencerSetEpoch is an auto generated low-level Go binding around an user-defined struct.
+type MetisSequencerSetEpoch struct {
+	Number     *big.Int
+	Signer     common.Address
+	StartBlock *big.Int
+	EndBlock   *big.Int
+}
+
 // SeqsetABI is the input ABI used to generate the binding from.
-const SeqsetABI = "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_newLength\",\"type\":\"uint256\"}],\"name\":\"EpochUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_newMpcAddress\",\"type\":\"address\"}],\"name\":\"MpcAddressUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"epochId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"NewEpoch\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"oldEpochId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"newEpochId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newSigner\",\"type\":\"address\"}],\"name\":\"ReCommitEpoch\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_newLength\",\"type\":\"uint256\"}],\"name\":\"UpdateEpochLength\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_newMpc\",\"type\":\"address\"}],\"name\":\"UpdateMpcAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"newEpoch\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"commitEpoch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"currentEpochNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochLength\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"epochNumbers\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"epochs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"firstEndBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getEpochByBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getMetisSequencer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"initialSequencer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_initialSequencer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_mpcAddress\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_firstEndBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_epochLength\",\"type\":\"uint256\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"mpcAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"oldEpochId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"newEpochId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"newSigner\",\"type\":\"address\"}],\"name\":\"recommitEpoch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
+const SeqsetABI = "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"previousAdmin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"AdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"beacon\",\"type\":\"address\"}],\"name\":\"BeaconUpgraded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"admin\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"admin_\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"changeAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"implementation\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"implementation_\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"}],\"name\":\"upgradeTo\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"upgradeToAndCall\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_newLength\",\"type\":\"uint256\"}],\"name\":\"EpochUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_newMpcAddress\",\"type\":\"address\"}],\"name\":\"MpcAddressUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"epochId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"}],\"name\":\"NewEpoch\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"oldEpochId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"newEpochId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"curEpochId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newSigner\",\"type\":\"address\"}],\"name\":\"ReCommitEpoch\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_newLength\",\"type\":\"uint256\"}],\"name\":\"UpdateEpochLength\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_newMpc\",\"type\":\"address\"}],\"name\":\"UpdateMpcAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_newEpoch\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_endBlock\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_signer\",\"type\":\"address\"}],\"name\":\"commitEpoch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"currentEpoch\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"}],\"internalType\":\"structMetisSequencerSet.Epoch\",\"name\":\"epoch\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"currentEpochNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochLength\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"epochs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"finalizedEpoch\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"signer\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"endBlock\",\"type\":\"uint256\"}],\"internalType\":\"structMetisSequencerSet.Epoch\",\"name\":\"epoch\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_number\",\"type\":\"uint256\"}],\"name\":\"getEpochByBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_number\",\"type\":\"uint256\"}],\"name\":\"getMetisSequencer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_initialSequencer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_mpcAddress\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_firstStartBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_firstEndBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_epochLength\",\"type\":\"uint256\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"mpcAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_oldEpochId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_newEpochId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_endBlock\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_newSigner\",\"type\":\"address\"}],\"name\":\"recommitEpoch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_logic\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"admin_\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"stateMutability\":\"payable\",\"type\":\"constructor\"}]"
 
 // Seqset is an auto generated Go binding around an Ethereum contract.
 type Seqset struct {
@@ -172,6 +180,32 @@ func (_Seqset *SeqsetTransactorRaw) Transact(opts *bind.TransactOpts, method str
 	return _Seqset.Contract.contract.Transact(opts, method, params...)
 }
 
+// CurrentEpoch is a free data retrieval call binding the contract method 0x76671808.
+//
+// Solidity: function currentEpoch() constant returns(MetisSequencerSetEpoch epoch)
+func (_Seqset *SeqsetCaller) CurrentEpoch(opts *bind.CallOpts) (MetisSequencerSetEpoch, error) {
+	var (
+		ret0 = new(MetisSequencerSetEpoch)
+	)
+	out := ret0
+	err := _Seqset.contract.Call(opts, out, "currentEpoch")
+	return *ret0, err
+}
+
+// CurrentEpoch is a free data retrieval call binding the contract method 0x76671808.
+//
+// Solidity: function currentEpoch() constant returns(MetisSequencerSetEpoch epoch)
+func (_Seqset *SeqsetSession) CurrentEpoch() (MetisSequencerSetEpoch, error) {
+	return _Seqset.Contract.CurrentEpoch(&_Seqset.CallOpts)
+}
+
+// CurrentEpoch is a free data retrieval call binding the contract method 0x76671808.
+//
+// Solidity: function currentEpoch() constant returns(MetisSequencerSetEpoch epoch)
+func (_Seqset *SeqsetCallerSession) CurrentEpoch() (MetisSequencerSetEpoch, error) {
+	return _Seqset.Contract.CurrentEpoch(&_Seqset.CallOpts)
+}
+
 // CurrentEpochNumber is a free data retrieval call binding the contract method 0x6903beb4.
 //
 // Solidity: function currentEpochNumber() constant returns(uint256)
@@ -224,32 +258,6 @@ func (_Seqset *SeqsetCallerSession) EpochLength() (*big.Int, error) {
 	return _Seqset.Contract.EpochLength(&_Seqset.CallOpts)
 }
 
-// EpochNumbers is a free data retrieval call binding the contract method 0xe0bf78c1.
-//
-// Solidity: function epochNumbers(uint256 ) constant returns(uint256)
-func (_Seqset *SeqsetCaller) EpochNumbers(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _Seqset.contract.Call(opts, out, "epochNumbers", arg0)
-	return *ret0, err
-}
-
-// EpochNumbers is a free data retrieval call binding the contract method 0xe0bf78c1.
-//
-// Solidity: function epochNumbers(uint256 ) constant returns(uint256)
-func (_Seqset *SeqsetSession) EpochNumbers(arg0 *big.Int) (*big.Int, error) {
-	return _Seqset.Contract.EpochNumbers(&_Seqset.CallOpts, arg0)
-}
-
-// EpochNumbers is a free data retrieval call binding the contract method 0xe0bf78c1.
-//
-// Solidity: function epochNumbers(uint256 ) constant returns(uint256)
-func (_Seqset *SeqsetCallerSession) EpochNumbers(arg0 *big.Int) (*big.Int, error) {
-	return _Seqset.Contract.EpochNumbers(&_Seqset.CallOpts, arg0)
-}
-
 // Epochs is a free data retrieval call binding the contract method 0xc6b61e4c.
 //
 // Solidity: function epochs(uint256 ) constant returns(uint256 number, address signer, uint256 startBlock, uint256 endBlock)
@@ -294,108 +302,82 @@ func (_Seqset *SeqsetCallerSession) Epochs(arg0 *big.Int) (struct {
 	return _Seqset.Contract.Epochs(&_Seqset.CallOpts, arg0)
 }
 
-// FirstEndBlock is a free data retrieval call binding the contract method 0x76a57d37.
+// FinalizedEpoch is a free data retrieval call binding the contract method 0x6bfa7398.
 //
-// Solidity: function firstEndBlock() constant returns(uint256)
-func (_Seqset *SeqsetCaller) FirstEndBlock(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function finalizedEpoch() constant returns(MetisSequencerSetEpoch epoch)
+func (_Seqset *SeqsetCaller) FinalizedEpoch(opts *bind.CallOpts) (MetisSequencerSetEpoch, error) {
+	var (
+		ret0 = new(MetisSequencerSetEpoch)
+	)
+	out := ret0
+	err := _Seqset.contract.Call(opts, out, "finalizedEpoch")
+	return *ret0, err
+}
+
+// FinalizedEpoch is a free data retrieval call binding the contract method 0x6bfa7398.
+//
+// Solidity: function finalizedEpoch() constant returns(MetisSequencerSetEpoch epoch)
+func (_Seqset *SeqsetSession) FinalizedEpoch() (MetisSequencerSetEpoch, error) {
+	return _Seqset.Contract.FinalizedEpoch(&_Seqset.CallOpts)
+}
+
+// FinalizedEpoch is a free data retrieval call binding the contract method 0x6bfa7398.
+//
+// Solidity: function finalizedEpoch() constant returns(MetisSequencerSetEpoch epoch)
+func (_Seqset *SeqsetCallerSession) FinalizedEpoch() (MetisSequencerSetEpoch, error) {
+	return _Seqset.Contract.FinalizedEpoch(&_Seqset.CallOpts)
+}
+
+// GetEpochByBlock is a free data retrieval call binding the contract method 0x46df33d2.
+//
+// Solidity: function getEpochByBlock(uint256 _number) constant returns(uint256)
+func (_Seqset *SeqsetCaller) GetEpochByBlock(opts *bind.CallOpts, _number *big.Int) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
 	)
 	out := ret0
-	err := _Seqset.contract.Call(opts, out, "firstEndBlock")
-	return *ret0, err
-}
-
-// FirstEndBlock is a free data retrieval call binding the contract method 0x76a57d37.
-//
-// Solidity: function firstEndBlock() constant returns(uint256)
-func (_Seqset *SeqsetSession) FirstEndBlock() (*big.Int, error) {
-	return _Seqset.Contract.FirstEndBlock(&_Seqset.CallOpts)
-}
-
-// FirstEndBlock is a free data retrieval call binding the contract method 0x76a57d37.
-//
-// Solidity: function firstEndBlock() constant returns(uint256)
-func (_Seqset *SeqsetCallerSession) FirstEndBlock() (*big.Int, error) {
-	return _Seqset.Contract.FirstEndBlock(&_Seqset.CallOpts)
-}
-
-// GetEpochByBlock is a free data retrieval call binding the contract method 0x46df33d2.
-//
-// Solidity: function getEpochByBlock(uint256 number) constant returns(uint256)
-func (_Seqset *SeqsetCaller) GetEpochByBlock(opts *bind.CallOpts, number *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _Seqset.contract.Call(opts, out, "getEpochByBlock", number)
+	err := _Seqset.contract.Call(opts, out, "getEpochByBlock", _number)
 	return *ret0, err
 }
 
 // GetEpochByBlock is a free data retrieval call binding the contract method 0x46df33d2.
 //
-// Solidity: function getEpochByBlock(uint256 number) constant returns(uint256)
-func (_Seqset *SeqsetSession) GetEpochByBlock(number *big.Int) (*big.Int, error) {
-	return _Seqset.Contract.GetEpochByBlock(&_Seqset.CallOpts, number)
+// Solidity: function getEpochByBlock(uint256 _number) constant returns(uint256)
+func (_Seqset *SeqsetSession) GetEpochByBlock(_number *big.Int) (*big.Int, error) {
+	return _Seqset.Contract.GetEpochByBlock(&_Seqset.CallOpts, _number)
 }
 
 // GetEpochByBlock is a free data retrieval call binding the contract method 0x46df33d2.
 //
-// Solidity: function getEpochByBlock(uint256 number) constant returns(uint256)
-func (_Seqset *SeqsetCallerSession) GetEpochByBlock(number *big.Int) (*big.Int, error) {
-	return _Seqset.Contract.GetEpochByBlock(&_Seqset.CallOpts, number)
+// Solidity: function getEpochByBlock(uint256 _number) constant returns(uint256)
+func (_Seqset *SeqsetCallerSession) GetEpochByBlock(_number *big.Int) (*big.Int, error) {
+	return _Seqset.Contract.GetEpochByBlock(&_Seqset.CallOpts, _number)
 }
 
 // GetMetisSequencer is a free data retrieval call binding the contract method 0x3edae769.
 //
-// Solidity: function getMetisSequencer(uint256 number) constant returns(address)
-func (_Seqset *SeqsetCaller) GetMetisSequencer(opts *bind.CallOpts, number *big.Int) (common.Address, error) {
+// Solidity: function getMetisSequencer(uint256 _number) constant returns(address)
+func (_Seqset *SeqsetCaller) GetMetisSequencer(opts *bind.CallOpts, _number *big.Int) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
 	)
 	out := ret0
-	err := _Seqset.contract.Call(opts, out, "getMetisSequencer", number)
+	err := _Seqset.contract.Call(opts, out, "getMetisSequencer", _number)
 	return *ret0, err
 }
 
 // GetMetisSequencer is a free data retrieval call binding the contract method 0x3edae769.
 //
-// Solidity: function getMetisSequencer(uint256 number) constant returns(address)
-func (_Seqset *SeqsetSession) GetMetisSequencer(number *big.Int) (common.Address, error) {
-	return _Seqset.Contract.GetMetisSequencer(&_Seqset.CallOpts, number)
+// Solidity: function getMetisSequencer(uint256 _number) constant returns(address)
+func (_Seqset *SeqsetSession) GetMetisSequencer(_number *big.Int) (common.Address, error) {
+	return _Seqset.Contract.GetMetisSequencer(&_Seqset.CallOpts, _number)
 }
 
 // GetMetisSequencer is a free data retrieval call binding the contract method 0x3edae769.
 //
-// Solidity: function getMetisSequencer(uint256 number) constant returns(address)
-func (_Seqset *SeqsetCallerSession) GetMetisSequencer(number *big.Int) (common.Address, error) {
-	return _Seqset.Contract.GetMetisSequencer(&_Seqset.CallOpts, number)
-}
-
-// InitialSequencer is a free data retrieval call binding the contract method 0xc0f1d5a1.
-//
-// Solidity: function initialSequencer() constant returns(address)
-func (_Seqset *SeqsetCaller) InitialSequencer(opts *bind.CallOpts) (common.Address, error) {
-	var (
-		ret0 = new(common.Address)
-	)
-	out := ret0
-	err := _Seqset.contract.Call(opts, out, "initialSequencer")
-	return *ret0, err
-}
-
-// InitialSequencer is a free data retrieval call binding the contract method 0xc0f1d5a1.
-//
-// Solidity: function initialSequencer() constant returns(address)
-func (_Seqset *SeqsetSession) InitialSequencer() (common.Address, error) {
-	return _Seqset.Contract.InitialSequencer(&_Seqset.CallOpts)
-}
-
-// InitialSequencer is a free data retrieval call binding the contract method 0xc0f1d5a1.
-//
-// Solidity: function initialSequencer() constant returns(address)
-func (_Seqset *SeqsetCallerSession) InitialSequencer() (common.Address, error) {
-	return _Seqset.Contract.InitialSequencer(&_Seqset.CallOpts)
+// Solidity: function getMetisSequencer(uint256 _number) constant returns(address)
+func (_Seqset *SeqsetCallerSession) GetMetisSequencer(_number *big.Int) (common.Address, error) {
+	return _Seqset.Contract.GetMetisSequencer(&_Seqset.CallOpts, _number)
 }
 
 // MpcAddress is a free data retrieval call binding the contract method 0x111f4630.
@@ -492,67 +474,130 @@ func (_Seqset *SeqsetTransactorSession) UpdateMpcAddress(_newMpc common.Address)
 	return _Seqset.Contract.UpdateMpcAddress(&_Seqset.TransactOpts, _newMpc)
 }
 
-// CommitEpoch is a paid mutator transaction binding the contract method 0x4fb71bdd.
+// Admin is a paid mutator transaction binding the contract method 0xf851a440.
 //
-// Solidity: function commitEpoch(uint256 newEpoch, uint256 startBlock, uint256 endBlock, address signer) returns()
-func (_Seqset *SeqsetTransactor) CommitEpoch(opts *bind.TransactOpts, newEpoch *big.Int, startBlock *big.Int, endBlock *big.Int, signer common.Address) (*types.Transaction, error) {
-	return _Seqset.contract.Transact(opts, "commitEpoch", newEpoch, startBlock, endBlock, signer)
+// Solidity: function admin() returns(address admin_)
+func (_Seqset *SeqsetTransactor) Admin(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "admin")
+}
+
+// Admin is a paid mutator transaction binding the contract method 0xf851a440.
+//
+// Solidity: function admin() returns(address admin_)
+func (_Seqset *SeqsetSession) Admin() (*types.Transaction, error) {
+	return _Seqset.Contract.Admin(&_Seqset.TransactOpts)
+}
+
+// Admin is a paid mutator transaction binding the contract method 0xf851a440.
+//
+// Solidity: function admin() returns(address admin_)
+func (_Seqset *SeqsetTransactorSession) Admin() (*types.Transaction, error) {
+	return _Seqset.Contract.Admin(&_Seqset.TransactOpts)
+}
+
+// ChangeAdmin is a paid mutator transaction binding the contract method 0x8f283970.
+//
+// Solidity: function changeAdmin(address newAdmin) returns()
+func (_Seqset *SeqsetTransactor) ChangeAdmin(opts *bind.TransactOpts, newAdmin common.Address) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "changeAdmin", newAdmin)
+}
+
+// ChangeAdmin is a paid mutator transaction binding the contract method 0x8f283970.
+//
+// Solidity: function changeAdmin(address newAdmin) returns()
+func (_Seqset *SeqsetSession) ChangeAdmin(newAdmin common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.ChangeAdmin(&_Seqset.TransactOpts, newAdmin)
+}
+
+// ChangeAdmin is a paid mutator transaction binding the contract method 0x8f283970.
+//
+// Solidity: function changeAdmin(address newAdmin) returns()
+func (_Seqset *SeqsetTransactorSession) ChangeAdmin(newAdmin common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.ChangeAdmin(&_Seqset.TransactOpts, newAdmin)
 }
 
 // CommitEpoch is a paid mutator transaction binding the contract method 0x4fb71bdd.
 //
-// Solidity: function commitEpoch(uint256 newEpoch, uint256 startBlock, uint256 endBlock, address signer) returns()
-func (_Seqset *SeqsetSession) CommitEpoch(newEpoch *big.Int, startBlock *big.Int, endBlock *big.Int, signer common.Address) (*types.Transaction, error) {
-	return _Seqset.Contract.CommitEpoch(&_Seqset.TransactOpts, newEpoch, startBlock, endBlock, signer)
+// Solidity: function commitEpoch(uint256 _newEpoch, uint256 _startBlock, uint256 _endBlock, address _signer) returns()
+func (_Seqset *SeqsetTransactor) CommitEpoch(opts *bind.TransactOpts, _newEpoch *big.Int, _startBlock *big.Int, _endBlock *big.Int, _signer common.Address) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "commitEpoch", _newEpoch, _startBlock, _endBlock, _signer)
 }
 
 // CommitEpoch is a paid mutator transaction binding the contract method 0x4fb71bdd.
 //
-// Solidity: function commitEpoch(uint256 newEpoch, uint256 startBlock, uint256 endBlock, address signer) returns()
-func (_Seqset *SeqsetTransactorSession) CommitEpoch(newEpoch *big.Int, startBlock *big.Int, endBlock *big.Int, signer common.Address) (*types.Transaction, error) {
-	return _Seqset.Contract.CommitEpoch(&_Seqset.TransactOpts, newEpoch, startBlock, endBlock, signer)
+// Solidity: function commitEpoch(uint256 _newEpoch, uint256 _startBlock, uint256 _endBlock, address _signer) returns()
+func (_Seqset *SeqsetSession) CommitEpoch(_newEpoch *big.Int, _startBlock *big.Int, _endBlock *big.Int, _signer common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.CommitEpoch(&_Seqset.TransactOpts, _newEpoch, _startBlock, _endBlock, _signer)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xeb990c59.
+// CommitEpoch is a paid mutator transaction binding the contract method 0x4fb71bdd.
 //
-// Solidity: function initialize(address _initialSequencer, address _mpcAddress, uint256 _firstEndBlock, uint256 _epochLength) returns()
-func (_Seqset *SeqsetTransactor) Initialize(opts *bind.TransactOpts, _initialSequencer common.Address, _mpcAddress common.Address, _firstEndBlock *big.Int, _epochLength *big.Int) (*types.Transaction, error) {
-	return _Seqset.contract.Transact(opts, "initialize", _initialSequencer, _mpcAddress, _firstEndBlock, _epochLength)
+// Solidity: function commitEpoch(uint256 _newEpoch, uint256 _startBlock, uint256 _endBlock, address _signer) returns()
+func (_Seqset *SeqsetTransactorSession) CommitEpoch(_newEpoch *big.Int, _startBlock *big.Int, _endBlock *big.Int, _signer common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.CommitEpoch(&_Seqset.TransactOpts, _newEpoch, _startBlock, _endBlock, _signer)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xeb990c59.
+// Implementation is a paid mutator transaction binding the contract method 0x5c60da1b.
 //
-// Solidity: function initialize(address _initialSequencer, address _mpcAddress, uint256 _firstEndBlock, uint256 _epochLength) returns()
-func (_Seqset *SeqsetSession) Initialize(_initialSequencer common.Address, _mpcAddress common.Address, _firstEndBlock *big.Int, _epochLength *big.Int) (*types.Transaction, error) {
-	return _Seqset.Contract.Initialize(&_Seqset.TransactOpts, _initialSequencer, _mpcAddress, _firstEndBlock, _epochLength)
+// Solidity: function implementation() returns(address implementation_)
+func (_Seqset *SeqsetTransactor) Implementation(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "implementation")
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xeb990c59.
+// Implementation is a paid mutator transaction binding the contract method 0x5c60da1b.
 //
-// Solidity: function initialize(address _initialSequencer, address _mpcAddress, uint256 _firstEndBlock, uint256 _epochLength) returns()
-func (_Seqset *SeqsetTransactorSession) Initialize(_initialSequencer common.Address, _mpcAddress common.Address, _firstEndBlock *big.Int, _epochLength *big.Int) (*types.Transaction, error) {
-	return _Seqset.Contract.Initialize(&_Seqset.TransactOpts, _initialSequencer, _mpcAddress, _firstEndBlock, _epochLength)
+// Solidity: function implementation() returns(address implementation_)
+func (_Seqset *SeqsetSession) Implementation() (*types.Transaction, error) {
+	return _Seqset.Contract.Implementation(&_Seqset.TransactOpts)
+}
+
+// Implementation is a paid mutator transaction binding the contract method 0x5c60da1b.
+//
+// Solidity: function implementation() returns(address implementation_)
+func (_Seqset *SeqsetTransactorSession) Implementation() (*types.Transaction, error) {
+	return _Seqset.Contract.Implementation(&_Seqset.TransactOpts)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xd13f90b4.
+//
+// Solidity: function initialize(address _initialSequencer, address _mpcAddress, uint256 _firstStartBlock, uint256 _firstEndBlock, uint256 _epochLength) returns()
+func (_Seqset *SeqsetTransactor) Initialize(opts *bind.TransactOpts, _initialSequencer common.Address, _mpcAddress common.Address, _firstStartBlock *big.Int, _firstEndBlock *big.Int, _epochLength *big.Int) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "initialize", _initialSequencer, _mpcAddress, _firstStartBlock, _firstEndBlock, _epochLength)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xd13f90b4.
+//
+// Solidity: function initialize(address _initialSequencer, address _mpcAddress, uint256 _firstStartBlock, uint256 _firstEndBlock, uint256 _epochLength) returns()
+func (_Seqset *SeqsetSession) Initialize(_initialSequencer common.Address, _mpcAddress common.Address, _firstStartBlock *big.Int, _firstEndBlock *big.Int, _epochLength *big.Int) (*types.Transaction, error) {
+	return _Seqset.Contract.Initialize(&_Seqset.TransactOpts, _initialSequencer, _mpcAddress, _firstStartBlock, _firstEndBlock, _epochLength)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xd13f90b4.
+//
+// Solidity: function initialize(address _initialSequencer, address _mpcAddress, uint256 _firstStartBlock, uint256 _firstEndBlock, uint256 _epochLength) returns()
+func (_Seqset *SeqsetTransactorSession) Initialize(_initialSequencer common.Address, _mpcAddress common.Address, _firstStartBlock *big.Int, _firstEndBlock *big.Int, _epochLength *big.Int) (*types.Transaction, error) {
+	return _Seqset.Contract.Initialize(&_Seqset.TransactOpts, _initialSequencer, _mpcAddress, _firstStartBlock, _firstEndBlock, _epochLength)
 }
 
 // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
 //
-// Solidity: function recommitEpoch(uint256 oldEpochId, uint256 newEpochId, uint256 startBlock, uint256 endBlock, address newSigner) returns()
-func (_Seqset *SeqsetTransactor) RecommitEpoch(opts *bind.TransactOpts, oldEpochId *big.Int, newEpochId *big.Int, startBlock *big.Int, endBlock *big.Int, newSigner common.Address) (*types.Transaction, error) {
-	return _Seqset.contract.Transact(opts, "recommitEpoch", oldEpochId, newEpochId, startBlock, endBlock, newSigner)
+// Solidity: function recommitEpoch(uint256 _oldEpochId, uint256 _newEpochId, uint256 _startBlock, uint256 _endBlock, address _newSigner) returns()
+func (_Seqset *SeqsetTransactor) RecommitEpoch(opts *bind.TransactOpts, _oldEpochId *big.Int, _newEpochId *big.Int, _startBlock *big.Int, _endBlock *big.Int, _newSigner common.Address) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "recommitEpoch", _oldEpochId, _newEpochId, _startBlock, _endBlock, _newSigner)
 }
 
 // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
 //
-// Solidity: function recommitEpoch(uint256 oldEpochId, uint256 newEpochId, uint256 startBlock, uint256 endBlock, address newSigner) returns()
-func (_Seqset *SeqsetSession) RecommitEpoch(oldEpochId *big.Int, newEpochId *big.Int, startBlock *big.Int, endBlock *big.Int, newSigner common.Address) (*types.Transaction, error) {
-	return _Seqset.Contract.RecommitEpoch(&_Seqset.TransactOpts, oldEpochId, newEpochId, startBlock, endBlock, newSigner)
+// Solidity: function recommitEpoch(uint256 _oldEpochId, uint256 _newEpochId, uint256 _startBlock, uint256 _endBlock, address _newSigner) returns()
+func (_Seqset *SeqsetSession) RecommitEpoch(_oldEpochId *big.Int, _newEpochId *big.Int, _startBlock *big.Int, _endBlock *big.Int, _newSigner common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.RecommitEpoch(&_Seqset.TransactOpts, _oldEpochId, _newEpochId, _startBlock, _endBlock, _newSigner)
 }
 
 // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679.
 //
-// Solidity: function recommitEpoch(uint256 oldEpochId, uint256 newEpochId, uint256 startBlock, uint256 endBlock, address newSigner) returns()
-func (_Seqset *SeqsetTransactorSession) RecommitEpoch(oldEpochId *big.Int, newEpochId *big.Int, startBlock *big.Int, endBlock *big.Int, newSigner common.Address) (*types.Transaction, error) {
-	return _Seqset.Contract.RecommitEpoch(&_Seqset.TransactOpts, oldEpochId, newEpochId, startBlock, endBlock, newSigner)
+// Solidity: function recommitEpoch(uint256 _oldEpochId, uint256 _newEpochId, uint256 _startBlock, uint256 _endBlock, address _newSigner) returns()
+func (_Seqset *SeqsetTransactorSession) RecommitEpoch(_oldEpochId *big.Int, _newEpochId *big.Int, _startBlock *big.Int, _endBlock *big.Int, _newSigner common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.RecommitEpoch(&_Seqset.TransactOpts, _oldEpochId, _newEpochId, _startBlock, _endBlock, _newSigner)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -595,6 +640,325 @@ func (_Seqset *SeqsetSession) TransferOwnership(newOwner common.Address) (*types
 // Solidity: function transferOwnership(address newOwner) returns()
 func (_Seqset *SeqsetTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
 	return _Seqset.Contract.TransferOwnership(&_Seqset.TransactOpts, newOwner)
+}
+
+// UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
+//
+// Solidity: function upgradeTo(address newImplementation) returns()
+func (_Seqset *SeqsetTransactor) UpgradeTo(opts *bind.TransactOpts, newImplementation common.Address) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "upgradeTo", newImplementation)
+}
+
+// UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
+//
+// Solidity: function upgradeTo(address newImplementation) returns()
+func (_Seqset *SeqsetSession) UpgradeTo(newImplementation common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.UpgradeTo(&_Seqset.TransactOpts, newImplementation)
+}
+
+// UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
+//
+// Solidity: function upgradeTo(address newImplementation) returns()
+func (_Seqset *SeqsetTransactorSession) UpgradeTo(newImplementation common.Address) (*types.Transaction, error) {
+	return _Seqset.Contract.UpgradeTo(&_Seqset.TransactOpts, newImplementation)
+}
+
+// UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
+//
+// Solidity: function upgradeToAndCall(address newImplementation, bytes data) returns()
+func (_Seqset *SeqsetTransactor) UpgradeToAndCall(opts *bind.TransactOpts, newImplementation common.Address, data []byte) (*types.Transaction, error) {
+	return _Seqset.contract.Transact(opts, "upgradeToAndCall", newImplementation, data)
+}
+
+// UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
+//
+// Solidity: function upgradeToAndCall(address newImplementation, bytes data) returns()
+func (_Seqset *SeqsetSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
+	return _Seqset.Contract.UpgradeToAndCall(&_Seqset.TransactOpts, newImplementation, data)
+}
+
+// UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
+//
+// Solidity: function upgradeToAndCall(address newImplementation, bytes data) returns()
+func (_Seqset *SeqsetTransactorSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
+	return _Seqset.Contract.UpgradeToAndCall(&_Seqset.TransactOpts, newImplementation, data)
+}
+
+// SeqsetAdminChangedIterator is returned from FilterAdminChanged and is used to iterate over the raw logs and unpacked data for AdminChanged events raised by the Seqset contract.
+type SeqsetAdminChangedIterator struct {
+	Event *SeqsetAdminChanged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SeqsetAdminChangedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SeqsetAdminChanged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SeqsetAdminChanged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SeqsetAdminChangedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SeqsetAdminChangedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SeqsetAdminChanged represents a AdminChanged event raised by the Seqset contract.
+type SeqsetAdminChanged struct {
+	PreviousAdmin common.Address
+	NewAdmin      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterAdminChanged is a free log retrieval operation binding the contract event 0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f.
+//
+// Solidity: event AdminChanged(address previousAdmin, address newAdmin)
+func (_Seqset *SeqsetFilterer) FilterAdminChanged(opts *bind.FilterOpts) (*SeqsetAdminChangedIterator, error) {
+
+	logs, sub, err := _Seqset.contract.FilterLogs(opts, "AdminChanged")
+	if err != nil {
+		return nil, err
+	}
+	return &SeqsetAdminChangedIterator{contract: _Seqset.contract, event: "AdminChanged", logs: logs, sub: sub}, nil
+}
+
+// WatchAdminChanged is a free log subscription operation binding the contract event 0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f.
+//
+// Solidity: event AdminChanged(address previousAdmin, address newAdmin)
+func (_Seqset *SeqsetFilterer) WatchAdminChanged(opts *bind.WatchOpts, sink chan<- *SeqsetAdminChanged) (event.Subscription, error) {
+
+	logs, sub, err := _Seqset.contract.WatchLogs(opts, "AdminChanged")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SeqsetAdminChanged)
+				if err := _Seqset.contract.UnpackLog(event, "AdminChanged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseAdminChanged is a log parse operation binding the contract event 0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f.
+//
+// Solidity: event AdminChanged(address previousAdmin, address newAdmin)
+func (_Seqset *SeqsetFilterer) ParseAdminChanged(log types.Log) (*SeqsetAdminChanged, error) {
+	event := new(SeqsetAdminChanged)
+	if err := _Seqset.contract.UnpackLog(event, "AdminChanged", log); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+// SeqsetBeaconUpgradedIterator is returned from FilterBeaconUpgraded and is used to iterate over the raw logs and unpacked data for BeaconUpgraded events raised by the Seqset contract.
+type SeqsetBeaconUpgradedIterator struct {
+	Event *SeqsetBeaconUpgraded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SeqsetBeaconUpgradedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SeqsetBeaconUpgraded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SeqsetBeaconUpgraded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SeqsetBeaconUpgradedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SeqsetBeaconUpgradedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SeqsetBeaconUpgraded represents a BeaconUpgraded event raised by the Seqset contract.
+type SeqsetBeaconUpgraded struct {
+	Beacon common.Address
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterBeaconUpgraded is a free log retrieval operation binding the contract event 0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e.
+//
+// Solidity: event BeaconUpgraded(address indexed beacon)
+func (_Seqset *SeqsetFilterer) FilterBeaconUpgraded(opts *bind.FilterOpts, beacon []common.Address) (*SeqsetBeaconUpgradedIterator, error) {
+
+	var beaconRule []interface{}
+	for _, beaconItem := range beacon {
+		beaconRule = append(beaconRule, beaconItem)
+	}
+
+	logs, sub, err := _Seqset.contract.FilterLogs(opts, "BeaconUpgraded", beaconRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SeqsetBeaconUpgradedIterator{contract: _Seqset.contract, event: "BeaconUpgraded", logs: logs, sub: sub}, nil
+}
+
+// WatchBeaconUpgraded is a free log subscription operation binding the contract event 0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e.
+//
+// Solidity: event BeaconUpgraded(address indexed beacon)
+func (_Seqset *SeqsetFilterer) WatchBeaconUpgraded(opts *bind.WatchOpts, sink chan<- *SeqsetBeaconUpgraded, beacon []common.Address) (event.Subscription, error) {
+
+	var beaconRule []interface{}
+	for _, beaconItem := range beacon {
+		beaconRule = append(beaconRule, beaconItem)
+	}
+
+	logs, sub, err := _Seqset.contract.WatchLogs(opts, "BeaconUpgraded", beaconRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SeqsetBeaconUpgraded)
+				if err := _Seqset.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBeaconUpgraded is a log parse operation binding the contract event 0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e.
+//
+// Solidity: event BeaconUpgraded(address indexed beacon)
+func (_Seqset *SeqsetFilterer) ParseBeaconUpgraded(log types.Log) (*SeqsetBeaconUpgraded, error) {
+	event := new(SeqsetBeaconUpgraded)
+	if err := _Seqset.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
+		return nil, err
+	}
+	return event, nil
 }
 
 // SeqsetEpochUpdatedIterator is returned from FilterEpochUpdated and is used to iterate over the raw logs and unpacked data for EpochUpdated events raised by the Seqset contract.
@@ -1365,15 +1729,16 @@ func (it *SeqsetReCommitEpochIterator) Close() error {
 type SeqsetReCommitEpoch struct {
 	OldEpochId *big.Int
 	NewEpochId *big.Int
+	CurEpochId *big.Int
 	StartBlock *big.Int
 	EndBlock   *big.Int
 	NewSigner  common.Address
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterReCommitEpoch is a free log retrieval operation binding the contract event 0x2555d8fe1de86f68f4f9918cdd7c647eaebcc50009b03367c7cf4676a929c070.
+// FilterReCommitEpoch is a free log retrieval operation binding the contract event 0x2cfee2bd8227abd70bbef63ce6f35d2e365c731d553d9d2231073f80b01831da.
 //
-// Solidity: event ReCommitEpoch(uint256 indexed oldEpochId, uint256 indexed newEpochId, uint256 startBlock, uint256 endBlock, address newSigner)
+// Solidity: event ReCommitEpoch(uint256 indexed oldEpochId, uint256 indexed newEpochId, uint256 curEpochId, uint256 startBlock, uint256 endBlock, address newSigner)
 func (_Seqset *SeqsetFilterer) FilterReCommitEpoch(opts *bind.FilterOpts, oldEpochId []*big.Int, newEpochId []*big.Int) (*SeqsetReCommitEpochIterator, error) {
 
 	var oldEpochIdRule []interface{}
@@ -1392,9 +1757,9 @@ func (_Seqset *SeqsetFilterer) FilterReCommitEpoch(opts *bind.FilterOpts, oldEpo
 	return &SeqsetReCommitEpochIterator{contract: _Seqset.contract, event: "ReCommitEpoch", logs: logs, sub: sub}, nil
 }
 
-// WatchReCommitEpoch is a free log subscription operation binding the contract event 0x2555d8fe1de86f68f4f9918cdd7c647eaebcc50009b03367c7cf4676a929c070.
+// WatchReCommitEpoch is a free log subscription operation binding the contract event 0x2cfee2bd8227abd70bbef63ce6f35d2e365c731d553d9d2231073f80b01831da.
 //
-// Solidity: event ReCommitEpoch(uint256 indexed oldEpochId, uint256 indexed newEpochId, uint256 startBlock, uint256 endBlock, address newSigner)
+// Solidity: event ReCommitEpoch(uint256 indexed oldEpochId, uint256 indexed newEpochId, uint256 curEpochId, uint256 startBlock, uint256 endBlock, address newSigner)
 func (_Seqset *SeqsetFilterer) WatchReCommitEpoch(opts *bind.WatchOpts, sink chan<- *SeqsetReCommitEpoch, oldEpochId []*big.Int, newEpochId []*big.Int) (event.Subscription, error) {
 
 	var oldEpochIdRule []interface{}
@@ -1438,12 +1803,155 @@ func (_Seqset *SeqsetFilterer) WatchReCommitEpoch(opts *bind.WatchOpts, sink cha
 	}), nil
 }
 
-// ParseReCommitEpoch is a log parse operation binding the contract event 0x2555d8fe1de86f68f4f9918cdd7c647eaebcc50009b03367c7cf4676a929c070.
+// ParseReCommitEpoch is a log parse operation binding the contract event 0x2cfee2bd8227abd70bbef63ce6f35d2e365c731d553d9d2231073f80b01831da.
 //
-// Solidity: event ReCommitEpoch(uint256 indexed oldEpochId, uint256 indexed newEpochId, uint256 startBlock, uint256 endBlock, address newSigner)
+// Solidity: event ReCommitEpoch(uint256 indexed oldEpochId, uint256 indexed newEpochId, uint256 curEpochId, uint256 startBlock, uint256 endBlock, address newSigner)
 func (_Seqset *SeqsetFilterer) ParseReCommitEpoch(log types.Log) (*SeqsetReCommitEpoch, error) {
 	event := new(SeqsetReCommitEpoch)
 	if err := _Seqset.contract.UnpackLog(event, "ReCommitEpoch", log); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+// SeqsetUpgradedIterator is returned from FilterUpgraded and is used to iterate over the raw logs and unpacked data for Upgraded events raised by the Seqset contract.
+type SeqsetUpgradedIterator struct {
+	Event *SeqsetUpgraded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SeqsetUpgradedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SeqsetUpgraded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SeqsetUpgraded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SeqsetUpgradedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SeqsetUpgradedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SeqsetUpgraded represents a Upgraded event raised by the Seqset contract.
+type SeqsetUpgraded struct {
+	Implementation common.Address
+	Raw            types.Log // Blockchain specific contextual infos
+}
+
+// FilterUpgraded is a free log retrieval operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
+//
+// Solidity: event Upgraded(address indexed implementation)
+func (_Seqset *SeqsetFilterer) FilterUpgraded(opts *bind.FilterOpts, implementation []common.Address) (*SeqsetUpgradedIterator, error) {
+
+	var implementationRule []interface{}
+	for _, implementationItem := range implementation {
+		implementationRule = append(implementationRule, implementationItem)
+	}
+
+	logs, sub, err := _Seqset.contract.FilterLogs(opts, "Upgraded", implementationRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SeqsetUpgradedIterator{contract: _Seqset.contract, event: "Upgraded", logs: logs, sub: sub}, nil
+}
+
+// WatchUpgraded is a free log subscription operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
+//
+// Solidity: event Upgraded(address indexed implementation)
+func (_Seqset *SeqsetFilterer) WatchUpgraded(opts *bind.WatchOpts, sink chan<- *SeqsetUpgraded, implementation []common.Address) (event.Subscription, error) {
+
+	var implementationRule []interface{}
+	for _, implementationItem := range implementation {
+		implementationRule = append(implementationRule, implementationItem)
+	}
+
+	logs, sub, err := _Seqset.contract.WatchLogs(opts, "Upgraded", implementationRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SeqsetUpgraded)
+				if err := _Seqset.contract.UnpackLog(event, "Upgraded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUpgraded is a log parse operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
+//
+// Solidity: event Upgraded(address indexed implementation)
+func (_Seqset *SeqsetFilterer) ParseUpgraded(log types.Log) (*SeqsetUpgraded, error) {
+	event := new(SeqsetUpgraded)
+	if err := _Seqset.contract.UnpackLog(event, "Upgraded", log); err != nil {
 		return nil, err
 	}
 	return event, nil
