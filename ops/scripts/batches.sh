@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -22,4 +22,4 @@ curl --fail \
     $L2_NODE_WEB3_URL
 
 # go
-exec node ./exec/run-batch-submitter.js
+exec node --enable-source-maps ./exec/run-batch-submitter.js
