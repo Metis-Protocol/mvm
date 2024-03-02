@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -12,4 +12,4 @@ if [[ ! -z "$URL" ]]; then
 fi
 
 # go
-exec node dist/src/services/run.js
+exec node --enable-source-maps dist/src/services/run.js
