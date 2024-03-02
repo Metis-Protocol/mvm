@@ -3,7 +3,7 @@ FROM golang:1.21.7-alpine as builder
 RUN apk add --no-cache make gcc musl-dev linux-headers git
 WORKDIR /l2geth
 COPY ./l2geth ./
-RUN make geth
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make geth
 
 # Pull Geth into a second stage deploy alpine container
 FROM alpine:3.19
