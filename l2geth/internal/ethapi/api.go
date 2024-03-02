@@ -905,7 +905,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 		if block != nil {
 			txs := block.Transactions()
 			if header.Number.Uint64() != 0 {
-				if len(txs) != 1 {
+				if (rcfg.DeSeqBlock == 0 || header.Number.Uint64() < rcfg.DeSeqBlock) && len(txs) != 1 {
 					return nil, 0, false, fmt.Errorf("block %d has more than 1 transaction", header.Number.Uint64())
 				}
 				tx := txs[0]
