@@ -31,7 +31,7 @@ import {
 } from '../transaction-chain-contract'
 
 import { BlockRange, BatchSubmitter, TransactionBatchSubmitterInbox } from '.'
-import { TransactionSubmitter, MpcClient } from '../utils'
+import { TransactionSubmitter, MpcClient, sequencerSetABI } from '../utils'
 import { InboxStorage, InboxRecordInfo } from '../storage'
 
 export interface AutoFixBatchOptions {
@@ -43,6 +43,7 @@ export interface AutoFixBatchOptions {
 export class TransactionBatchSubmitter extends BatchSubmitter {
   protected chainContract: CanonicalTransactionChainContract
   protected mvmCtcContract: CanonicalTransactionChainContract
+  protected seqsetContract: Contract
   protected l2ChainId: number
   protected syncing: boolean
   private autoFixBatchOptions: AutoFixBatchOptions
@@ -57,6 +58,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private inboxAddress: string
   private inboxStartIndex: string
   private inboxSubmitter: TransactionBatchSubmitterInbox
+  private seqsetValidHeight: number
+  private seqsetContractAddress: string
 
   constructor(
     signer: Signer,
@@ -85,7 +88,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     mpcUrl: string,
     batchInboxAddress: string,
     batchInboxStartIndex: string,
-    batchInboxStoragePath: string
+    batchInboxStoragePath: string,
+    seqsetValidHeight: number,
+    seqsetContractAddress: string
   ) {
     super(
       signer,
@@ -121,6 +126,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       this.logger,
       this.maxTxSize
     )
+    this.seqsetValidHeight = seqsetValidHeight
+    this.seqsetContractAddress = seqsetContractAddress
 
     this.logger.info('Batch validation options', {
       autoFixBatchOptions,
@@ -159,6 +166,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       this.logger.debug('Chain contract already initialized', {
         ctcAddress,
         mvmCtcAddress,
+        seqsetAddress: this.seqsetContractAddress,
       })
       return
     }
@@ -188,6 +196,18 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     this.logger.info('Initialized new mvmCTC', {
       address: this.mvmCtcContract.address,
     })
+
+    if (this.seqsetValidHeight > 0 && this.seqsetContractAddress) {
+      this.seqsetContract = new ethers.Contract(
+        this.seqsetContractAddress,
+        sequencerSetABI,
+        this.l2Provider
+      )
+
+      this.logger.info('Connected L2 Seqset contracts', {
+        seqsetContract: this.seqsetContract.address,
+      })
+    }
     return
   }
 
@@ -281,11 +301,21 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       localInboxRecord,
     })
 
-    const endBlock =
+    let endBlock =
       Math.min(
         startBlock + this.maxBatchSize,
         await this.l2Provider.getBlockNumber()
       ) + 1 // +1 because the `endBlock` is *exclusive*
+    // confirmation block
+    if (this.seqsetValidHeight > 0 && this.seqsetContractAddress) {
+      // seqsetContract should ready
+      const l2FinalizeBlock = await this.seqsetContract.finalizedBlock()
+      const l2FinalizeBlockNum = BigNumber.from(l2FinalizeBlock).toNumber()
+      if (l2FinalizeBlockNum > 0) {
+        endBlock = Math.min(endBlock, l2FinalizeBlockNum + 1)
+      }
+    }
+
     this.logger.info('Retrieved end block number from L2 sequencer', {
       startBlock,
       endBlock,

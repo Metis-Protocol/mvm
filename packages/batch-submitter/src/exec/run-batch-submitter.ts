@@ -84,6 +84,10 @@ interface RequiredEnvVars {
   BATCH_INBOX_START_INDEX: string
   // Batch tx submit result storage path
   BATCH_INBOX_STORAGE_PATH: string
+
+  // seq set finalize block options
+  SEQSET_VALID_HEIGHT: number
+  SEQSET_CONTRACT: string
 }
 
 /* Optional Env Vars
@@ -380,6 +384,12 @@ export const run = async () => {
       'batch-inbox-start-index',
       env.BATCH_INBOX_START_INDEX
     ),
+
+    SEQSET_VALID_HEIGHT: config.uint(
+      'seqset-valid-height',
+      parseInt(env.SEQSET_VALID_HEIGHT, 10)
+    ),
+    SEQSET_CONTRACT: config.str('seqset-contract', env.SEQSET_CONTRACT),
   }
 
   for (const [key, val] of Object.entries(requiredEnvVars)) {
@@ -483,7 +493,9 @@ export const run = async () => {
     requiredEnvVars.MPC_URL,
     requiredEnvVars.BATCH_INBOX_ADDRESS,
     requiredEnvVars.BATCH_INBOX_START_INDEX,
-    requiredEnvVars.BATCH_INBOX_STORAGE_PATH
+    requiredEnvVars.BATCH_INBOX_STORAGE_PATH,
+    requiredEnvVars.SEQSET_VALID_HEIGHT,
+    requiredEnvVars.SEQSET_CONTRACT
   )
 
   const stateBatchTxSubmitter: TransactionSubmitter =
