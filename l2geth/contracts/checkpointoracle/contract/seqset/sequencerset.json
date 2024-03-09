@@ -373,7 +373,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "number",
         "type": "uint256"
       }
     ],
@@ -397,6 +397,19 @@
       {
         "internalType": "uint256",
         "name": "endBlock",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "finalizedBlock",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -433,6 +446,11 @@
         "internalType": "struct MetisSequencerSet.Epoch",
         "name": "epoch",
         "type": "tuple"
+      },
+      {
+        "internalType": "bool",
+        "name": "exist",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
