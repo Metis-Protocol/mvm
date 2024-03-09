@@ -24,6 +24,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
   private mpcUrl: string
   private inboxAddress: string
   private inboxStorage: InboxStorage
+  private seqsetValidHeight: number
+  private seqsetUpgradeOnly: boolean
 
   constructor(
     signer: Signer,
@@ -44,7 +46,9 @@ export class StateBatchSubmitter extends BatchSubmitter {
     fraudSubmissionAddress: string,
     mpcUrl: string,
     batchInboxAddress: string,
-    batchInboxStoragePath: string
+    batchInboxStoragePath: string,
+    seqsetValidHeight: number,
+    seqsetUpgradeOnly: number
   ) {
     super(
       signer,
@@ -67,6 +71,8 @@ export class StateBatchSubmitter extends BatchSubmitter {
     this.mpcUrl = mpcUrl
     this.inboxAddress = batchInboxAddress
     this.inboxStorage = new InboxStorage(batchInboxStoragePath, logger)
+    this.seqsetValidHeight = seqsetValidHeight
+    this.seqsetUpgradeOnly = seqsetUpgradeOnly === 1
   }
 
   /*****************************
@@ -174,10 +180,25 @@ export class StateBatchSubmitter extends BatchSubmitter {
       })
     }
 
-    const endBlock: number = Math.min(
+    let endBlock: number = Math.min(
       startBlock + this.maxBatchSize,
       totalElements
     )
+
+    // if for seqset upgrade only, end block should less than or equal with seqsetValidHeight-1,
+    // this perhaps cause data size to low, force submit
+    if (
+      this.seqsetUpgradeOnly &&
+      this.seqsetValidHeight > 0 &&
+      endBlock >= this.seqsetValidHeight
+    ) {
+      this.logger.info(
+        `Set end block to ${
+          this.seqsetValidHeight - 1
+        } when seqset upgrade only`
+      )
+      endBlock = this.seqsetValidHeight - 1
+    }
 
     if (startBlock >= endBlock) {
       if (startBlock > endBlock) {
@@ -213,7 +234,17 @@ export class StateBatchSubmitter extends BatchSubmitter {
       calldata,
     })
 
-    if (!this._shouldSubmitBatch(batchSizeInBytes)) {
+    if (
+      this.seqsetUpgradeOnly &&
+      this.seqsetValidHeight > 0 &&
+      endBlock >= this.seqsetValidHeight - 1
+    ) {
+      // force submit upgrade last batch
+      this.logger.info('Force submit state when upgrade.', {
+        endBlock,
+        seqsetValidHeight: this.seqsetValidHeight,
+      })
+    } else if (!this._shouldSubmitBatch(batchSizeInBytes)) {
       return
     }
 

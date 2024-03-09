@@ -104,7 +104,7 @@ interface RequiredEnvVars {
  * USE_HARDHAT
  * DEBUG_IMPERSONATE_SEQUENCER_ADDRESS
  * DEBUG_IMPERSONATE_PROPOSER_ADDRESS
- * RUN_METRICS_SERVER
+ * SEQSET_UPGRADE_ONLY
  */
 
 export const run = async () => {
@@ -294,6 +294,11 @@ export const run = async () => {
       ? AUTO_FIX_BATCH_OPTIONS_CONF.includes('fixSkippedDeposits')
       : false,
   }
+
+  const SEQSET_UPGRADE_ONLY = config.uint(
+    'seqset-upgrade-only',
+    parseInt(env.SEQSET_UPGRADE_ONLY, 10) || 0
+  )
 
   logger.info('Starting batch submitter...')
 
@@ -495,7 +500,8 @@ export const run = async () => {
     requiredEnvVars.BATCH_INBOX_START_INDEX,
     requiredEnvVars.BATCH_INBOX_STORAGE_PATH,
     requiredEnvVars.SEQSET_VALID_HEIGHT,
-    requiredEnvVars.SEQSET_CONTRACT
+    requiredEnvVars.SEQSET_CONTRACT,
+    SEQSET_UPGRADE_ONLY
   )
 
   const stateBatchTxSubmitter: TransactionSubmitter =
@@ -523,7 +529,9 @@ export const run = async () => {
     FRAUD_SUBMISSION_ADDRESS,
     requiredEnvVars.MPC_URL,
     requiredEnvVars.BATCH_INBOX_ADDRESS,
-    requiredEnvVars.BATCH_INBOX_STORAGE_PATH
+    requiredEnvVars.BATCH_INBOX_STORAGE_PATH,
+    requiredEnvVars.SEQSET_VALID_HEIGHT,
+    SEQSET_UPGRADE_ONLY
   )
 
   // Loops infinitely!

@@ -60,6 +60,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
   private inboxSubmitter: TransactionBatchSubmitterInbox
   private seqsetValidHeight: number
   private seqsetContractAddress: string
+  private seqsetUpgradeOnly: boolean
 
   constructor(
     signer: Signer,
@@ -90,7 +91,8 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     batchInboxStartIndex: string,
     batchInboxStoragePath: string,
     seqsetValidHeight: number,
-    seqsetContractAddress: string
+    seqsetContractAddress: string,
+    seqsetUpgradeOnly: number
   ) {
     super(
       signer,
@@ -128,6 +130,7 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     )
     this.seqsetValidHeight = seqsetValidHeight
     this.seqsetContractAddress = seqsetContractAddress
+    this.seqsetUpgradeOnly = seqsetUpgradeOnly === 1
 
     this.logger.info('Batch validation options', {
       autoFixBatchOptions,
@@ -306,8 +309,27 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
         startBlock + this.maxBatchSize,
         await this.l2Provider.getBlockNumber()
       ) + 1 // +1 because the `endBlock` is *exclusive*
+    // if for seqset upgrade only, end block should less than or equal with seqsetValidHeight-1,
+    // this perhaps cause data size to low, force submit
+    if (
+      this.seqsetUpgradeOnly &&
+      this.seqsetValidHeight > 0 &&
+      endBlock >= this.seqsetValidHeight
+    ) {
+      this.logger.info(
+        `Set end block to ${
+          this.seqsetValidHeight - 1
+        } when seqset upgrade only`
+      )
+      endBlock = this.seqsetValidHeight - 1
+    }
     // confirmation block
-    if (this.seqsetValidHeight > 0 && this.seqsetContractAddress) {
+    if (
+      !this.seqsetUpgradeOnly &&
+      this.seqsetContractAddress &&
+      this.seqsetValidHeight > 0 &&
+      endBlock >= this.seqsetValidHeight
+    ) {
       // seqsetContract should ready
       const l2FinalizeBlock = await this.seqsetContract.finalizedBlock()
       const l2FinalizeBlockNum = BigNumber.from(l2FinalizeBlock).toNumber()
@@ -418,7 +440,20 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // 1. it was truncated
     // 2. it is large enough
     // 3. enough time has passed since last submission
-    if (!wasBatchTruncated && !this._shouldSubmitBatch(batchSizeInBytes)) {
+    if (
+      this.seqsetUpgradeOnly &&
+      this.seqsetValidHeight > 0 &&
+      endBlock >= this.seqsetValidHeight - 1
+    ) {
+      // force submit upgrade last batch
+      this.logger.info('Force submit tx when upgrade.', {
+        endBlock,
+        seqsetValidHeight: this.seqsetValidHeight,
+      })
+    } else if (
+      !wasBatchTruncated &&
+      !this._shouldSubmitBatch(batchSizeInBytes)
+    ) {
       return
     }
     this.metrics.numTxPerBatch.observe(endBlock - startBlock)

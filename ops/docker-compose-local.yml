@@ -405,6 +405,8 @@ services:
       # seq set fork height and contract, if set, should read finalized block height from contract
       SEQSET_VALID_HEIGHT: 35
       SEQSET_CONTRACT: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+      # seq set fork submitter during upgrade, it will stop at SEQSET_VALID_HEIGHT-1 if set to 1
+      SEQSET_UPGRADE_ONLY: 0
     restart: on-failure
     volumes:
       - /tmp/mvm/batchSubmitter:/data
