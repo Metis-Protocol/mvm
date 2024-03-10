@@ -69,5 +69,4 @@ exec geth \
   --port $PORT \
   --bootnodes="${BOOTNODES}" \
   --syncmode full \
-  --gcmode archive \
   "$@"
