@@ -8,6 +8,7 @@ VERBOSITY=${VERBOSITY:-6}
 EXTERNAL_IP=${EXTERNAL_IP:-default-ip}
 PORT=${PORT:-30303}
 NAT_SET="any"
+MAX_PEER=${MAX_PEER:-50}
 BOOTNODES=${BOOTNODES:-}
 if [ "$EXTERNAL_IP" != "default-ip" ]; then
     NAT_SET="extip:$EXTERNAL_IP"
@@ -63,9 +64,9 @@ exec geth \
   --mine \
   --miner.etherbase $BLOCK_SIGNER_ADDRESS \
   --miner.recommit 2s\
-  --maxpeers 50 \
-  --nat=$NAT_SET \
-  --port ${PORT} \
+  --maxpeers $MAX_PEER \
+  --nat $NAT_SET \
+  --port $PORT \
   --bootnodes="${BOOTNODES}" \
   --syncmode full \
   --gcmode archive \
