@@ -277,6 +277,7 @@ export class StateBatchSubmitter extends BatchSubmitter {
         data: tx.data,
       })
       tx.value = ethers.utils.parseEther('0')
+      tx.chainId = (await this.signer.provider.getNetwork()).chainId
       // mpc model can use ynatm
       // tx.gasPrice = gasPrice
 

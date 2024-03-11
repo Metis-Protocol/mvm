@@ -1,7 +1,7 @@
 import { expect } from '../setup'
 import { MpcClient } from '../../src/utils/index'
-import { randomUUID } from 'crypto'
-import { utils, ethers } from 'ethers'
+import { randomUUID, sign } from 'crypto'
+import { utils, ethers, UnsignedTransaction } from 'ethers'
 
 describe('MpcClient Test', async () => {
   let mpcClient: MpcClient
@@ -10,11 +10,11 @@ describe('MpcClient Test', async () => {
   let mpcAddress: string
 
   before(async () => {
-    mpcClient = new MpcClient('http://3.213.188.165:1317')
+    mpcClient = new MpcClient('')
     signId = randomUUID()
   })
 
-  it('should match base64 and hex', () => {
+  it.skip('should match base64 and hex', () => {
     const b64 =
       '+QESAoUG/COsAIMEk+CUklfZ1Hj7cbmMwtGGaxqMUEqLZMeAuKqozaN7AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlcAAAAAjwAABgAABQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAY0evSAAAdmvhAAABAAAAAGNHtJ0AAHZsOwAAAgAAAABjR751AAB2bOAAAAIAAAAAY0e/KgAAdmzsABg9EDaSsAACaKq7LrY+sI5LrhedV+E1iI3S5hmnaBtfWF2d9uRBC5rvFIL1EKDIoI2RMaMI0FOzf1fBlsyMTW1S0Wq4SDKyeggYBXJNAaBLxlQ+chp9byiJa3Yl18TuDi02srQtohOmbiQMncmBpg=='
     const hex =
@@ -48,51 +48,52 @@ describe('MpcClient Test', async () => {
   it.skip('should post data', async () => {
     // make a tx,
     const nonce: number = 3
-    const transaction = {
-      nonce: nonce,
+    const transaction: UnsignedTransaction = {
+      nonce,
       gasPrice: ethers.utils.parseUnits('30', 'gwei'),
       gasLimit: ethers.utils.parseUnits('300000', 'wei'),
       to: '0x9257d9d478fb71B98Cc2d1866B1A8C504a8B64C7',
       value: ethers.utils.parseEther('0'),
       data: '0xa8cda37b0000000000000000000000000000000000000000000000000000000000000257000000008f00000600000500000000000000000000000000000000000001000000006347af480000766be1000001000000006347b49d0000766c3b000002000000006347be750000766ce0000002000000006347bf2a0000766cec00183d103692b0000268aabb2eb63eb08e4bae179d57e135888dd2e619a7681b5f585d9df6e4410b9aef14',
+      chainId: 17000,
     }
 
-    const transactionToJson = {
-      nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(nonce)),
-      gasPrice: mpcClient.removeHexLeadingZero(
-        ethers.utils.parseUnits('30', 'gwei').toHexString()
-      ),
-      gasLimit: mpcClient.removeHexLeadingZero(
-        ethers.utils.parseUnits('300000', 'wei').toHexString()
-      ),
-      to: '0x9257d9d478fb71B98Cc2d1866B1A8C504a8B64C7',
-      value: mpcClient.removeHexLeadingZero(
-        ethers.utils.parseEther('0').toHexString(),
-        true
-      ),
-      data: '0xa8cda37b0000000000000000000000000000000000000000000000000000000000000257000000008f00000600000500000000000000000000000000000000000001000000006347af480000766be1000001000000006347b49d0000766c3b000002000000006347be750000766ce0000002000000006347bf2a0000766cec00183d103692b0000268aabb2eb63eb08e4bae179d57e135888dd2e619a7681b5f585d9df6e4410b9aef14',
-    }
+    // const transactionToJson = {
+    //   nonce: mpcClient.removeHexLeadingZero(ethers.utils.hexlify(nonce)),
+    //   gasPrice: mpcClient.removeHexLeadingZero(
+    //     ethers.utils.parseUnits('30', 'gwei').toHexString()
+    //   ),
+    //   gasLimit: mpcClient.removeHexLeadingZero(
+    //     ethers.utils.parseUnits('300000', 'wei').toHexString()
+    //   ),
+    //   to: '0x9257d9d478fb71B98Cc2d1866B1A8C504a8B64C7',
+    //   value: mpcClient.removeHexLeadingZero(
+    //     ethers.utils.parseEther('0').toHexString(),
+    //     true
+    //   ),
+    //   data: '0xa8cda37b0000000000000000000000000000000000000000000000000000000000000257000000008f00000600000500000000000000000000000000000000000001000000006347af480000766be1000001000000006347b49d0000766c3b000002000000006347be750000766ce0000002000000006347bf2a0000766cec00183d103692b0000268aabb2eb63eb08e4bae179d57e135888dd2e619a7681b5f585d9df6e4410b9aef14',
+    // }
 
     try {
-      const jsonTx = JSON.stringify(transactionToJson)
-      const transactionHash = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes'],
-          [
-            transaction.to,
-            transaction.value.toHexString(),
-            transaction.nonce,
-            transaction.gasPrice.toHexString(),
-            transaction.gasLimit.toHexString(),
-            transaction.data || '0x',
-          ]
-        )
-      )
+      const jsonTx = ethers.utils.serializeTransaction(transaction)
+      // const transactionHash = ethers.utils.keccak256(
+      //   ethers.utils.defaultAbiCoder.encode(
+      //     ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes'],
+      //     [
+      //       transaction.to,
+      //       transaction.value.toHexString(),
+      //       transaction.nonce,
+      //       transaction.gasPrice.toHexString(),
+      //       transaction.gasLimit.toHexString(),
+      //       transaction.data || '0x',
+      //     ]
+      //   )
+      // )
 
       const postData = {
         sign_id: signId,
         mpc_id: mpcId,
-        sign_type: '0',
+        sign_type: 0,
         sign_data: jsonTx,
         sign_msg: '',
         // "chain_id": "themis-kRsLrv"

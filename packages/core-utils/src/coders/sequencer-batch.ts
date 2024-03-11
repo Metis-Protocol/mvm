@@ -272,6 +272,6 @@ export const sequencerBatch = {
     ) {
       throw new Error('Incorrect function signature')
     }
-    return await decodeAppendSequencerBatch(b.slice(8), opts)
+    return decodeAppendSequencerBatch(b.slice(8), opts)
   },
 }
