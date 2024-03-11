@@ -314,30 +314,19 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     if (
       this.seqsetUpgradeOnly &&
       this.seqsetValidHeight > 0 &&
-      endBlock >= this.seqsetValidHeight
+      endBlock > this.seqsetValidHeight
     ) {
       this.logger.info(
-        `Set end block to ${
-          this.seqsetValidHeight - 1
-        } when seqset upgrade only`
+        `Set end block to ${this.seqsetValidHeight} when seqset upgrade only`
       )
-      endBlock = this.seqsetValidHeight - 1
-      // the last 1 block force submit
-      if (startBlock === endBlock) {
-        return {
-          start: startBlock,
-          end: endBlock,
-          useInbox: useBatchInbox,
-          nextBatchIndex: batchIndexNext,
-        }
-      }
+      endBlock = this.seqsetValidHeight
     }
     // confirmation block
     if (
       !this.seqsetUpgradeOnly &&
       this.seqsetContractAddress &&
       this.seqsetValidHeight > 0 &&
-      endBlock >= this.seqsetValidHeight
+      endBlock > this.seqsetValidHeight
     ) {
       // seqsetContract should ready
       const l2FinalizeBlock = await this.seqsetContract.finalizedBlock()
