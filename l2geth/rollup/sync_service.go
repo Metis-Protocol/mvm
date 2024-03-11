@@ -990,7 +990,7 @@ func (s *SyncService) applyBlock(block *types.Block) error {
 	tx := txs[0]
 	expectSeq, err := s.GetTxSequencer(tx, block.NumberU64())
 	if err != nil {
-		log.Error("GetTxSequencer err ", err)
+		log.Error("GetTxSequencer err ", "err", err)
 		return err
 	}
 	_, err = s.makeOrVerifySequencerSign(tx, block.NumberU64(), expectSeq)
@@ -1255,7 +1255,7 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 	}
 	expectSeq, err := s.GetTxSequencer(tx, blockNumber)
 	if err != nil {
-		log.Error("GetTxSequencer err ", err)
+		log.Error("GetTxSequencer err ", "err", err)
 		return err
 	}
 	isRespan := false
