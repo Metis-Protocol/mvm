@@ -198,6 +198,14 @@ export class StateBatchSubmitter extends BatchSubmitter {
         } when seqset upgrade only`
       )
       endBlock = this.seqsetValidHeight - 1
+
+      // the last 1 block force submit
+      if (startBlock === endBlock) {
+        return {
+          start: startBlock,
+          end: endBlock,
+        }
+      }
     }
 
     if (startBlock >= endBlock) {
