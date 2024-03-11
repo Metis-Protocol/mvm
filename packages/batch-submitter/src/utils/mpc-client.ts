@@ -163,6 +163,7 @@ export class MpcClient {
       to: tx.to,
       value: BigNumber.from(tx.value),
       data: tx.data,
+      chainId: tx.chainId,
     }
     const signId = randomUUID()
     const postData = {

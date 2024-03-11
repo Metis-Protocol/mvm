@@ -157,6 +157,7 @@ export class TransactionBatchSubmitterInbox {
         from: mpcAddress,
         data: tx.data,
       })
+      tx.chainId = (await signer.provider.getNetwork()).chainId
       // mpc model can use ynatm
       // tx.gasPrice = gasPrice
 
