@@ -182,6 +182,6 @@ export class MpcClient {
     if (!signedTx) {
       throw new Error(`MPC ${mpcId} get sign failed`)
     }
-    return signedTx
+    return this.base64ToHex(signedTx)
   }
 }
