@@ -175,7 +175,7 @@ export class MpcClient {
     const postData = {
       sign_id: signId,
       mpc_id: mpcId,
-      sign_type: '0',
+      sign_type: 0,
       sign_data: serializedTransaction,
       sign_msg: '',
     }
