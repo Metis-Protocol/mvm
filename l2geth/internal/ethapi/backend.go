@@ -97,7 +97,7 @@ type Backend interface {
 	SetL2GasPrice(context.Context, *big.Int) error
 	IngestTransactions([]*types.Transaction) error
 	SequencerClientHttp() string
-	// Metis-specific API
+
 	NodeHTTPModules() []string
 	IsRpcProxySupport() bool
 	ProxyTransaction(ctx context.Context, tx *types.Transaction) error
@@ -107,6 +107,9 @@ type Backend interface {
 	ListSequencerInfo(ctx context.Context) *types.SequencerInfoList
 	// rollup bridge API
 	SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error
+
+	// Metis-specific API
+	FinalizedBlockNumber() (uint64, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
@@ -140,6 +143,10 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "rollupbridge",
 			Version:   "1.0",
 			Service:   NewBridgeRollupAPI(apiBackend),
+		}, {
+			Namespace: "mvm",
+			Version:   "1.0",
+			Service:   NewPublicMvmAPI(apiBackend),
 		}, {
 			Namespace: "txpool",
 			Version:   "1.0",

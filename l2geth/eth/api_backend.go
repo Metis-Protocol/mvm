@@ -691,3 +691,7 @@ func (b *EthAPIBackend) SetPreRespan(ctx context.Context, oldAddress common.Addr
 	defer b.seqRwMutex.Unlock()
 	return b.eth.syncService.RollupAdapter().SetPreRespan(oldAddress, newAddress, number)
 }
+
+func (b *EthAPIBackend) FinalizedBlockNumber() (uint64, error) {
+	return b.eth.syncService.RollupAdapter().GetFinalizedBlock()
+}

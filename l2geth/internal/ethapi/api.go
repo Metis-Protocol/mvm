@@ -2141,6 +2141,22 @@ func (api *BridgeRollupAPI) SetPreRespan(ctx context.Context, oldAddress common.
 	return api.b.SetPreRespan(ctx, oldAddress, newAddress, number)
 }
 
+type PublicMvmAPI struct {
+	b Backend
+}
+
+func NewPublicMvmAPI(b Backend) *PublicMvmAPI {
+	return &PublicMvmAPI{b: b}
+}
+
+func (api *PublicMvmAPI) FinalizedBlockNumber(ctx context.Context) (hexutil.Uint64, error) {
+	finalizedBlockNumber, err := api.b.FinalizedBlockNumber()
+	if err != nil {
+		return hexutil.Uint64(0), err
+	}
+	return hexutil.Uint64(finalizedBlockNumber), nil
+}
+
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
 // debugging endpoint.
 type PublicDebugAPI struct {

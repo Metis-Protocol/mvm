@@ -1,7 +1,7 @@
 import * as http from 'http'
 import * as https from 'https'
 import { URL } from 'url'
-import { ethers } from 'ethers'
+import { ethers, BigNumber } from 'ethers'
 import { randomUUID } from 'crypto'
 
 export class MpcClient {
@@ -158,10 +158,17 @@ export class MpcClient {
     // call mpc to sign tx
     const serializedTransaction = JSON.stringify({
       nonce: this.removeHexLeadingZero(ethers.utils.hexlify(tx.nonce)),
-      gasPrice: this.removeHexLeadingZero(tx.gasPrice.toHexString()),
-      gasLimit: this.removeHexLeadingZero(tx.gasLimit.toHexString()),
+      gasPrice: this.removeHexLeadingZero(
+        BigNumber.from(tx.gasPrice).toHexString()
+      ),
+      gasLimit: this.removeHexLeadingZero(
+        BigNumber.from(tx.gasLimit).toHexString()
+      ),
       to: tx.to,
-      value: this.removeHexLeadingZero(tx.value.toHexString(), true),
+      value: this.removeHexLeadingZero(
+        BigNumber.from(tx.value).toHexString(),
+        true
+      ),
       data: tx.data,
     })
     const signId = randomUUID()

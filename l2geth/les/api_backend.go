@@ -374,3 +374,7 @@ func (b *LesApiBackend) ListSequencerInfo(ctx context.Context) *types.SequencerI
 func (b *LesApiBackend) SetPreRespan(ctx context.Context, oldAddress common.Address, newAddress common.Address, number uint64) error {
 	return nil
 }
+
+func (b *LesApiBackend) FinalizedBlockNumber() (uint64, error) {
+	return b.CurrentBlock().NumberU64(), nil
+}

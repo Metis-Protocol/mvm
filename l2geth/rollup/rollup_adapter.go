@@ -38,6 +38,7 @@ type RollupAdapter interface {
 	// CheckSequencerIsWorking() bool
 	//
 	GetSeqValidHeight() uint64
+	GetFinalizedBlock() (uint64, error)
 	CheckPosLayerSynced() (bool, error)
 	ParseUpdateSeqData(data []byte) (bool, common.Address, *big.Int, *big.Int)
 	IsSeqSetContractCall(tx *types.Transaction) (bool, []byte)
@@ -212,6 +213,36 @@ func (s *SeqAdapter) getSequencer(expectIndex uint64) (common.Address, error) {
 
 func (s *SeqAdapter) GetSeqValidHeight() uint64 {
 	return s.seqContractValidHeight
+}
+
+func (s *SeqAdapter) GetFinalizedBlock() (uint64, error) {
+	blockNumber := uint64(0)
+	block := s.bc.CurrentBlock()
+	if block != nil {
+		blockNumber = block.Number().Uint64()
+	}
+	if blockNumber < s.seqContractValidHeight {
+		return blockNumber, nil
+	}
+	var err error
+	if s.localL2Conn == nil {
+		s.localL2Conn, err = ethclient.Dial(s.localL2Url)
+		if err != nil {
+			return 0, err
+		}
+		s.seqContract, err = seqset.NewSeqset(s.l2SeqContract, s.localL2Conn)
+		if err != nil {
+			log.Error("Connect contract err", "l2SeqContract", s.l2SeqContract, "err", err)
+			s.localL2Conn = nil
+			return 0, err
+		}
+	}
+	finalizedBlock, err := s.seqContract.FinalizedBlock(nil)
+	if err != nil {
+		log.Error("Get finalizedBlock err", "l2SeqContract", s.l2SeqContract, "err", err)
+		return 0, err
+	}
+	return finalizedBlock.Uint64(), nil
 }
 
 func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
