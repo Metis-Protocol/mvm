@@ -22,7 +22,7 @@ const main = async () => {
       return child.extension === '.json'
     })
     .reduce((contractsAccumulator, child) => {
-      const contractName = child.name.replace('.json', '')
+      const contractName = child.name.replace(/-/g, '_').replace('.json', '')
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const artifact = require(path.resolve(
         __dirname,
