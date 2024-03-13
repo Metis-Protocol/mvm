@@ -3,31 +3,8 @@
 version: '3.8'
 
 services:
-  l1_chain:
-    image: metisdao/hardhat:latest
-    build:
-      context: ../ops/docker/hardhat
-      dockerfile: Dockerfile
-      x-bake:
-        platforms:
-          - 'linux/amd64'
-          - 'linux/arm64'
-        output: type=docker
-
-  deployer:
-    image: metisdao/deployer:${METIS_DEPLOYER_VERSION:-latest}
-    build:
-      context: ..
-      target: deployer
-      dockerfile: ./ops/docker/Dockerfile
-      x-bake:
-        platforms:
-          - 'linux/amd64'
-          - 'linux/arm64'
-        output: type=docker
-
   dtl:
-    image: metisdao/data-transport-layer:${METIS_DTL_VERSION:-latest}
+    image: ericlee42/metis:dtl-3
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile
@@ -39,7 +16,7 @@ services:
         output: type=docker
 
   relayer:
-    image: metisdao/message-relayer:${METIS_RELAYER_VERSION:-latest}
+    image: ericlee42/metis:message-relayer-3
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile
@@ -50,8 +27,8 @@ services:
           - 'linux/arm64'
         output: type=docker
 
-  batch_submitter:
-    image: metisdao/batch-submitter:${METIS_SUBMITTER_VERSION:-latest}
+  batch-submitter:
+    image: ericlee42/metis:batch-submitter-3
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile
@@ -63,7 +40,7 @@ services:
         output: type=docker
 
   l2geth:
-    image: metisdao/l2geth:${METIS_L2GETH_VERSION:-latest}
+    image: ericlee42/metis:l2geth-3
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth
@@ -74,7 +51,7 @@ services:
         output: type=docker
 
   gas-oracle:
-    image: metisdao/gas-oracle:${METIS_GAS_ORACLE_VERSION:-latest}
+    image: ericlee42/metis:gas-oracle-3
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.gas-oracle
