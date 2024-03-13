@@ -231,8 +231,8 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
         } else {
           const l1Origin = toHexString(contextData.slice(offset, offset + 20))
           offset += 20
-          const queueIndex = toHexString(contextData.slice(offset, offset + 32))
-          offset += 32
+          const queueIndex = toHexString(contextData.slice(offset, offset + 16))
+          offset += 16
           transactionEntry.origin = l1Origin
           transactionEntry.queueIndex = BigNumber.from(queueIndex).toNumber()
           transactionEntry.queueOrigin = 'l1'

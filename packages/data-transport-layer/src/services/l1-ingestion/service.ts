@@ -529,6 +529,8 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
         )
         this.logger.info('Storing Inbox Batch:', {
           chainId: this.options.l2ChainId,
+        })
+        this.logger.debug('Storing Inbox Batch Data:', {
           parsedEvent,
         })
         await handlers.storeEvent(parsedEvent, this.state.dbOfL2, this.options)

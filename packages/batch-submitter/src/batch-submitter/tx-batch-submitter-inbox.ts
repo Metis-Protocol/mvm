@@ -335,7 +335,8 @@ export class TransactionBatchSubmitterInbox {
             BigNumber.from('0').toHexString()
           ).padStart(6, '0')
           encodeBlockData += remove0x(inboxTx.l1TxOrigin)
-          encodeBlockData += encodeHex(inboxTx.queueIndex, 32)
+          const encodedNonce = encodeHex(inboxTx.queueIndex, 32)
+          encodeBlockData += encodedNonce
         }
       })
     })
