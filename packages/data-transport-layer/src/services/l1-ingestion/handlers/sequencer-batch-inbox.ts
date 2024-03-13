@@ -98,7 +98,7 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
     let contextData = calldata.slice(70)
     // da first
     if (da === 1) {
-      const storageObject = toHexString(contextData)
+      const storageObject = remove0x(toHexString(contextData))
       let minioClient: MinioClient = null
       if (
         options.minioBucket &&
