@@ -365,7 +365,7 @@ export class TransactionBatchSubmitterInbox {
         compressedEncoed,
         3
       )
-      console.info('storage tx data to minio', storagedObject)
+      this.logger.info('storage tx data to minio', { storagedObject })
 
       if (!storagedObject) {
         throw new Error(
