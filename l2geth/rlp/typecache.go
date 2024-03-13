@@ -119,7 +119,9 @@ func structFields(typ reflect.Type) (fields []field, err error) {
 			if tags.ignored {
 				continue
 			}
+      typeCacheMutex.Lock()
 			info := cachedTypeInfo1(f.Type, tags)
+      typeCacheMutex.Unlock()
 			fields = append(fields, field{i, info})
 		}
 	}
