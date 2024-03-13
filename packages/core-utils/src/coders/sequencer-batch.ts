@@ -78,7 +78,7 @@ export const encodeAppendSequencerBatch = async (
       new Uint8Array(
         hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
       )
-    let leafs = []
+    const leafs = []
     for (let i = 0; i < b.transactions.length; i++) {
       const _blockNumber = b.blockNumbers[i]
       const _cur = b.transactions[i]

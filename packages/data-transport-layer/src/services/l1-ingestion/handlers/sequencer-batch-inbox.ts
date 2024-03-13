@@ -93,8 +93,43 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
     // DA: 0 - L1, 1 - memo, 2 - celestia
     // current DA is 0
     // Compress Type: 0 - none, 11 - zlib
+    const da = BigNumber.from(calldata.slice(0, 1)).toNumber()
     const compressType = BigNumber.from(calldata.slice(1, 2)).toNumber()
     let contextData = calldata.slice(70)
+    // da first
+    if (da === 1) {
+      const storageObject = toHexString(contextData)
+      let minioClient: MinioClient = null
+      if (
+        options.minioBucket &&
+        options.minioAccessKey &&
+        options.minioSecretKey &&
+        options.minioEndpoint &&
+        options.minioPort
+      ) {
+        const minioConfig: MinioConfig = {
+          options: {
+            endPoint: options.minioEndpoint,
+            port: options.minioPort,
+            useSSL: options.minioUseSsl,
+            accessKey: options.minioAccessKey,
+            secretKey: options.minioSecretKey,
+          },
+          l2ChainId,
+          bucket: options.minioBucket,
+        }
+        minioClient = new MinioClient(minioConfig)
+      } else {
+        throw new Error(`Missing minio config for DA type is 1`)
+      }
+      const daData = await minioClient.readObject(storageObject, 2)
+      if (!daData) {
+        throw new Error(
+          `Read data from minio failed, object is ${storageObject}`
+        )
+      }
+      contextData = Buffer.from(daData, 'hex')
+    }
     if (compressType === 11) {
       contextData = await zlibDecompress(contextData)
     }

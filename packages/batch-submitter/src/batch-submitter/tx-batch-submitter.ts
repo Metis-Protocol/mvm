@@ -126,7 +126,9 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       this.inboxAddress,
       this.l2Provider,
       this.logger,
-      this.maxTxSize
+      this.maxTxSize,
+      useMinio,
+      minioConfig
     )
     this.seqsetValidHeight = seqsetValidHeight
     this.seqsetContractAddress = seqsetContractAddress

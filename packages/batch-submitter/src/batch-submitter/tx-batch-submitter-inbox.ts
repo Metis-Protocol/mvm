@@ -17,6 +17,8 @@ import {
   encodeHex,
   L2Transaction,
   zlibCompressHexString,
+  MinioClient,
+  MinioConfig,
 } from '@metis.io/core-utils'
 
 /* Internal Imports */
@@ -47,13 +49,21 @@ export interface InboxBatchParams {
 }
 
 export class TransactionBatchSubmitterInbox {
+  private minioClient: MinioClient
+
   constructor(
     readonly inboxStorage: InboxStorage,
     readonly inboxAddress: string,
     readonly l2Provider: providers.StaticJsonRpcProvider,
     readonly logger: Logger,
-    readonly maxTxSize: number
-  ) {}
+    readonly maxTxSize: number,
+    readonly useMinio: boolean,
+    readonly minioConfig: MinioConfig
+  ) {
+    if (useMinio && minioConfig) {
+      this.minioClient = new MinioClient(minioConfig)
+    }
+  }
 
   public async submitBatchToInbox(
     startBlock: number,
@@ -283,7 +293,7 @@ export class TransactionBatchSubmitterInbox {
   ): Promise<InboxBatchParams> {
     // [1: DA type] [1: compress type] [32: batch index] [32: L2 start] [4: total blocks, max 65535] [<DATA> { [3: txs count] [5 block timestamp = l1 timestamp of txs] [32 l1BlockNumber of txs, get it from tx0] [1: TX type 0-sequencer 1-enqueue] [3 tx data length] [raw tx data] [3 sign length *sequencerTx*] [sign data] [20 l1Origin *enqueue*] [32 queueIndex *enqueue*].. } ...]
     // DA: 0 - L1, 1 - memo, 2 - celestia
-    const da = encodeHex(0, 2)
+    let da = encodeHex(0, 2)
     // Compress Type: 0 - none, 11 - zlib
     const compressType = encodeHex(11, 2)
     const batchIndex = encodeHex(nextBatchIndex, 64)
@@ -330,13 +340,43 @@ export class TransactionBatchSubmitterInbox {
       })
     })
     let encoded = ''
+    let compressedEncoed = ''
     try {
-      const compressedEncoed = await zlibCompressHexString(encodeBlockData)
-      encoded = `${da}${compressType}${batchIndex}${l2Start}${totalElements}${compressedEncoed}`
+      compressedEncoed = await zlibCompressHexString(encodeBlockData)
     } catch (err) {
       this.logger.error('Zlib compress error', { err })
-      throw new Error('Zlib compress encode blocks data error!')
+      throw new Error('Zlib compress encode blocks data error.')
     }
+
+    if (this.useMinio && this.minioConfig) {
+      if (!this.minioClient) {
+        throw new Error('Can not initalize minio client.')
+      }
+      da = encodeHex(1, 2)
+
+      // use block 0 state root as batch root
+      const batchRoot = remove0x(blocks[0].stateRoot)
+
+      // save compressedEncoed to memo storage
+      const storagedObject = await this.minioClient.writeObject(
+        batchRoot,
+        l2StartBlock,
+        blocks.length,
+        compressedEncoed,
+        3
+      )
+      console.info('storage tx data to minio', storagedObject)
+
+      if (!storagedObject) {
+        throw new Error(
+          `Write to minio DA failed, l2StartBlock is ${l2StartBlock}.`
+        )
+      }
+      compressedEncoed = storagedObject
+    }
+    // other da should here else
+
+    encoded = `${da}${compressType}${batchIndex}${l2Start}${totalElements}${compressedEncoed}`
     return {
       inputData: encoded,
       batch: blocks,
