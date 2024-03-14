@@ -1747,10 +1747,7 @@ type indexGetter func() (*uint64, error)
 func (s *SyncService) isAtTip(index *uint64, get indexGetter) (bool, error) {
 	latest, err := get()
 	if errors.Is(err, errElementNotFound) {
-		if index == nil {
-			return true, nil
-		}
-		return false, nil
+    return true, nil
 	}
 	if err != nil {
 		return false, err
