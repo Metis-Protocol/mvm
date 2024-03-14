@@ -848,7 +848,8 @@ func (c *Client) GetLatestBlock(backend Backend) (*types.Block, error) {
 		Get("/block/latest/{chainId}")
 
 	if err != nil {
-		return nil, fmt.Errorf("cannot fetch latest block: %w", err)
+		// return nil, fmt.Errorf("cannot fetch latest block: %w", err)
+    return nil, errElementNotFound
 	}
 	res, ok := response.Result().(*BlockResponse)
 	if !ok {
