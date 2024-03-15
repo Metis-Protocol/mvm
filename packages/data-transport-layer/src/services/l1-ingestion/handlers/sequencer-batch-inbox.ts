@@ -276,12 +276,16 @@ export const handleEventsSequencerBatchInbox: EventHandlerSetAny<
         throw new MissingElementError('SequencerBatchInbox')
       }
     }
-
-    await db.putBlockEntries(entry.blockEntries)
+    // await db.putBlockEntries(entry.blockEntries)
 
     // Add an additional field to the enqueued transactions in the database
     // if they have already been confirmed
     entry.blockEntries.forEach(async (block) => {
+      if (options.deSeqBlock > 0 && block.index + 1 >= options.deSeqBlock) {
+        await db.putBlockEntries([block])
+      } else {
+        await db.putTransactionEntries(block.transactions)
+      }
       for (const transactionEntry of block.transactions) {
         if (transactionEntry.queueOrigin === 'l1') {
           await db.putTransactionIndexByQueueIndex(
