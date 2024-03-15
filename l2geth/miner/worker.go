@@ -592,19 +592,19 @@ func (w *worker) mainLoop() {
 				coinbase := w.coinbase
 				w.mu.RUnlock()
 
+				txs := make(map[common.Address]types.Transactions)
 				for _, tx := range ev.Txs {
-          txs := make(map[common.Address]types.Transactions)
 					acc, _ := types.Sender(w.current.signer, tx)
 					txs[acc] = append(txs[acc], tx)
-          txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs)
-          // tcount := w.current.tcount
-          w.commitTransactions(txset, coinbase, nil)
 				}
+				txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs)
+				tcount := w.current.tcount
+				w.commitTransactions(txset, coinbase, nil)
 				// Only update the snapshot if any new transactons were added
 				// to the pending block
-				// if tcount != w.current.tcount {
-				// 	w.updateSnapshot()
-				// }
+				if tcount != w.current.tcount {
+					w.updateSnapshot()
+				}
 			} else {
 				// If clique is running in dev mode(period is 0), disable
 				// advance sealing here.
@@ -1260,7 +1260,7 @@ func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 	}
 	// Short circuit if there is no available pending transactions
 	if len(pending) == 0 {
-		// w.updateSnapshot()
+		w.updateSnapshot()
 		return
 	}
 	// Split the pending transactions into locals and remotes
