@@ -17,6 +17,7 @@
 package miner
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -27,6 +28,7 @@ import (
 	mapset "github.com/deckarep/golang-set"
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/consensus"
+	"github.com/ethereum-optimism/optimism/l2geth/consensus/misc"
 	"github.com/ethereum-optimism/optimism/l2geth/core"
 	"github.com/ethereum-optimism/optimism/l2geth/core/state"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
@@ -839,9 +841,6 @@ func (w *worker) updateSnapshot() {
 	defer w.snapshotMu.Unlock()
 
 	var uncles []*types.Header
-  if w.current.uncles == nil {
-    return
-  }
 	w.current.uncles.Each(func(item interface{}) bool {
 		hash, ok := item.(common.Hash)
 		if !ok {
@@ -1203,54 +1202,54 @@ func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
 	}
-	// // If we are care about TheDAO hard-fork check whether to override the extra-data or not
-	// if daoBlock := w.chainConfig.DAOForkBlock; daoBlock != nil {
-	// 	// Check whether the block is among the fork extra-override range
-	// 	limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
-	// 	if header.Number.Cmp(daoBlock) >= 0 && header.Number.Cmp(limit) < 0 {
-	// 		// Depending whether we support or oppose the fork, override differently
-	// 		if w.chainConfig.DAOForkSupport {
-	// 			header.Extra = common.CopyBytes(params.DAOForkBlockExtra)
-	// 		} else if bytes.Equal(header.Extra, params.DAOForkBlockExtra) {
-	// 			header.Extra = []byte{} // If miner opposes, don't let it use the reserved extra-data
-	// 		}
-	// 	}
-	// }
+	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
+	if daoBlock := w.chainConfig.DAOForkBlock; daoBlock != nil {
+		// Check whether the block is among the fork extra-override range
+		limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
+		if header.Number.Cmp(daoBlock) >= 0 && header.Number.Cmp(limit) < 0 {
+			// Depending whether we support or oppose the fork, override differently
+			if w.chainConfig.DAOForkSupport {
+				header.Extra = common.CopyBytes(params.DAOForkBlockExtra)
+			} else if bytes.Equal(header.Extra, params.DAOForkBlockExtra) {
+				header.Extra = []byte{} // If miner opposes, don't let it use the reserved extra-data
+			}
+		}
+	}
 	// Could potentially happen if starting to mine in an odd state.
 	err := w.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
 		return
 	}
-	// // Create the current work task and check any fork transitions needed
-	// env := w.current
-	// if w.chainConfig.DAOForkSupport && w.chainConfig.DAOForkBlock != nil && w.chainConfig.DAOForkBlock.Cmp(header.Number) == 0 {
-	// 	misc.ApplyDAOHardFork(env.state)
-	// }
-	// // Accumulate the uncles for the current block
-	// uncles := make([]*types.Header, 0, 2)
-	// commitUncles := func(blocks map[common.Hash]*types.Block) {
-	// 	// Clean up stale uncle blocks first
-	// 	for hash, uncle := range blocks {
-	// 		if uncle.NumberU64()+staleThreshold <= header.Number.Uint64() {
-	// 			delete(blocks, hash)
-	// 		}
-	// 	}
-	// 	for hash, uncle := range blocks {
-	// 		if len(uncles) == 2 {
-	// 			break
-	// 		}
-	// 		if err := w.commitUncle(env, uncle.Header()); err != nil {
-	// 			log.Trace("Possible uncle rejected", "hash", hash, "reason", err)
-	// 		} else {
-	// 			log.Debug("Committing new uncle to block", "hash", hash)
-	// 			uncles = append(uncles, uncle.Header())
-	// 		}
-	// 	}
-	// }
-	// // Prefer to locally generated uncle
-	// commitUncles(w.localUncles)
-	// commitUncles(w.remoteUncles)
+	// Create the current work task and check any fork transitions needed
+	env := w.current
+	if w.chainConfig.DAOForkSupport && w.chainConfig.DAOForkBlock != nil && w.chainConfig.DAOForkBlock.Cmp(header.Number) == 0 {
+		misc.ApplyDAOHardFork(env.state)
+	}
+	// Accumulate the uncles for the current block
+	uncles := make([]*types.Header, 0, 2)
+	commitUncles := func(blocks map[common.Hash]*types.Block) {
+		// Clean up stale uncle blocks first
+		for hash, uncle := range blocks {
+			if uncle.NumberU64()+staleThreshold <= header.Number.Uint64() {
+				delete(blocks, hash)
+			}
+		}
+		for hash, uncle := range blocks {
+			if len(uncles) == 2 {
+				break
+			}
+			if err := w.commitUncle(env, uncle.Header()); err != nil {
+				log.Trace("Possible uncle rejected", "hash", hash, "reason", err)
+			} else {
+				log.Debug("Committing new uncle to block", "hash", hash)
+				uncles = append(uncles, uncle.Header())
+			}
+		}
+	}
+	// Prefer to locally generated uncle
+	commitUncles(w.localUncles)
+	commitUncles(w.remoteUncles)
 
 	// Fill the block with all available pending transactions.
 	pending, err := w.eth.TxPool().Pending()
@@ -1273,22 +1272,17 @@ func (w *worker) commitNewWork(interrupt *int32, timestamp int64) {
 	}
 	if len(localTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(w.current.signer, localTxs)
-		// if w.commitTransactions(txs, w.coinbase, interrupt) {
-		// 	return
-		// }
-    if err := w.commitTransactionsWithError(txs, w.coinbase, nil); err != nil {
-      log.Error("Refusing to mine in local txs", "err", err)
-      return
-    }
+		if w.commitTransactions(txs, w.coinbase, interrupt) {
+			return
+		}
 	}
-	// if len(remoteTxs) > 0 {
-	// 	txs := types.NewTransactionsByPriceAndNonce(w.current.signer, remoteTxs)
-	// 	if w.commitTransactions(txs, w.coinbase, interrupt) {
-	// 		return
-	// 	}
-	// }
-	// w.commit(uncles, w.fullTaskHook, tstart)
-  w.commit(nil, w.fullTaskHook, tstart)
+	if len(remoteTxs) > 0 {
+		txs := types.NewTransactionsByPriceAndNonce(w.current.signer, remoteTxs)
+		if w.commitTransactions(txs, w.coinbase, interrupt) {
+			return
+		}
+	}
+	w.commit(uncles, w.fullTaskHook, tstart)
 }
 
 // commit runs any post-transaction state modifications, assembles the final block
