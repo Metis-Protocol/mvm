@@ -19,6 +19,7 @@ import {
   loadOptimismContracts,
   loadContract,
   validators,
+  addressEvent,
 } from '../../utils'
 import {
   TypedEthersEvent,
@@ -671,6 +672,32 @@ export class L1IngestionService extends BaseService<L1IngestionServiceOptions> {
     contractName: string,
     blockNumber: number
   ): Promise<string> {
+    const chainId = (
+      await this.state.l1RpcProvider.getNetwork()
+    ).chainId.toString()
+    if (addressEvent[chainId]) {
+      this.logger.info(
+        `Reading from local ${contractName}, chainId is ${chainId}`
+      )
+      const addressDict = addressEvent[chainId]
+      if (!addressDict[contractName]) {
+        return constants.AddressZero
+      }
+      const arr = addressDict[contractName]
+      let findAddress = constants.AddressZero
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const addr = arr[i]
+        if (blockNumber >= addr.Start) {
+          findAddress = addr.Address
+          this.logger.info(
+            `Read cached contract address for ${contractName} from ${addr.Start} to ${blockNumber}, get ${findAddress}`
+          )
+          break
+        }
+      }
+      return findAddress
+    }
+    this.logger.info(`Searching from RPC ${contractName}`)
     const events = await this.state.contracts.Lib_AddressManager.queryFilter(
       this.state.contracts.Lib_AddressManager.filters.AddressSet(contractName),
       this.state.startingL1BlockNumber,

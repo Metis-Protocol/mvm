@@ -135,6 +135,22 @@ const deployFn: DeployFunction = async (hre) => {
     )
   })
 
+  // Set Slot 4 to the default chain id
+  console.log(`Setting default chain id`)
+  await proxy.setStorage(
+    hre.ethers.utils.hexZeroPad('0x03', 32),
+    hre.ethers.utils.hexZeroPad('0x0440', 32)
+  )
+
+  const defaultChainId = await contract.DEFAULT_CHAINID()
+  console.log(`Confirming that defaultChainId is 1088`)
+  await waitUntilTrue(async () => {
+    return hexStringEquals(
+      hre.ethers.utils.hexValue(defaultChainId),
+      hre.ethers.utils.hexValue(1088)
+    )
+  })
+
   // Finally we transfer ownership of the proxy to the ovmAddressManagerOwner address.
   const owner = (hre as any).deployConfig.mvmMetisManager
   console.log(`Setting owner address to ${owner}...`)

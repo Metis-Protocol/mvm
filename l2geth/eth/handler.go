@@ -222,7 +222,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 					// check args with dtl l1 enqueue
 					txEnqueue, err := rollupClient.GetEnqueue(*queueIndex)
 					if err != nil {
-						log.Error("handler blocksBeforeInsert get equeue err", err)
+						log.Error("handler blocksBeforeInsert get equeue", "err", err)
 						return err
 					}
 					if txEnqueue.Hash() != tx.Hash() {
