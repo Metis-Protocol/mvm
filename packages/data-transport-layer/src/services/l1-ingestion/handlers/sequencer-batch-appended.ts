@@ -30,8 +30,8 @@ export const handleEventsSequencerBatchAppended: EventHandlerSet<
   SequencerBatchAppendedParsedEvent
 > = {
   getExtraData: async (event, l1RpcProvider) => {
-    const l1Transaction = await event.getTransaction()
-    const eventBlock = await event.getBlock()
+    const eventBlock = await l1RpcProvider.getBlockWithTransactions(event.blockNumber)
+    const l1Transaction = eventBlock.transactions.find(i=>i.hash == event.transactionHash)
 
     // TODO: We need to update our events so that we actually have enough information to parse this
     // batch without having to pull out this extra event. For the meantime, we need to find this
