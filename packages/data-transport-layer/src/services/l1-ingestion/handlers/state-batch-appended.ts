@@ -18,9 +18,9 @@ export const handleEventsStateBatchAppended: EventHandlerSet<
   StateBatchAppendedExtraData,
   StateBatchAppendedParsedEvent
 > = {
-  getExtraData: async (event) => {
-    const eventBlock = await event.getBlock()
-    const l1Transaction = await event.getTransaction()
+  getExtraData: async (event, l1RpcProvider) => {
+    const eventBlock = await l1RpcProvider.getBlockWithTransactions(event.blockNumber)
+    const l1Transaction = eventBlock.transactions.find(i=>i.hash == event.transactionHash)
 
     return {
       timestamp: eventBlock.timestamp,
