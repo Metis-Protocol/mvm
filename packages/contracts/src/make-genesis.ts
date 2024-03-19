@@ -140,6 +140,19 @@ export const makeL2GenesisFile = async (
     }
   }
 
+  const extraDevAddrs = process.env.EXTRA_DEV_ADDRS
+  if (extraDevAddrs) {
+    for (const addr of extraDevAddrs.split(',')) {
+      console.log('set genesis balance for dev address', addr)
+      if (ethers.utils.isAddress(addr) && !dump[addr]) {
+        console.log('valid address, set initial balance')
+        dump[addr] = {
+          balance: '0xfffffffffffffffffffff',
+        }
+      }
+    }
+  }
+
   // Grab the commit hash so we can stick it in the genesis file.
   let commit: string
   try {
