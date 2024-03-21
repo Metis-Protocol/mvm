@@ -112,6 +112,24 @@ export const makeL2GenesisFile = async (
   }
 
   const dump = {}
+
+  const funding = process.env.EXTRA_DEV_ADDRS.split(',').filter((v) =>
+    ethers.utils.isAddress(v)
+  )
+
+  if (funding.length) {
+    console.log('Add balance to genesis address')
+    console.log('ENSURE TAHT YOU ARE USING DEV MODE!!')
+    console.log(funding)
+    const amount = BigInt(1e18) * BigInt(1e6)
+    variables['MVM_Coinbase']['_balances'] = funding.reduce((prev, cur) => {
+      prev[cur] = '0x' + amount.toString(16)
+      return prev
+    }, {})
+    variables['MVM_Coinbase']['_totalSupply'] =
+      '0x' + (amount * BigInt(funding.length)).toString(16)
+  }
+
   for (const predeployName of Object.keys(predeploys)) {
     const predeployAddress = predeploys[predeployName]
     dump[predeployAddress] = {
@@ -136,19 +154,6 @@ export const makeL2GenesisFile = async (
       const slots = computeStorageSlots(storageLayout, variables[predeployName])
       for (const slot of slots) {
         dump[predeployAddress].storage[slot.key] = slot.val
-      }
-    }
-  }
-
-  const extraDevAddrs = process.env.EXTRA_DEV_ADDRS
-  if (extraDevAddrs) {
-    for (const addr of extraDevAddrs.split(',')) {
-      console.log('set genesis balance for dev address', addr)
-      if (ethers.utils.isAddress(addr) && !dump[addr]) {
-        console.log('valid address, set initial balance')
-        dump[addr] = {
-          balance: '0xfffffffffffffffffffff',
-        }
       }
     }
   }
