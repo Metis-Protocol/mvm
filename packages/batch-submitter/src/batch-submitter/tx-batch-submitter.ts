@@ -634,12 +634,6 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
       //  In this case, we want to submit regardless of the batch's size.
       wasBatchTruncated = true
     }
-
-    this.logger.info('Generated sequencer batch params', {
-      contexts: sequencerBatchParams.contexts,
-      transactions: sequencerBatchParams.transactions,
-      wasBatchTruncated,
-    })
     return [sequencerBatchParams, wasBatchTruncated]
   }
 

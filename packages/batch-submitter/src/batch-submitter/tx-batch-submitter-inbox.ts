@@ -277,12 +277,6 @@ export class TransactionBatchSubmitterInbox {
       //  In this case, we want to submit regardless of the batch's size.
       wasBatchTruncated = true
     }
-
-    this.logger.info('Generated sequencer batch params', {
-      contexts: inboxBatchParams.batch,
-      inputData: encoded,
-      wasBatchTruncated,
-    })
     return [inboxBatchParams, wasBatchTruncated]
   }
 
