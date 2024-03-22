@@ -23,7 +23,7 @@ RUN yarn workspace @eth-optimism/integration-tests build
 
 
 FROM node:16-alpine as deployer
-RUN apk add --update --no-cache git curl python3 bash jq
+RUN apk add --update --no-cache git curl python3 bash jq ca-certificates
 
 WORKDIR /opt/optimism/
 
@@ -56,7 +56,7 @@ ENTRYPOINT yarn run deploy
 
 
 FROM node:16-alpine as data-transport-layer
-RUN apk add --no-cache curl bash jq
+RUN apk add --no-cache curl bash jq ca-certificates
 
 WORKDIR /opt/optimism
 
@@ -86,7 +86,7 @@ VOLUME [ "/data" ]
 ENTRYPOINT ["./dtl.sh"]
 
 FROM node:16-alpine as message-relayer
-RUN apk add --no-cache curl bash jq
+RUN apk add --no-cache curl bash jq ca-certificates
 
 WORKDIR /opt/optimism
 
@@ -116,7 +116,7 @@ COPY  --chmod=775 ./ops/scripts/relayer.sh .
 ENTRYPOINT ["./relayer.sh"]
 
 FROM node:16-alpine as batch-submitter
-RUN apk add --no-cache curl bash jq
+RUN apk add --no-cache curl bash jq ca-certificates
 
 WORKDIR /opt/optimism
 
