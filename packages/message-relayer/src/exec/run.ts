@@ -106,14 +106,15 @@ const main = async () => {
   } else {
     throw new Error('Must pass one of L1_WALLET_KEY or MNEMONIC')
   }
-  var chainId = L2_NODE_CHAIN_ID
-  if (!chainId || chainId == 0) {
-    chainId = await l2Provider.send('eth_chainId', [])
+  let l2ChainId = L2_NODE_CHAIN_ID
+  if (!l2ChainId) {
+    const network = await l2Provider.getNetwork()
+    l2ChainId = network.chainId
   }
   const service = new MessageRelayerService({
     l1RpcProvider: l1Provider,
     l2RpcProvider: l2Provider,
-    l2ChainId: chainId,
+    l2ChainId,
     addressManagerAddress: ADDRESS_MANAGER_ADDRESS,
     l1Wallet: wallet,
     relayGasLimit: RELAY_GAS_LIMIT,
@@ -127,6 +128,14 @@ const main = async () => {
     storeDbUrl: STORE_DB_URL,
     relayNumber: RELAY_NUMBER,
   })
+
+  const stop = async (signal) => {
+    console.log(`"{"msg": "${signal} - Stopping message relayer"}"`)
+    await service.stop()
+  }
+
+  process.on('SIGTERM', stop)
+  process.on('SIGINT', stop)
 
   await service.start()
 }
