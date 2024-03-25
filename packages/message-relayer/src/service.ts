@@ -255,6 +255,8 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           totalNumber:
             this.state.nextUnfinalizedTxHeight -
             this.state.lastFinalizedTxHeight,
+          startHeight: this.state.lastFinalizedTxHeight,
+          endHeight: this.state.nextUnfinalizedTxHeight,
         })
 
         const messages = await this._getSentMessages(
@@ -265,6 +267,8 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
         for (const message of messages) {
           this.logger.info('Found a message sent during transaction', {
             index: message.parentTransactionIndex,
+            txHash: message.parentTransactionHash,
+            msgHash: message.encodedMessageHash,
           })
           if (await this._wasMessageRelayed(message)) {
             this.logger.info('Message has already been relayed, skipping.')
@@ -307,6 +311,8 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
           'Finished searching through newly finalized transactions',
           {
             retryAgainInS: Math.floor(this.options.pollingInterval / 1000),
+            startBlock: this.state.lastFinalizedTxHeight,
+            endBlock: this.state.nextUnfinalizedTxHeight,
           }
         )
       } catch (err) {
@@ -341,48 +347,30 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
       })
     }
 
-    const l1ChainId = (await this.options.l1RpcProvider.getNetwork()).chainId
+    const l1Height = await this.options.l1RpcProvider.getBlockNumber()
+
     let startingBlock = this.state.lastQueriedL1Block
-    while (
-      startingBlock < (await this.options.l1RpcProvider.getBlockNumber())
-    ) {
-      let sccContract = this.state.StateCommitmentChain
+    while (startingBlock < l1Height) {
       let endBlock = startingBlock + this.options.getLogsInterval
-      if (l1ChainId === 1) {
-        // changed address at 19439449
-        const setHeight1 = 19439449
-        if (endBlock > setHeight1 && startingBlock < setHeight1) {
-          endBlock = setHeight1
-        }
-        if (
-          (endBlock > setHeight1 && startingBlock < setHeight1) ||
-          endBlock <= setHeight1
-        ) {
-          sccContract = loadContract(
-            'StateCommitmentChain',
-            '0xf209815E595Cdf3ed0aAF9665b1772e608AB9380',
-            this.options.l1RpcProvider
-          )
-        }
+      if (endBlock > l1Height) {
+        endBlock = l1Height
       }
+
       this.state.lastQueriedL1Block = startingBlock
       this.logger.info('Querying events', {
         startingBlock,
         endBlock,
       })
 
-      const events: ethers.Event[] = await sccContract.queryFilter(
-        sccContract.filters.StateBatchAppended(),
-        startingBlock,
-        endBlock
+      const events: ethers.Event[] =
+        await this.state.StateCommitmentChain.queryFilter(
+          this.state.StateCommitmentChain.filters.StateBatchAppended(),
+          startingBlock,
+          endBlock
+        )
+      const filteredEvents = events.filter(
+        (e) => e && e.args._chainId.toNumber() === this.options.l2ChainId
       )
-      const filteredEvents = events.filter((event) => {
-        if (event != undefined) {
-          return event.args._chainId.toNumber() == this.options.l2ChainId
-        } else {
-          return false
-        }
-      })
 
       this.state.eventCache = this.state.eventCache.concat(filteredEvents)
       //this.state.eventCache = this.state.eventCache.concat(events)
@@ -391,13 +379,13 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
 
       // We need to stop syncing early once we find the event we're looking for to avoid putting
       // *all* events into memory at the same time. Otherwise we'll get OOM killed.
-      if (getStateBatchAppendedEventForIndex(height) !== undefined) {
+      if (getStateBatchAppendedEventForIndex(height)) {
         break
       }
     }
 
     const event = getStateBatchAppendedEventForIndex(height)
-    if (event === undefined) {
+    if (!event) {
       return undefined
     }
 
@@ -426,11 +414,11 @@ export class MessageRelayerService extends BaseService<MessageRelayerOptions> {
     this.logger.info('Checking if tx is finalized', { height })
     const header = await this._getStateBatchHeader(height)
 
-    if (header === undefined) {
+    if (!header) {
       this.logger.info('No state batch header found.')
       return false
     } else {
-      this.logger.info('Got state batch header', { header })
+      this.logger.info('Got state batch header', { batch: header.batch })
     }
 
     return !(await this.state.StateCommitmentChain.insideFraudProofWindow(
