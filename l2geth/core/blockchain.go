@@ -1701,7 +1701,7 @@ func (bc *BlockChain) insertChainWithFunc(chain types.Blocks, verifySeals bool, 
 	// Some other error occurred, abort
 	case err != nil:
 		// NOTE 20210724
-		log.Debug("Other error block, ignore", block.Hash(), err)
+		log.Debug("Other error block, ignore", "hash", block.Hash(), "err", err)
 		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, nil, err)
@@ -2020,7 +2020,7 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 	// Some other error occurred, abort
 	case err != nil:
 		// NOTE 20210724
-		log.Debug("Other error block, ignore", block.Hash(), err)
+		log.Debug("Other error block, ignore", "hash", block.Hash(), "err", err)
 		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, nil, err)
