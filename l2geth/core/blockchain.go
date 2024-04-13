@@ -2099,6 +2099,14 @@ func (bc *BlockChain) insertChainWithFuncAndCh(chain types.Blocks, verifySeals b
 				}(time.Now())
 			}
 		}
+
+		// check seqset
+		err = processSeqSetBlock(bc, statedb, block, parent)
+		if err != nil {
+			log.Error("Verify block with seqset", "block", block.NumberU64(), "err", err)
+			return it.index, err
+		}
+
 		// Process block using the parent state as reference point
 		substart := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)

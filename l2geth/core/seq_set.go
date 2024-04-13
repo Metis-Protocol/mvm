@@ -1,0 +1,145 @@
+package core
+
+import (
+	"encoding/hex"
+	"errors"
+	"math/big"
+
+	"github.com/ethereum-optimism/optimism/l2geth/common"
+	"github.com/ethereum-optimism/optimism/l2geth/core/state"
+	"github.com/ethereum-optimism/optimism/l2geth/core/types"
+	"github.com/ethereum-optimism/optimism/l2geth/crypto"
+	"github.com/ethereum-optimism/optimism/l2geth/log"
+)
+
+const (
+	seqsetRecommitMethod  = ("2c91c679")               // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679, when input data does not has prefix 0x
+	seqsetRecommitDataLen = 4 + 32 + 32 + 32 + 32 + 32 // uint256 oldEpochId,uint256 newEpochId, uint256 startBlock,uint256 endBlock, address newSigner
+)
+
+type Epoch struct {
+	Number     *big.Int       // uint256
+	Signer     common.Address // address
+	StartBlock *big.Int       // uint256
+	EndBlock   *big.Int       // uint256
+}
+
+func DecodeReCommitData(data []byte) (bool, common.Address, *big.Int, *big.Int) {
+	zeroBigInt := new(big.Int).SetUint64(0)
+	if len(data) < seqsetRecommitDataLen {
+		return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
+	}
+	method := hex.EncodeToString(data[0:4])
+	startBlock := new(big.Int).SetBytes(data[2*32+4 : 3*32+4])
+	endBlock := new(big.Int).SetBytes(data[3*32+4 : 4*32+4])
+	signer := common.BytesToAddress(data[4*32+16 : 4*32+36])
+	if method == seqsetRecommitMethod {
+		return true, signer, startBlock, endBlock
+	}
+	return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
+}
+
+func RecoverSeqAddress(tx *types.Transaction) (common.Address, error) {
+	// enqueue tx no sign
+	if tx.QueueOrigin() == types.QueueOriginL1ToL2 {
+		return common.Address{}, errors.New("enqueue seq sign is null")
+	}
+	seqSign := tx.GetSeqSign()
+	if seqSign == nil {
+		return common.Address{}, errors.New("seq sign is null")
+	}
+
+	var signBytes []byte
+	signBytes = append(signBytes, seqSign.R.FillBytes(make([]byte, 32))...)
+	signBytes = append(signBytes, seqSign.S.FillBytes(make([]byte, 32))...)
+	signBytes = append(signBytes, byte(seqSign.V.Int64()))
+
+	signer, err := crypto.SigToPub(tx.Hash().Bytes(), signBytes)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return crypto.PubkeyToAddress(*signer), nil
+}
+
+func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Block, parent *types.Header) error {
+	currentBN := new(big.Int).Add(big.NewInt(1), parent.Number)
+	if !bc.Config().IsSeqSetEnabled(currentBN) {
+		return nil
+	}
+	// check seqset
+	seqsetAddr := bc.Config().MetisSeqSetContract()
+	if seqsetAddr.IsZero() {
+		return ErrNoSeqSetAddress
+	}
+
+	// recommit and l1 not validate
+	if len(block.Transactions()) == 1 {
+		currentTx := block.Transactions()[0]
+		if currentTx.QueueOrigin() == types.QueueOriginL1ToL2 {
+			return nil
+		}
+		// check recommit method
+		mpcAddressSlot := crypto.Keccak256Hash(big.NewInt(1).Bytes())
+		mpcAddress := common.BytesToAddress(statedb.GetState(seqsetAddr, mpcAddressSlot).Bytes())
+		to := currentTx.To()
+		from, err := types.Sender(types.MakeSigner(bc.chainConfig, currentBN), currentTx)
+		if err != nil {
+			return err
+		}
+		if from == mpcAddress && to != nil && *to == seqsetAddr {
+			// decode tx data
+			isRecommit, newSequencer, _, _ := DecodeReCommitData(currentTx.Data())
+			recoverSigner, err := RecoverSeqAddress(currentTx)
+			if err != nil {
+				return err
+			}
+			if isRecommit {
+				if newSequencer != recoverSigner {
+					return ErrIncorrectSequencer
+				}
+				return nil
+			}
+		}
+	}
+
+	// get currentEpochId, slot index is 3
+	currentEpochIdSlot := crypto.Keccak256Hash(big.NewInt(3).Bytes())
+	currentEpochId := statedb.GetState(seqsetAddr, currentEpochIdSlot).Big()
+
+	// epoch id slice
+	epochIds := []*big.Int{currentEpochId}
+	if currentEpochId.Cmp(big.NewInt(0)) > 0 {
+		secondLastEpochId := new(big.Int).Sub(currentEpochId, big.NewInt(1))
+		epochIds = append(epochIds, secondLastEpochId)
+	}
+
+	// get epoch, base slot index is 2
+	for _, epochId := range epochIds {
+		epochsSlot := crypto.Keccak256Hash(big.NewInt(2).Bytes())
+		keyHash := crypto.Keccak256Hash(append(epochId.Bytes(), epochsSlot.Bytes()...))
+		epochData := statedb.GetState(seqsetAddr, keyHash).Bytes()
+
+		epoch := Epoch{
+			Number:     new(big.Int).SetBytes(epochData[:32]),
+			Signer:     common.BytesToAddress(epochData[32:52]),
+			StartBlock: new(big.Int).SetBytes(epochData[52:84]),
+			EndBlock:   new(big.Int).SetBytes(epochData[84:116]),
+		}
+
+		if epoch.StartBlock.Cmp(currentBN) <= 0 && epoch.EndBlock.Cmp(currentBN) >= 0 {
+			// check first tx is enough
+			currentTx := block.Transactions()[0]
+			recoverSigner, err := RecoverSeqAddress(currentTx)
+			if err != nil {
+				return err
+			}
+			if epoch.Signer != recoverSigner {
+				return ErrIncorrectSequencer
+			}
+			return nil
+		}
+	}
+
+	log.Debug("Epoch range not containes block number", "block", currentBN)
+	return ErrIncorrectSequencer
+}
