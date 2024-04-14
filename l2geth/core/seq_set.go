@@ -79,14 +79,12 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 			return nil
 		}
 		// check recommit method
-		mpcAddressSlot := big.NewInt(102)
-		mpcAddress := common.BytesToAddress(statedb.GetState(seqsetAddr, common.BytesToHash(mpcAddressSlot.Bytes())).Bytes())
 		to := currentTx.To()
-		from, err := types.Sender(types.MakeSigner(bc.chainConfig, currentBN), currentTx)
-		if err != nil {
-			return err
-		}
-		if from == mpcAddress && to != nil && *to == seqsetAddr {
+		if to != nil && *to == seqsetAddr {
+			from, err := types.Sender(types.MakeSigner(bc.chainConfig, currentBN), currentTx)
+			if err != nil {
+				return err
+			}
 			// decode tx data
 			isRecommit, newSequencer, _, _ := DecodeReCommitData(currentTx.Data())
 			recoverSigner, err := RecoverSeqAddress(currentTx)
@@ -94,10 +92,14 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 				return err
 			}
 			if isRecommit {
-				if newSequencer != recoverSigner {
-					return ErrIncorrectSequencer
+				mpcAddressSlot := big.NewInt(102)
+				mpcAddress := common.BytesToAddress(statedb.GetState(seqsetAddr, common.BytesToHash(mpcAddressSlot.Bytes())).Bytes())
+				if from == mpcAddress {
+					if newSequencer != recoverSigner {
+						return ErrIncorrectSequencer
+					}
+					return nil
 				}
-				return nil
 			}
 		}
 	}
