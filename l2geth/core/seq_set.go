@@ -79,8 +79,8 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 			return nil
 		}
 		// check recommit method
-		mpcAddressSlot := crypto.Keccak256Hash(big.NewInt(1).Bytes())
-		mpcAddress := common.BytesToAddress(statedb.GetState(seqsetAddr, mpcAddressSlot).Bytes())
+		mpcAddressSlot := big.NewInt(102)
+		mpcAddress := common.BytesToAddress(statedb.GetState(seqsetAddr, common.BytesToHash(mpcAddressSlot.Bytes())).Bytes())
 		to := currentTx.To()
 		from, err := types.Sender(types.MakeSigner(bc.chainConfig, currentBN), currentTx)
 		if err != nil {
@@ -102,9 +102,9 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 		}
 	}
 
-	// get currentEpochId, slot index is 3
-	currentEpochIdSlot := crypto.Keccak256Hash(big.NewInt(3).Bytes())
-	currentEpochId := statedb.GetState(seqsetAddr, currentEpochIdSlot).Big()
+	// get currentEpochId, slot index is 104
+	currentEpochIdSlot := big.NewInt(104)
+	currentEpochId := statedb.GetState(seqsetAddr, common.BytesToHash(currentEpochIdSlot.Bytes())).Big()
 
 	// epoch id slice
 	epochIds := []*big.Int{currentEpochId}
@@ -113,18 +113,27 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 		epochIds = append(epochIds, secondLastEpochId)
 	}
 
-	// get epoch, base slot index is 2
+	// get epoch, base slot index is 103
 	for _, epochId := range epochIds {
-		epochsSlot := crypto.Keccak256Hash(big.NewInt(2).Bytes())
-		keyHash := crypto.Keccak256Hash(append(epochId.Bytes(), epochsSlot.Bytes()...))
-		epochData := statedb.GetState(seqsetAddr, keyHash).Bytes()
+		epochsSlot := big.NewInt(103)
+		numberSlot := crypto.Keccak256Hash(append(common.LeftPadBytes(epochId.Bytes(), 32), common.LeftPadBytes(epochsSlot.Bytes(), 32)...)).Big()
+		signerSlot := new(big.Int).Add(numberSlot, common.Big1)
+		startBlockSlot := new(big.Int).Add(signerSlot, common.Big1)
+		endBlockSlot := new(big.Int).Add(startBlockSlot, common.Big1)
+
+		numberData := statedb.GetState(seqsetAddr, common.BytesToHash(numberSlot.Bytes())).Bytes()
+		signerData := statedb.GetState(seqsetAddr, common.BytesToHash(signerSlot.Bytes())).Bytes()
+		startBlockData := statedb.GetState(seqsetAddr, common.BytesToHash(startBlockSlot.Bytes())).Bytes()
+		endBlockData := statedb.GetState(seqsetAddr, common.BytesToHash(endBlockSlot.Bytes())).Bytes()
 
 		epoch := Epoch{
-			Number:     new(big.Int).SetBytes(epochData[:32]),
-			Signer:     common.BytesToAddress(epochData[32:52]),
-			StartBlock: new(big.Int).SetBytes(epochData[52:84]),
-			EndBlock:   new(big.Int).SetBytes(epochData[84:116]),
+			Number:     new(big.Int).SetBytes(numberData),
+			Signer:     common.BytesToAddress(signerData),
+			StartBlock: new(big.Int).SetBytes(startBlockData),
+			EndBlock:   new(big.Int).SetBytes(endBlockData),
 		}
+
+		log.Debug("Read epoch from slot", "epoch", epoch)
 
 		if epoch.StartBlock.Cmp(currentBN) <= 0 && epoch.EndBlock.Cmp(currentBN) >= 0 {
 			// check first tx is enough
