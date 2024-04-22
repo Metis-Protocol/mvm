@@ -24,6 +24,8 @@ type Epoch struct {
 	EndBlock   *big.Int       // uint256
 }
 
+var epochCache []*Epoch = make([]*Epoch, 0, 10)
+
 func DecodeReCommitData(data []byte) (bool, common.Address, *big.Int, *big.Int) {
 	zeroBigInt := new(big.Int).SetUint64(0)
 	if len(data) < seqsetRecommitDataLen {
@@ -101,11 +103,20 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 	currentEpochId := statedb.GetState(seqsetAddr, common.BytesToHash(currentEpochIdSlot.Bytes())).Big()
 
 	// epoch id slice
+  prependBeginning := true
 	epochIds := []*big.Int{currentEpochId}
-	if currentEpochId.Cmp(big.NewInt(0)) > 0 {
-		secondLastEpochId := new(big.Int).Sub(currentEpochId, big.NewInt(1))
-		epochIds = append(epochIds, secondLastEpochId)
-	}
+  if len(epochCache) == 0 {
+    prependBeginning = false
+    for i := 1; i <= 10; i++ {
+      epochId := new(big.Int).Sub(currentEpochId, big.NewInt(int64(i)))
+      if epochId.Cmp(big.NewInt(0)) < 0 {
+        break
+      }
+      epochIds = append(epochIds, epochId)
+    }
+  } else if epochCache[0].Number.Cmp(currentEpochId) == 0 {
+    epochIds = []*big.Int{}
+  }
 
 	// get epoch, base slot index is 103
 	for _, epochId := range epochIds {
@@ -120,7 +131,7 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 		startBlockData := statedb.GetState(seqsetAddr, common.BytesToHash(startBlockSlot.Bytes())).Bytes()
 		endBlockData := statedb.GetState(seqsetAddr, common.BytesToHash(endBlockSlot.Bytes())).Bytes()
 
-		epoch := Epoch{
+		epoch := &Epoch{
 			Number:     new(big.Int).SetBytes(numberData),
 			Signer:     common.BytesToAddress(signerData),
 			StartBlock: new(big.Int).SetBytes(startBlockData),
@@ -129,20 +140,32 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 
 		log.Debug("Read epoch from slot", "epoch", epoch)
 
-		if epoch.StartBlock.Cmp(currentBN) <= 0 && epoch.EndBlock.Cmp(currentBN) >= 0 {
-			// check first tx is enough
-			currentTx := block.Transactions()[0]
-			recoverSigner, err := RecoverSeqAddress(currentTx)
-			if err != nil {
-				return err
-			}
-			if epoch.Signer != recoverSigner {
-				return ErrIncorrectSequencer
-			}
-			return nil
+    if prependBeginning {
+      epochCache = append([]*Epoch{ epoch }, epochCache...)
+    } else {
+      epochCache = append(epochCache, epoch)
+    }
+    if len(epochCache) > 10 {
+      // Ensure the cache does not exceed 10 items
+			epochCache = epochCache[:10]
 		}
 	}
 
-	log.Debug("Epoch range not containes block number", "block", currentBN)
-	return ErrIncorrectSequencer
+  // check first tx is enough
+  currentTx := block.Transactions()[0]
+  recoverSigner, err := RecoverSeqAddress(currentTx)
+  if err != nil {
+    return err
+  }
+  found := false
+  for _, epoch := range epochCache {
+      if epoch.Signer == recoverSigner {
+          found = true
+          break
+      }
+  }
+  if !found {
+    return ErrIncorrectSequencer
+  }
+  return nil
 }
