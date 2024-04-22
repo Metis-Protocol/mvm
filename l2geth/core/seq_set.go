@@ -63,6 +63,23 @@ func RecoverSeqAddress(tx *types.Transaction) (common.Address, error) {
 	return crypto.PubkeyToAddress(*signer), nil
 }
 
+func updateEpochCache(currentEpochId *big.Int, epoch *Epoch, prependBeginning bool) {
+	if prependBeginning {
+		if len(epochCache) > 0 && epochCache[0].Number.Cmp(currentEpochId) == 0 {
+			if epochCache[0].Signer != epoch.Signer || epochCache[0].StartBlock.Cmp(epoch.StartBlock) != 0 || epochCache[0].EndBlock.Cmp(epoch.EndBlock) != 0 {
+				epochCache[0] = epoch
+			}
+		} else {
+			epochCache = append([]*Epoch{epoch}, epochCache...)
+		}
+	} else {
+		epochCache = append(epochCache, epoch)
+	}
+	if len(epochCache) > 10 {
+		epochCache = epochCache[:10]
+	}
+}
+
 func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Block, parent *types.Header) error {
 	currentBN := new(big.Int).Add(big.NewInt(1), parent.Number)
 	if !bc.Config().IsSeqSetEnabled(currentBN) {
@@ -103,20 +120,18 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 	currentEpochId := statedb.GetState(seqsetAddr, common.BytesToHash(currentEpochIdSlot.Bytes())).Big()
 
 	// epoch id slice
-  prependBeginning := true
+	prependBeginning := true
 	epochIds := []*big.Int{currentEpochId}
-  if len(epochCache) == 0 {
-    prependBeginning = false
-    for i := 1; i <= 10; i++ {
-      epochId := new(big.Int).Sub(currentEpochId, big.NewInt(int64(i)))
-      if epochId.Cmp(big.NewInt(0)) < 0 {
-        break
-      }
-      epochIds = append(epochIds, epochId)
-    }
-  } else if epochCache[0].Number.Cmp(currentEpochId) == 0 {
-    epochIds = []*big.Int{}
-  }
+	if len(epochCache) == 0 {
+		prependBeginning = false
+		for i := 1; i <= 10; i++ {
+			epochId := new(big.Int).Sub(currentEpochId, big.NewInt(int64(i)))
+			if epochId.Cmp(big.NewInt(0)) < 0 {
+				break
+			}
+			epochIds = append(epochIds, epochId)
+		}
+	}
 
 	// get epoch, base slot index is 103
 	for _, epochId := range epochIds {
@@ -140,32 +155,24 @@ func processSeqSetBlock(bc *BlockChain, statedb *state.StateDB, block *types.Blo
 
 		log.Debug("Read epoch from slot", "epoch", epoch)
 
-    if prependBeginning {
-      epochCache = append([]*Epoch{ epoch }, epochCache...)
-    } else {
-      epochCache = append(epochCache, epoch)
-    }
-    if len(epochCache) > 10 {
-      // Ensure the cache does not exceed 10 items
-			epochCache = epochCache[:10]
-		}
+		updateEpochCache(currentEpochId, epoch, prependBeginning)
 	}
 
-  // check first tx is enough
-  currentTx := block.Transactions()[0]
-  recoverSigner, err := RecoverSeqAddress(currentTx)
-  if err != nil {
-    return err
-  }
-  found := false
-  for _, epoch := range epochCache {
-      if epoch.Signer == recoverSigner {
-          found = true
-          break
-      }
-  }
-  if !found {
-    return ErrIncorrectSequencer
-  }
-  return nil
+	// check first tx is enough
+	currentTx := block.Transactions()[0]
+	recoverSigner, err := RecoverSeqAddress(currentTx)
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, epoch := range epochCache {
+		if epoch.Signer == recoverSigner {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrIncorrectSequencer
+	}
+	return nil
 }
