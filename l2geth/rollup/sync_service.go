@@ -1329,6 +1329,14 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 		// send to txpool
 		return s.txpool.AddLocal(tx)
 	}
+	// check nonce for 1 tx to a block
+	statedb, err := s.bc.State()
+	if err != nil {
+		return err
+	}
+	if !s.verifier && statedb.GetNonce(sender) != tx.Nonce() {
+		return core.ErrNonceTooLow
+	}
 	// respan or gasOracle, mine 1 tx to a block
 	// mpc status 4: default txFeed
 	txs := types.Transactions{tx}
@@ -1747,7 +1755,7 @@ type indexGetter func() (*uint64, error)
 func (s *SyncService) isAtTip(index *uint64, get indexGetter) (bool, error) {
 	latest, err := get()
 	if errors.Is(err, errElementNotFound) {
-    return true, nil
+		return true, nil
 	}
 	if err != nil {
 		return false, err
@@ -1950,8 +1958,8 @@ func (s *SyncService) syncQueue() (*uint64, error) {
 func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 	log.Info("Syncing enqueue transactions range", "start", start, "end", end)
 	for i := start; i <= end; i++ {
-		// NOTE, andromeda queue lost 20397
-		if rcfg.ChainID == 1088 && i == 20397 {
+		// NOTE, andromeda queue
+		if rcfg.ChainID == 1088 && (i == 20397 || i == 37446) {
 			continue
 		}
 		tx, err := s.client.GetEnqueue(i)
