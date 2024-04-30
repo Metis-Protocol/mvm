@@ -111,7 +111,7 @@ type environment struct {
 	txs      []*types.Transaction
 	receipts []*types.Receipt
 
-  l1BN uint64 // make sure L1BlockNumber set once per block by TxPool
+	l1BN uint64 // make sure L1BlockNumber set once per block by TxPool
 }
 
 // task contains all information for consensus engine sealing and result submitting.
@@ -800,7 +800,7 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 		family:    mapset.NewSet(),
 		uncles:    mapset.NewSet(),
 		header:    header,
-    l1BN:      uint64(0),
+		l1BN:      uint64(0),
 	}
 
 	// when 08 is processed ancestors contain 07 (quick block)
@@ -957,12 +957,12 @@ func (w *worker) commitTransactionsWithError(txs *types.TransactionsByPriceAndNo
 
 		// setIndex, l1Timestamp, l1BlockNumber
 		if deSeqModel {
-      if w.current.l1BN == 0 {
-        w.current.l1BN = tx.L1BlockNumber().Uint64()
-      }
-      tx.SetL1BlockNumber(w.current.l1BN)
-      tx.SetL1Timestamp(w.current.header.Time)
-      tx.SetIndex(pn)
+			if w.current.l1BN == 0 {
+				w.current.l1BN = tx.L1BlockNumber().Uint64()
+			}
+			tx.SetL1BlockNumber(w.current.l1BN)
+			tx.SetL1Timestamp(w.current.header.Time)
+			tx.SetIndex(pn)
 		}
 
 		// Error may be ignored here. The error has already been checked
@@ -1294,7 +1294,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 		*receipts[i] = *l
 	}
 
-	// Make sure txs.L1Timestamp set to block
+	// Make sure txs.Index set to blockNumber-1
 	pn := w.current.header.Number.Uint64() - 1
 	deSeqModel := false
 	blockTime := w.current.header.Time
@@ -1302,9 +1302,12 @@ func (w *worker) commit(uncles []*types.Header, interval func(), start time.Time
 	if rcfg.DeSeqBlock > 0 && pn+1 >= rcfg.DeSeqBlock {
 		deSeqModel = true
 	}
-
-  // Note, cannot modify any tx info in the method, because TX apply to EVM before, block.time will be effected
-
+	// Note, cannot modify tx L1Timestamp in the method, because TX apply to EVM before, block.time will be effected
+	if deSeqModel {
+		for _, tx := range w.current.txs {
+			tx.SetIndex(pn)
+		}
+	}
 	s := w.current.state.Copy()
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
