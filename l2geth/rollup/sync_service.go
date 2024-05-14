@@ -98,6 +98,7 @@ type SyncService struct {
 	seqPriv           string
 
 	syncQueueFromOthers chan *types.Block
+	enqueueIndexNil     bool
 }
 
 // NewSyncService returns an initialized sync service
@@ -186,6 +187,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		SeqAddress:          cfg.SeqAddress,
 		seqPriv:             cfg.SeqPriv,
 		syncQueueFromOthers: syncQueueFromOthers,
+		enqueueIndexNil:     false,
 	}
 
 	// The chainHeadSub is used to synchronize the SyncService with the chain.
@@ -564,7 +566,6 @@ func (s *SyncService) VerifierLoop() {
 		if err := s.verify(); err != nil {
 			log.Error("Could not verify", "error", err)
 		}
-
 	}
 }
 
@@ -822,7 +823,6 @@ func (s *SyncService) GasPriceOracleOwnerAddress() *common.Address {
 // / Update the execution context's timestamp and blocknumber
 // / over time. This is only necessary for the sequencer.
 func (s *SyncService) updateL1BlockNumber() error {
-
 	context, err := s.client.GetLatestEthContext()
 	if err != nil {
 		return fmt.Errorf("Cannot get eth context: %w", err)
@@ -862,6 +862,9 @@ func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
 
 // GetLatestEnqueueIndex reads the last queue index processed
 func (s *SyncService) GetLatestEnqueueIndex() *uint64 {
+	if s.enqueueIndexNil {
+		return nil
+	}
 	return rawdb.ReadHeadQueueIndex(s.db)
 }
 
@@ -878,6 +881,9 @@ func (s *SyncService) GetNextEnqueueIndex() uint64 {
 func (s *SyncService) SetLatestEnqueueIndex(index *uint64) {
 	if index != nil {
 		rawdb.WriteHeadQueueIndex(s.db, *index)
+		s.enqueueIndexNil = false
+	} else {
+		s.enqueueIndexNil = true
 	}
 }
 
@@ -1625,7 +1631,6 @@ func (s *SyncService) VerifyFee(tx *types.Transaction) error {
 
 // verifyFee will verify that a valid fee is being paid.
 func (s *SyncService) verifyFee(tx *types.Transaction) error {
-
 	from, err := types.Sender(s.signer, tx)
 	if err != nil {
 		return fmt.Errorf("invalid transaction: %w", core.ErrInvalidSender)
@@ -1636,8 +1641,8 @@ func (s *SyncService) verifyFee(tx *types.Transaction) error {
 	//	return fmt.Errorf("invalid transaction: %w", core.ErrInsufficientFunds)
 	//}
 
-	//MVM: cache the owner again if the sender is coming from the supposed owner
-	//in case the owner has been modified by the l2manager
+	// MVM: cache the owner again if the sender is coming from the supposed owner
+	// in case the owner has been modified by the l2manager
 	owner := s.GasPriceOracleOwnerAddress()
 	if owner != nil && from == *owner {
 		var statedb *state.StateDB
@@ -1656,7 +1661,6 @@ func (s *SyncService) verifyFee(tx *types.Transaction) error {
 		// price oracle
 		gpoOwner := s.GasPriceOracleOwnerAddress()
 		if gpoOwner != nil {
-
 			if from == *gpoOwner {
 				return nil
 			}
