@@ -1335,14 +1335,6 @@ func (s *SyncService) applyTransactionToPool(tx *types.Transaction, fromLocal bo
 		// send to txpool
 		return s.txpool.AddLocal(tx)
 	}
-	// check nonce for 1 tx to a block
-	statedb, err := s.bc.State()
-	if err != nil {
-		return err
-	}
-	if !s.verifier && statedb.GetNonce(sender) != tx.Nonce() {
-		return core.ErrNonceTooLow
-	}
 	// respan or gasOracle, mine 1 tx to a block
 	// mpc status 4: default txFeed
 	txs := types.Transactions{tx}
@@ -1968,11 +1960,40 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 		}
 		tx, err := s.client.GetEnqueue(i)
 		if err != nil {
-			return fmt.Errorf("Canot get enqueue transaction; %w", err)
+			return fmt.Errorf("Cannot get enqueue transaction; %w", err)
 		}
-		if err := s.applyTransaction(tx, true); err != nil {
-			// retry when enqueue error
-			log.Error("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
+
+		err = s.applyTransaction(tx, true)
+		if s.verifier {
+			if err != nil {
+				log.Error("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
+				if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
+					if *queueIndex > 0 {
+						restoreIndex := *queueIndex - 1
+						s.SetLatestEnqueueIndex(&restoreIndex)
+						log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
+					} else {
+						// should re-deploy
+						log.Error("syncQueueTransactionRange failed at zero index")
+					}
+				}
+				return fmt.Errorf("Cannot apply transaction: %w", err)
+			}
+			continue
+		}
+		if err == nil {
+			// check tx hash from db first time
+			qTx, _, _, _ := rawdb.ReadTransaction(s.db, tx.Hash())
+			if qTx != nil {
+				// found is success
+				continue
+			}
+		}
+		// wait 2 seconds, when enqueue competes with txpool, it's uncertain which will arrive first in the chainHeadCh
+		time.Sleep(2 * time.Second)
+		// not found or err, wait 2 sec and query again
+		qTx, _, _, _ := rawdb.ReadTransaction(s.db, tx.Hash())
+		if qTx == nil {
 			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
 				if *queueIndex > 0 {
 					restoreIndex := *queueIndex - 1
@@ -1983,7 +2004,9 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 					log.Error("syncQueueTransactionRange failed at zero index")
 				}
 			}
-			return fmt.Errorf("Cannot apply transaction: %w", err)
+			errInfo := fmt.Sprintf("Enqueue failed, queue index %v, tx hash %v", i, tx.Hash().Hex())
+			log.Error(errInfo)
+			return errors.New(errInfo)
 		}
 	}
 	return nil
