@@ -96,6 +96,8 @@ type SyncService struct {
 	seqClientHttp     string
 	SeqAddress        string
 	seqPriv           string
+	finalizedIndex    *uint64
+	finalizedSyncMs   int64
 
 	syncQueueFromOthers chan *types.Block
 	enqueueIndexNil     bool
@@ -2067,6 +2069,24 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 
 func (s *SyncService) SubscribeNewOtherTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
 	return s.txOtherScope.Track(s.txOtherFeed.Subscribe(ch))
+}
+
+// GetFinalizedNumber will get L1 batched block number
+func (s *SyncService) GetFinalizedNumber() (*uint64, error) {
+	currentMs := time.Now().UnixMilli()
+	if currentMs-s.finalizedSyncMs > 300_000 {
+		blockIndex, err := s.client.GetLatestBlockIndex(BackendL1)
+		if err != nil {
+			blockIndex, err = s.client.GetLatestTransactionIndex(BackendL1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		s.finalizedIndex = blockIndex
+		s.finalizedSyncMs = currentMs
+	}
+	blockNumber := *s.finalizedIndex + 1
+	return &blockNumber, nil
 }
 
 func (s *SyncService) RollupClient() RollupClient {
