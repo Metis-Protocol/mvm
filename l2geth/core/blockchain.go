@@ -1320,6 +1320,15 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	return bc.writeBlockWithState(block, receipts, logs, state, emitHeadEvent)
 }
 
+// restoreBlockMeta restores transaction meta when block commit failed.
+func (bc *BlockChain) restoreBlockMeta(blockNumber uint64, txCount int, meta *types.TransactionMeta) {
+	// tx count greater than 1 will not override block meta
+	if txCount != 1 || meta == nil {
+		return
+	}
+	rawdb.WriteTransactionMeta(bc.db, blockNumber, meta)
+}
+
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
 func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
@@ -1344,6 +1353,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 	rawdb.WriteBlock(blockBatch, block)
 	txsCount := len(block.Transactions())
+	existMeta := rawdb.ReadTransactionMeta(bc.db, block.NumberU64())
 	for _, tx := range block.Transactions() {
 		if txsCount == 1 {
 			rawdb.WriteTransactionMeta(blockBatch, block.NumberU64(), tx.GetMeta())
@@ -1359,6 +1369,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
+		bc.restoreBlockMeta(block.NumberU64(), txsCount, existMeta)
 		return NonStatTy, err
 	}
 	triedb := bc.stateCache.TrieDB()
@@ -1366,6 +1377,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.TrieDirtyDisabled {
 		if err := triedb.Commit(root, false); err != nil {
+			bc.restoreBlockMeta(block.NumberU64(), txsCount, existMeta)
 			return NonStatTy, err
 		}
 	} else {

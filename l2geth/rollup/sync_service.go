@@ -96,8 +96,12 @@ type SyncService struct {
 	seqClientHttp     string
 	SeqAddress        string
 	seqPriv           string
+	finalizedIndex    *uint64
+	finalizedSyncMs   int64
+	finalizedMu       sync.Mutex
 
 	syncQueueFromOthers chan *types.Block
+	enqueueIndexNil     bool
 }
 
 // NewSyncService returns an initialized sync service
@@ -186,6 +190,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		SeqAddress:          cfg.SeqAddress,
 		seqPriv:             cfg.SeqPriv,
 		syncQueueFromOthers: syncQueueFromOthers,
+		enqueueIndexNil:     false,
 	}
 
 	// The chainHeadSub is used to synchronize the SyncService with the chain.
@@ -564,7 +569,6 @@ func (s *SyncService) VerifierLoop() {
 		if err := s.verify(); err != nil {
 			log.Error("Could not verify", "error", err)
 		}
-
 	}
 }
 
@@ -822,7 +826,6 @@ func (s *SyncService) GasPriceOracleOwnerAddress() *common.Address {
 // / Update the execution context's timestamp and blocknumber
 // / over time. This is only necessary for the sequencer.
 func (s *SyncService) updateL1BlockNumber() error {
-
 	context, err := s.client.GetLatestEthContext()
 	if err != nil {
 		return fmt.Errorf("Cannot get eth context: %w", err)
@@ -862,6 +865,9 @@ func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
 
 // GetLatestEnqueueIndex reads the last queue index processed
 func (s *SyncService) GetLatestEnqueueIndex() *uint64 {
+	if s.enqueueIndexNil {
+		return nil
+	}
 	return rawdb.ReadHeadQueueIndex(s.db)
 }
 
@@ -878,6 +884,9 @@ func (s *SyncService) GetNextEnqueueIndex() uint64 {
 func (s *SyncService) SetLatestEnqueueIndex(index *uint64) {
 	if index != nil {
 		rawdb.WriteHeadQueueIndex(s.db, *index)
+		s.enqueueIndexNil = false
+	} else {
+		s.enqueueIndexNil = true
 	}
 }
 
@@ -1617,7 +1626,6 @@ func (s *SyncService) VerifyFee(tx *types.Transaction) error {
 
 // verifyFee will verify that a valid fee is being paid.
 func (s *SyncService) verifyFee(tx *types.Transaction) error {
-
 	from, err := types.Sender(s.signer, tx)
 	if err != nil {
 		return fmt.Errorf("invalid transaction: %w", core.ErrInvalidSender)
@@ -1628,8 +1636,8 @@ func (s *SyncService) verifyFee(tx *types.Transaction) error {
 	//	return fmt.Errorf("invalid transaction: %w", core.ErrInsufficientFunds)
 	//}
 
-	//MVM: cache the owner again if the sender is coming from the supposed owner
-	//in case the owner has been modified by the l2manager
+	// MVM: cache the owner again if the sender is coming from the supposed owner
+	// in case the owner has been modified by the l2manager
 	owner := s.GasPriceOracleOwnerAddress()
 	if owner != nil && from == *owner {
 		var statedb *state.StateDB
@@ -1648,7 +1656,6 @@ func (s *SyncService) verifyFee(tx *types.Transaction) error {
 		// price oracle
 		gpoOwner := s.GasPriceOracleOwnerAddress()
 		if gpoOwner != nil {
-
 			if from == *gpoOwner {
 				return nil
 			}
@@ -1747,7 +1754,7 @@ type indexGetter func() (*uint64, error)
 func (s *SyncService) isAtTip(index *uint64, get indexGetter) (bool, error) {
 	latest, err := get()
 	if errors.Is(err, errElementNotFound) {
-    return true, nil
+		return true, nil
 	}
 	if err != nil {
 		return false, err
@@ -1950,17 +1957,46 @@ func (s *SyncService) syncQueue() (*uint64, error) {
 func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 	log.Info("Syncing enqueue transactions range", "start", start, "end", end)
 	for i := start; i <= end; i++ {
-		// NOTE, andromeda queue lost 20397
-		if rcfg.ChainID == 1088 && i == 20397 {
+		// NOTE, andromeda queue
+		if rcfg.ChainID == 1088 && (i == 20397 || i == 37446) {
 			continue
 		}
 		tx, err := s.client.GetEnqueue(i)
 		if err != nil {
-			return fmt.Errorf("Canot get enqueue transaction; %w", err)
+			return fmt.Errorf("Cannot get enqueue transaction; %w", err)
 		}
-		if err := s.applyTransaction(tx, true); err != nil {
-			// retry when enqueue error
-			log.Error("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
+
+		err = s.applyTransaction(tx, true)
+		if s.verifier {
+			if err != nil {
+				log.Error("syncQueueTransactionRange apply ", "tx", tx.Hash(), "err", err)
+				if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
+					if *queueIndex > 0 {
+						restoreIndex := *queueIndex - 1
+						s.SetLatestEnqueueIndex(&restoreIndex)
+						log.Info("syncQueueTransactionRange SetLatestEnqueueIndex ", "restoreIndex", restoreIndex)
+					} else {
+						// should re-deploy
+						log.Error("syncQueueTransactionRange failed at zero index")
+					}
+				}
+				return fmt.Errorf("Cannot apply transaction: %w", err)
+			}
+			continue
+		}
+		if err == nil {
+			// check tx hash from db first time
+			qTx, _, _, _ := rawdb.ReadTransaction(s.db, tx.Hash())
+			if qTx != nil {
+				// found is success
+				continue
+			}
+		}
+		// wait 2 seconds, when enqueue competes with txpool, it's uncertain which will arrive first in the chainHeadCh
+		time.Sleep(2 * time.Second)
+		// not found or err, wait 2 sec and query again
+		qTx, _, _, _ := rawdb.ReadTransaction(s.db, tx.Hash())
+		if qTx == nil {
 			if queueIndex := tx.GetMeta().QueueIndex; queueIndex != nil {
 				if *queueIndex > 0 {
 					restoreIndex := *queueIndex - 1
@@ -1971,7 +2007,9 @@ func (s *SyncService) syncQueueTransactionRange(start, end uint64) error {
 					log.Error("syncQueueTransactionRange failed at zero index")
 				}
 			}
-			return fmt.Errorf("Cannot apply transaction: %w", err)
+			errInfo := fmt.Sprintf("Enqueue failed, queue index %v, tx hash %v", i, tx.Hash().Hex())
+			log.Error(errInfo)
+			return errors.New(errInfo)
 		}
 	}
 	return nil
@@ -2032,6 +2070,28 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 
 func (s *SyncService) SubscribeNewOtherTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
 	return s.txOtherScope.Track(s.txOtherFeed.Subscribe(ch))
+}
+
+// GetFinalizedNumber will get L1 batched block number
+func (s *SyncService) GetFinalizedNumber() (*uint64, error) {
+	currentMs := time.Now().UnixMilli()
+
+	s.finalizedMu.Lock()
+	defer s.finalizedMu.Unlock()
+
+	if currentMs-s.finalizedSyncMs > 300_000 {
+		blockIndex, err := s.client.GetLatestBlockIndex(BackendL1)
+		if err != nil {
+			blockIndex, err = s.client.GetLatestTransactionIndex(BackendL1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		s.finalizedIndex = blockIndex
+		s.finalizedSyncMs = currentMs
+	}
+	blockNumber := *s.finalizedIndex + 1
+	return &blockNumber, nil
 }
 
 func (s *SyncService) RollupClient() RollupClient {

@@ -258,6 +258,20 @@ func (b *EthAPIBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumbe
 	if number == rpc.LatestBlockNumber || number == rpc.PendingBlockNumber {
 		return b.eth.blockchain.CurrentBlock(), nil
 	}
+	if number == rpc.FinalizedBlockNumber {
+		finalizedNumber, err := b.eth.syncService.GetFinalizedNumber()
+		if err != nil {
+			return nil, err
+		}
+		return b.eth.blockchain.GetBlockByNumber(*finalizedNumber), nil
+	}
+	if number == rpc.SafeBlockNumber {
+		safeNumber, err := b.eth.syncService.RollupAdapter().GetFinalizedBlock()
+		if err != nil {
+			return nil, err
+		}
+		return b.eth.blockchain.GetBlockByNumber(safeNumber), nil
+	}
 	return b.eth.blockchain.GetBlockByNumber(uint64(number)), nil
 }
 
