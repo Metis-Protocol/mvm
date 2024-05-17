@@ -98,6 +98,7 @@ type SyncService struct {
 	seqPriv           string
 	finalizedIndex    *uint64
 	finalizedSyncMs   int64
+	finalizedMu       sync.Mutex
 
 	syncQueueFromOthers chan *types.Block
 }
@@ -2039,6 +2040,10 @@ func (s *SyncService) SubscribeNewOtherTxsEvent(ch chan<- core.NewTxsEvent) even
 // GetFinalizedNumber will get L1 batched block number
 func (s *SyncService) GetFinalizedNumber() (*uint64, error) {
 	currentMs := time.Now().UnixMilli()
+
+	s.finalizedMu.Lock()
+	defer s.finalizedMu.Unlock()
+
 	if currentMs-s.finalizedSyncMs > 300_000 {
 		blockIndex, err := s.client.GetLatestBlockIndex(BackendL1)
 		if err != nil {
