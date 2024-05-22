@@ -2,7 +2,6 @@ package rollup
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -14,18 +13,12 @@ import (
 
 	"github.com/ethereum-optimism/optimism/l2geth/contracts/checkpointoracle/contract/seqset"
 	"github.com/ethereum-optimism/optimism/l2geth/core"
-	"github.com/ethereum-optimism/optimism/l2geth/crypto"
 
 	"github.com/ethereum-optimism/optimism/l2geth/common"
 	"github.com/ethereum-optimism/optimism/l2geth/core/types"
 	"github.com/ethereum-optimism/optimism/l2geth/ethclient"
 	"github.com/ethereum-optimism/optimism/l2geth/log"
 	"github.com/ethereum-optimism/optimism/l2geth/rollup/rcfg"
-)
-
-const (
-	updateSeqMethod  = ("2c91c679")               // RecommitEpoch is a paid mutator transaction binding the contract method 0x2c91c679, when input data does not has prefix 0x
-	updateSeqDataLen = 4 + 32 + 32 + 32 + 32 + 32 // uint256 oldEpochId,uint256 newEpochId, uint256 startBlock,uint256 endBlock, address newSigner
 )
 
 // RollupAdapter is the adapter for decentralized sequencers
@@ -99,18 +92,7 @@ func NewSeqAdapter(l2SeqContract common.Address, seqContractValidHeight uint64, 
 }
 
 func (s *SeqAdapter) ParseUpdateSeqData(data []byte) (bool, common.Address, *big.Int, *big.Int) {
-	zeroBigInt := new(big.Int).SetUint64(0)
-	if len(data) < updateSeqDataLen {
-		return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
-	}
-	method := hex.EncodeToString(data[0:4])
-	startBlock := new(big.Int).SetBytes(data[2*32+4 : 3*32+4])
-	endBlock := new(big.Int).SetBytes(data[3*32+4 : 4*32+4])
-	address := common.BytesToAddress(data[4*32+16 : 4*32+36])
-	if method == updateSeqMethod {
-		return true, address, startBlock, endBlock
-	}
-	return false, common.HexToAddress("0x0"), zeroBigInt, zeroBigInt
+	return core.DecodeReCommitData(data)
 }
 
 func (s *SeqAdapter) insertRespanNumber(arr []*big.Int, value *big.Int) []*big.Int {
@@ -246,36 +228,11 @@ func (s *SeqAdapter) GetFinalizedBlock() (uint64, error) {
 }
 
 func (s *SeqAdapter) RecoverSeqAddress(tx *types.Transaction) (string, error) {
-	// enqueue tx no sign
-	if tx.QueueOrigin() == types.QueueOriginL1ToL2 {
-		return "", errors.New("enqueue seq sign is null")
-	}
-	seqSign := tx.GetSeqSign()
-	if seqSign == nil {
-		return "", errors.New("seq sign is null")
-	}
-	hashBytes := tx.Hash().Bytes()
-	rBytes := seqSign.R.Bytes()
-	if len(rBytes) < 32 {
-		rBytesPadded := make([]byte, 32)
-		copy(rBytesPadded[32-len(rBytes):], rBytes)
-		rBytes = rBytesPadded
-	}
-	sBytes := seqSign.S.Bytes()
-	if len(sBytes) < 32 {
-		sBytesPadded := make([]byte, 32)
-		copy(sBytesPadded[32-len(sBytes):], sBytes)
-		sBytes = sBytesPadded
-	}
-	var signBytes []byte
-	signBytes = append(signBytes, rBytes...)
-	signBytes = append(signBytes, sBytes...)
-	signBytes = append(signBytes, byte(seqSign.V.Int64()))
-	signer, err := crypto.SigToPub(hashBytes, signBytes)
+	addr, err := core.RecoverSeqAddress(tx)
 	if err != nil {
 		return "", err
 	}
-	return crypto.PubkeyToAddress(*signer).String(), nil
+	return addr.String(), nil
 }
 
 func (s *SeqAdapter) IsSeqSetContractCall(tx *types.Transaction) (bool, []byte) {

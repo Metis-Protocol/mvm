@@ -1227,10 +1227,12 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(SeqsetContractFlag.Name) {
 		contractAddress := ctx.GlobalString(SeqsetContractFlag.Name)
 		cfg.SeqsetContract = common.HexToAddress(contractAddress)
+		params.MetisFallbackRollupConfig.SeqSetContract = common.HexToAddress(contractAddress)
 	}
 	if ctx.GlobalIsSet(SeqsetValidHeightFlag.Name) {
 		height := ctx.GlobalInt64(SeqsetValidHeightFlag.Name)
 		cfg.SeqsetValidHeight = uint64(height)
+		params.MetisFallbackRollupConfig.SeqSetHeight = big.NewInt(height)
 	}
 	if ctx.GlobalIsSet(SeqAddressFlag.Name) {
 		cfg.SeqAddress = ctx.GlobalString(SeqAddressFlag.Name)

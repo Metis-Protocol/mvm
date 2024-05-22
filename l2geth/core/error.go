@@ -35,4 +35,10 @@ var (
 
 	// ErrNoGenesis is returned when there is no Genesis Block.
 	ErrNoGenesis = errors.New("genesis not found in chain")
+
+	// ErrNoSeqSetAddress is returned when SeqSet contract not set
+	ErrNoSeqSetAddress = errors.New("seqset contract not set")
+
+	// ErrIncorrectSequencer is returned if transaction with incorrect sequencer sign
+	ErrIncorrectSequencer = errors.New("incorrect sequencer")
 )
