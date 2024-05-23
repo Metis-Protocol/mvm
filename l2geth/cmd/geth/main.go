@@ -468,10 +468,8 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		// for statically serving historical data and is also useful for
 		// local development. When it is turned on, it will attempt to sync
 		// using the `RollupClient`
-		if ctx.GlobalBool(utils.Eth1SyncServiceEnable.Name) {
-			if err := ethereum.SyncService().Start(); err != nil {
-				utils.Fatalf("Failed to start syncservice: %v", err)
-			}
+		if err := ethereum.SyncService().Start(); err != nil {
+			utils.Fatalf("Failed to start syncservice: %v", err)
 		}
 	}
 }
