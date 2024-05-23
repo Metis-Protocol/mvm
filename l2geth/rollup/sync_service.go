@@ -337,15 +337,17 @@ func (s *SyncService) SetStartSeqHeight() error {
 
 // Start initializes the service
 func (s *SyncService) Start() error {
-	if !s.enable {
-		log.Info("Running without syncing enabled")
-		return nil
-	}
-	log.Info("Initializing Sync Service")
+	log.Info("Updating gas price cache")
 	if err := s.updateGasPriceOracleCache(nil); err != nil {
 		return err
 	}
 
+	if !s.enable {
+		log.Info("Running without syncing enabled")
+		return nil
+	}
+
+	log.Info("Initializing Sync Service")
 	if s.verifier {
 		go s.VerifierLoop()
 	} else {
