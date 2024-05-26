@@ -1717,13 +1717,19 @@ func (s *SyncService) ValidateAndApplySequencerTransaction(tx *types.Transaction
 	if err := s.verifyFee(tx); err != nil {
 		return err
 	}
-	log.Trace("Sequencer transaction validation", "hash", tx.Hash().Hex())
 
 	qo := tx.QueueOrigin()
 	if qo != types.QueueOriginSequencer {
 		return fmt.Errorf("invalid transaction with queue origin %s", qo.String())
 	}
-	if err := s.txpool.ValidateTx(tx); err != nil {
+	from, err := types.Sender(s.signer, tx)
+	if err != nil {
+		return fmt.Errorf("invalid transaction: %w", core.ErrInvalidSender)
+	}
+	gpoOwner := s.GasPriceOracleOwnerAddress()
+	local := gpoOwner != nil && from == *gpoOwner
+	log.Trace("Sequencer transaction validation", "hash", tx.Hash().Hex(), "local", local)
+	if err := s.txpool.ValidateTx(tx, local); err != nil {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
 	if err := s.applyTransaction(tx, true); err != nil {

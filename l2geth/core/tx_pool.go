@@ -521,8 +521,9 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 	return txs
 }
 
-func (pool *TxPool) ValidateTx(tx *types.Transaction) error {
-	return pool.validateTx(tx, false)
+// ValidateTx add local argument to allow as local, such as gas oracle owner
+func (pool *TxPool) ValidateTx(tx *types.Transaction, local bool) error {
+	return pool.validateTx(tx, local)
 }
 
 // validateTx checks whether a transaction is valid according to the consensus
