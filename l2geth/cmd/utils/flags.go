@@ -591,6 +591,27 @@ var (
 
 		EnvVar: "RPC_API",
 	}
+	RPCIdleTimeoutFlag = cli.StringFlag{
+		Name:  "rpcidletimeout",
+		Usage: "idle timeout for rpc server",
+		Value: "120s",
+
+		EnvVar: "RPC_IDLE_TIMEOUT",
+	}
+	RPCWriteTimeoutFlag = cli.StringFlag{
+		Name:  "rpcwritetimeout",
+		Usage: "write timeout for rpc server",
+		Value: "30s",
+
+		EnvVar: "RPC_WRITE_TIMEOUT",
+	}
+	RPCReadTimeoutFlag = cli.StringFlag{
+		Name:  "rpcreadtimeout",
+		Usage: "read timeout for rpc server",
+		Value: "30s",
+
+		EnvVar: "RPC_READ_TIMEOUT",
+	}
 	WSEnabledFlag = cli.BoolFlag{
 		Name:  "ws",
 		Usage: "Enable the WS-RPC server",
@@ -1103,6 +1124,25 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.GlobalIsSet(RPCVirtualHostsFlag.Name) {
 		cfg.HTTPVirtualHosts = splitAndTrim(ctx.GlobalString(RPCVirtualHostsFlag.Name))
+	}
+	if ctx.GlobalIsSet(RPCWriteTimeoutFlag.Name) {
+		timeout, err := time.ParseDuration(ctx.GlobalString(RPCWriteTimeoutFlag.Name))
+		if err == nil {
+			cfg.HTTPTimeouts.WriteTimeout = timeout
+		}
+	}
+
+	if ctx.GlobalIsSet(RPCReadTimeoutFlag.Name) {
+		timeout, err := time.ParseDuration(ctx.GlobalString(RPCReadTimeoutFlag.Name))
+		if err == nil {
+			cfg.HTTPTimeouts.ReadTimeout = timeout
+		}
+	}
+	if ctx.GlobalIsSet(RPCIdleTimeoutFlag.Name) {
+		timeout, err := time.ParseDuration(ctx.GlobalString(RPCIdleTimeoutFlag.Name))
+		if err == nil {
+			cfg.HTTPTimeouts.IdleTimeout = timeout
+		}
 	}
 }
 
